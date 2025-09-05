@@ -1,0 +1,44 @@
+# AI聊天机器人系统配置
+server:
+  port: 8080
+
+# 系统配置
+system:
+  max_context_tokens: 8192
+  session_timeout: 3600
+  websocket:
+    ping_interval: 30
+    max_reconnect_attempts: 5
+
+# AI配置
+ai:
+  streaming:
+    chunk_size: 16
+    delay_ms: 50
+  voice:
+    asr_model: "whisper-medium"
+    tts_voice: "zh-CN-XiaoxiaoNeural"
+
+# Python API配置 (Mock)
+python:
+  api:
+    base_url: "http://localhost:5000"
+    endpoints:
+      asr: "/api/asr"
+      tts: "/api/tts"
+      vad: "/api/vad"
+      ocr: "/api/ocr"
+
+# 记忆系统配置
+# memory:
+#   max_short_term: 50
+#   max_long_term: 1000
+#   summary_trigger_threshold: 20
+
+# 日志配置
+logging:
+  level:
+    '[com.chatbot]': DEBUG
+    '[org.springframework]': INFO
+  pattern:
+    '[console]': "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
