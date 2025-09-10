@@ -19,6 +19,15 @@ ai:
     asr_model: "whisper-medium"
     tts_voice: "zh-CN-XiaoxiaoNeural"
 
+# Ollama配置
+ollama:
+  base_url: "http://localhost:11434"
+  model: "qwen3:4b"
+  timeout: 30000
+  max_tokens: 4096
+  temperature: 0.7
+  stream: true
+
 # Python API配置 (Mock)
 python:
   api:

@@ -34,6 +34,15 @@
             background: #e8f5e8;
             border-left: 4px solid #4caf50;
             margin: 0;
+            transition: all 0.3s ease;
+        }
+        .status.disconnected {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+        }
+        .status.connecting {
+            background: #fff3cd;
+            border-left-color: #ffc107;
         }
         .chat-container {
             height: 400px;
@@ -63,6 +72,26 @@
             color: #856404;
             text-align: center;
             max-width: 100%;
+        }
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            text-align: center;
+            max-width: 100%;
+        }
+        .typing-indicator {
+            background: #f1f3f4;
+            color: #666;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 70%;
+            font-style: italic;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
         }
         .input-container {
             padding: 20px;
@@ -104,6 +133,18 @@
             border-radius: 5px;
             background: white;
         }
+        .ollama-status {
+            padding: 5px 20px;
+            background: #d1ecf1;
+            border-bottom: 1px solid #bee5eb;
+            font-size: 12px;
+            color: #0c5460;
+        }
+        .ollama-status.unavailable {
+            background: #f8d7da;
+            border-bottom-color: #f5c6cb;
+            color: #721c24;
+        }
     </style>
 </head>
 <body>
@@ -115,6 +156,10 @@
         
         <div class="status" id="status">
             🔴 未连接
+        </div>
+        
+        <div class="ollama-status" id="ollamaStatus">
+            🤖 正在检查Ollama服务状态...
         </div>
         
         <div class="persona-selector">
@@ -141,8 +186,12 @@
         let ws = null;
         let currentSessionId = null;
         let isConnected = false;
+        let currentAssistantMessage = null;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 5;
 
         const statusDiv = document.getElementById('status');
+        const ollamaStatusDiv = document.getElementById('ollamaStatus');
         const chatContainer = document.getElementById('chatContainer');
         const messageInput = document.getElementById('messageInput');
         const sendBtn = document.getElementById('sendBtn');
@@ -150,17 +199,22 @@
 
         // 连接WebSocket
         function connect() {
+            if (reconnectAttempts === 0) {
+                updateStatus('connecting', '🟡 正在连接...');
+            }
+            
             const wsUrl = `ws://${window.location.host}/ws/chat`;
             ws = new WebSocket(wsUrl);
 
             ws.onopen = function() {
                 isConnected = true;
-                statusDiv.innerHTML = '🟢 已连接';
-                statusDiv.style.background = '#e8f5e8';
+                reconnectAttempts = 0;
+                updateStatus('connected', '🟢 已连接');
                 messageInput.disabled = false;
                 sendBtn.disabled = false;
                 
                 addMessage('system', '连接成功！您可以开始对话了。');
+                checkOllamaStatus();
             };
 
             ws.onmessage = function(event) {
@@ -174,15 +228,17 @@
 
             ws.onclose = function() {
                 isConnected = false;
-                statusDiv.innerHTML = '🔴 连接断开';
-                statusDiv.style.background = '#f8d7da';
+                updateStatus('disconnected', '🔴 连接断开');
                 messageInput.disabled = true;
                 sendBtn.disabled = true;
                 
-                addMessage('system', '连接已断开，正在尝试重连...');
-                
-                // 3秒后重连
-                setTimeout(connect, 3000);
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    addMessage('system', `连接已断开，正在尝试重连... (${reconnectAttempts + 1}/${maxReconnectAttempts})`);
+                    reconnectAttempts++;
+                    setTimeout(connect, 3000);
+                } else {
+                    addMessage('system', '连接失败，请检查服务器状态后刷新页面重试。');
+                }
             };
 
             ws.onerror = function(error) {
@@ -191,20 +247,73 @@
             };
         }
 
+        // 更新连接状态
+        function updateStatus(type, text) {
+            statusDiv.innerHTML = text;
+            statusDiv.className = 'status';
+            if (type === 'disconnected') {
+                statusDiv.classList.add('disconnected');
+            } else if (type === 'connecting') {
+                statusDiv.classList.add('connecting');
+            }
+        }
+
+        // 检查Ollama服务状态
+        function checkOllamaStatus() {
+            // 发送一个检查服务状态的消息
+            if (ws && isConnected) {
+                const checkMessage = {
+                    type: 'system',
+                    content: 'check_ollama_status',
+                    metadata: { action: 'check_service' }
+                };
+                ws.send(JSON.stringify(checkMessage));
+            }
+        }
+
         // 处理收到的消息
         function handleIncomingMessage(message) {
             if (message.type === 'system') {
-                currentSessionId = message.sessionId;
-                addMessage('system', message.content);
+                if (!currentSessionId) {
+                    currentSessionId = message.sessionId;
+                }
+                
+                // 检查是否是Ollama状态更新
+                if (message.metadata && message.metadata.ollama_status) {
+                    updateOllamaStatus(message.metadata.ollama_status === 'available');
+                } else {
+                    addMessage('system', message.content);
+                }
             } else if (message.type === 'text') {
+                removeTypingIndicator();
                 if (message.streaming) {
                     // 流式消息处理
-                    appendToLastMessage(message.content, message.streamComplete);
+                    if (!message.content && message.streamComplete) {
+                        // 流式响应结束
+                        if (currentAssistantMessage) {
+                            currentAssistantMessage.dataset.streamable = 'false';
+                            currentAssistantMessage = null;
+                        }
+                    } else {
+                        appendToLastMessage(message.content, message.streamComplete);
+                    }
                 } else {
                     addMessage('assistant', message.content);
                 }
             } else if (message.type === 'error') {
-                addMessage('system', '❌ ' + message.content);
+                removeTypingIndicator();
+                addMessage('error', '❌ ' + message.content);
+            }
+        }
+
+        // 更新Ollama状态
+        function updateOllamaStatus(available) {
+            if (available) {
+                ollamaStatusDiv.innerHTML = '🟢 Ollama服务正常 - 使用本地AI模型';
+                ollamaStatusDiv.className = 'ollama-status';
+            } else {
+                ollamaStatusDiv.innerHTML = '🟡 Ollama服务不可用 - 使用Mock响应';
+                ollamaStatusDiv.className = 'ollama-status unavailable';
             }
         }
 
@@ -220,25 +329,52 @@
             // 如果是助手消息且支持流式，标记为可追加
             if (sender === 'assistant') {
                 messageDiv.dataset.streamable = 'true';
+                currentAssistantMessage = messageDiv;
+            }
+        }
+
+        // 显示正在输入指示器
+        function showTypingIndicator() {
+            removeTypingIndicator(); // 确保只有一个指示器
+            
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'typing-indicator';
+            typingDiv.id = 'typingIndicator';
+            typingDiv.textContent = 'AI正在思考中...';
+            
+            chatContainer.appendChild(typingDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // 移除正在输入指示器
+        function removeTypingIndicator() {
+            const typingIndicator = document.getElementById('typingIndicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
             }
         }
 
         // 追加内容到最后一条助手消息
         function appendToLastMessage(content, isComplete) {
-            const messages = chatContainer.querySelectorAll('.message.assistant[data-streamable="true"]');
-            let lastMessage = messages[messages.length - 1];
-            
-            if (!lastMessage) {
-                // 如果没有可追加的消息，创建新消息
+            if (!currentAssistantMessage) {
+                // 如果没有当前消息，创建新消息
                 addMessage('assistant', content);
                 return;
             }
             
-            lastMessage.textContent += content;
+            if (currentAssistantMessage.textContent === 'AI正在思考中...') {
+                // 如果是首次内容，替换掉占位文本
+                currentAssistantMessage.textContent = content;
+            } else {
+                // 否则追加内容
+                currentAssistantMessage.textContent += content;
+            }
+            
             chatContainer.scrollTop = chatContainer.scrollHeight;
             
             if (isComplete) {
-                lastMessage.dataset.streamable = 'false';
+                currentAssistantMessage.dataset.streamable = 'false';
+                currentAssistantMessage = null;
             }
         }
 
@@ -257,11 +393,26 @@
             // 显示用户消息
             addMessage('user', content);
             
+            // 显示AI正在思考的指示器
+            showTypingIndicator();
+            
             // 发送到服务器
             ws.send(JSON.stringify(message));
             
             // 清空输入框
             messageInput.value = '';
+            
+            // 禁用发送按钮防止重复发送
+            sendBtn.disabled = true;
+            messageInput.disabled = true;
+            
+            // 3秒后重新启用（防止卡死）
+            setTimeout(() => {
+                if (isConnected) {
+                    sendBtn.disabled = false;
+                    messageInput.disabled = false;
+                }
+            }, 3000);
         }
 
         // 事件监听

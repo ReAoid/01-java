@@ -25,17 +25,20 @@ public class ChatService {
     private final MemoryService memoryService;
     private final MultiModalService multiModalService;
     private final AIConfig aiConfig;
+    private final OllamaService ollamaService;
     
     public ChatService(SessionService sessionService, 
                       PersonaService personaService,
                       MemoryService memoryService,
                       MultiModalService multiModalService,
-                      AIConfig aiConfig) {
+                      AIConfig aiConfig,
+                      OllamaService ollamaService) {
         this.sessionService = sessionService;
         this.personaService = personaService;
         this.memoryService = memoryService;
         this.multiModalService = multiModalService;
         this.aiConfig = aiConfig;
+        this.ollamaService = ollamaService;
     }
     
     /**
@@ -142,9 +145,122 @@ public class ChatService {
     }
     
     /**
-     * 生成流式回复（Mock实现）
+     * 生成流式回复（使用Ollama）
      */
     private void generateStreamingResponse(String prompt, String sessionId, Consumer<ChatMessage> callback) {
+        // 检查Ollama服务是否可用
+        if (!ollamaService.isServiceAvailable()) {
+            logger.warn("Ollama服务不可用，使用Mock响应");
+            generateMockStreamingResponse(prompt, sessionId, callback);
+            return;
+        }
+        
+        StringBuilder completeResponse = new StringBuilder();
+        
+        // 使用Ollama服务生成流式响应
+        ollamaService.generateStreamingResponse(
+            prompt,
+            // 成功处理每个chunk
+            chunk -> {
+                completeResponse.append(chunk);
+                
+                ChatMessage streamMessage = new ChatMessage();
+                streamMessage.setType("text");
+                streamMessage.setContent(chunk);
+                streamMessage.setSender("assistant");
+                streamMessage.setSessionId(sessionId);
+                streamMessage.setStreaming(true);
+                streamMessage.setStreamComplete(false);
+                
+                callback.accept(streamMessage);
+            },
+            // 错误处理
+            error -> {
+                logger.error("Ollama流式响应发生错误", error);
+                
+                // 发送完成消息
+                if (completeResponse.length() > 0) {
+                    ChatMessage finalMessage = new ChatMessage();
+                    finalMessage.setType("text");
+                    finalMessage.setContent("");
+                    finalMessage.setSender("assistant");
+                    finalMessage.setSessionId(sessionId);
+                    finalMessage.setStreaming(true);
+                    finalMessage.setStreamComplete(true);
+                    
+                    callback.accept(finalMessage);
+                    
+                    // 保存完整响应到会话历史
+                    saveCompleteResponse(sessionId, completeResponse.toString());
+                } else {
+                    // 如果没有收到任何响应，发送错误消息
+                    ChatMessage errorMessage = new ChatMessage();
+                    errorMessage.setType("error");
+                    errorMessage.setContent("抱歉，AI服务暂时不可用，请稍后重试。");
+                    errorMessage.setSender("assistant");
+                    errorMessage.setSessionId(sessionId);
+                    
+                    callback.accept(errorMessage);
+                }
+            }
+        );
+        
+        // 在流式响应结束后发送完成信号
+        // 注意：实际的完成处理在OllamaService的流式处理中进行
+        CompletableFuture.runAsync(() -> {
+            try {
+                // 等待一小段时间确保所有chunk都被处理
+                Thread.sleep(100);
+                
+                if (completeResponse.length() > 0) {
+                    // 发送流完成信号
+                    ChatMessage finalMessage = new ChatMessage();
+                    finalMessage.setType("text");
+                    finalMessage.setContent("");
+                    finalMessage.setSender("assistant");
+                    finalMessage.setSessionId(sessionId);
+                    finalMessage.setStreaming(true);
+                    finalMessage.setStreamComplete(true);
+                    
+                    callback.accept(finalMessage);
+                    
+                    // 保存完整响应到会话历史
+                    saveCompleteResponse(sessionId, completeResponse.toString());
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+    }
+    
+    /**
+     * 保存完整响应到会话历史
+     */
+    private void saveCompleteResponse(String sessionId, String completeResponse) {
+        try {
+            ChatMessage completeMessage = new ChatMessage();
+            completeMessage.setType("text");
+            completeMessage.setContent(completeResponse);
+            completeMessage.setSender("assistant");
+            completeMessage.setSessionId(sessionId);
+            completeMessage.setStreaming(false);
+            
+            ChatSession session = sessionService.getSession(sessionId);
+            if (session != null) {
+                session.addMessage(completeMessage);
+                
+                // 更新长期记忆
+                memoryService.updateMemory(sessionId, completeResponse);
+            }
+        } catch (Exception e) {
+            logger.error("保存完整响应时发生错误", e);
+        }
+    }
+    
+    /**
+     * 生成Mock流式回复（fallback方案）
+     */
+    private void generateMockStreamingResponse(String prompt, String sessionId, Consumer<ChatMessage> callback) {
         // Mock AI回复生成
         String mockResponse = generateMockResponse(prompt);
         

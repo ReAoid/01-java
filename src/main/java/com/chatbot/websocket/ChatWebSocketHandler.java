@@ -2,6 +2,7 @@ package com.chatbot.websocket;
 
 import com.chatbot.model.ChatMessage;
 import com.chatbot.service.ChatService;
+import com.chatbot.service.OllamaService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.*;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -22,6 +24,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     private static final Logger logger = LoggerFactory.getLogger(ChatWebSocketHandler.class);
     
     private final ChatService chatService;
+    private final OllamaService ollamaService;
     private final ObjectMapper objectMapper;
     
     // 存储活跃的WebSocket会话
@@ -30,8 +33,9 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     // 生成唯一会话ID
     private final AtomicLong sessionIdGenerator = new AtomicLong(0);
     
-    public ChatWebSocketHandler(ChatService chatService) {
+    public ChatWebSocketHandler(ChatService chatService, OllamaService ollamaService) {
         this.chatService = chatService;
+        this.ollamaService = ollamaService;
         this.objectMapper = new ObjectMapper();
     }
     
@@ -64,7 +68,17 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                 
                 logger.debug("收到消息，会话ID: {}, 内容: {}", sessionId, chatMessage.getContent());
                 
-                // 处理消息并获取回复（流式处理）
+                // 检查是否是系统命令
+                if ("system".equals(chatMessage.getType()) && 
+                    chatMessage.getMetadata() != null && 
+                    "check_service".equals(chatMessage.getMetadata().get("action"))) {
+                    
+                    // 处理Ollama服务状态检查
+                    handleOllamaStatusCheck(session, sessionId);
+                    return;
+                }
+                
+                // 处理普通消息并获取回复（流式处理）
                 chatService.processMessage(chatMessage, response -> {
                     try {
                         sendMessage(session, response);
@@ -124,6 +138,40 @@ public class ChatWebSocketHandler implements WebSocketHandler {
      */
     private String generateSessionId() {
         return "session_" + sessionIdGenerator.incrementAndGet() + "_" + System.currentTimeMillis();
+    }
+    
+    /**
+     * 处理Ollama服务状态检查
+     */
+    private void handleOllamaStatusCheck(WebSocketSession session, String sessionId) {
+        try {
+            boolean isAvailable = ollamaService.isServiceAvailable();
+            
+            ChatMessage statusMessage = new ChatMessage();
+            statusMessage.setType("system");
+            statusMessage.setContent("Ollama服务状态已更新");
+            statusMessage.setSessionId(sessionId);
+            statusMessage.setMetadata(Map.of("ollama_status", isAvailable ? "available" : "unavailable"));
+            
+            sendMessage(session, statusMessage);
+            
+            logger.debug("Ollama服务状态检查完成，会话ID: {}, 状态: {}", sessionId, isAvailable ? "可用" : "不可用");
+            
+        } catch (Exception e) {
+            logger.error("检查Ollama服务状态时发生错误，会话ID: {}", sessionId, e);
+            
+            try {
+                ChatMessage errorMessage = new ChatMessage();
+                errorMessage.setType("system");
+                errorMessage.setContent("检查服务状态时发生错误");
+                errorMessage.setSessionId(sessionId);
+                errorMessage.setMetadata(Map.of("ollama_status", "unavailable"));
+                
+                sendMessage(session, errorMessage);
+            } catch (IOException ex) {
+                logger.error("发送错误消息失败", ex);
+            }
+        }
     }
     
     /**
