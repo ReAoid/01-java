@@ -3,6 +3,7 @@ package com.chatbot.websocket;
 import com.chatbot.model.ChatMessage;
 import com.chatbot.service.ChatService;
 import com.chatbot.service.OllamaService;
+import com.chatbot.util.IdUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,10 +34,10 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     // 生成唯一会话ID
     private final AtomicLong sessionIdGenerator = new AtomicLong(0);
     
-    public ChatWebSocketHandler(ChatService chatService, OllamaService ollamaService) {
+    public ChatWebSocketHandler(ChatService chatService, OllamaService ollamaService, ObjectMapper objectMapper) {
         this.chatService = chatService;
         this.ollamaService = ollamaService;
-        this.objectMapper = new ObjectMapper();
+        this.objectMapper = objectMapper;
     }
     
     @Override
@@ -134,10 +135,10 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     }
     
     /**
-     * 生成唯一会话ID
+     * 生成唯一会话ID (使用IdUtil工具类)
      */
     private String generateSessionId() {
-        return "session_" + sessionIdGenerator.incrementAndGet() + "_" + System.currentTimeMillis();
+        return IdUtil.sessionId();
     }
     
     /**

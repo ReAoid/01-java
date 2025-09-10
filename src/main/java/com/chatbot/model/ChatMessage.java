@@ -1,5 +1,7 @@
 package com.chatbot.model;
 
+import com.chatbot.util.IdUtil;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.time.LocalDateTime;
@@ -40,6 +42,7 @@ public class ChatMessage {
     /**
      * 时间戳
      */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime timestamp;
     
     /**
@@ -136,20 +139,14 @@ public class ChatMessage {
     }
     
     /**
-     * 生成唯一消息ID
+     * 生成唯一消息ID (使用IdUtil工具类)
      */
     private String generateMessageId() {
-        return "msg_" + System.currentTimeMillis() + "_" + System.nanoTime();
+        return IdUtil.messageId();
     }
     
     @Override
     public String toString() {
-        return "ChatMessage{" +
-                "type='" + type + '\'' +
-                ", content='" + content + '\'' +
-                ", sessionId='" + sessionId + '\'' +
-                ", sender='" + sender + '\'' +
-                ", timestamp=" + timestamp +
-                '}';
+        return "ChatMessage{type='" + type + "', content='" + content + "', sessionId='" + sessionId + "', sender='" + sender + "', timestamp=" + timestamp + "}";
     }
 }

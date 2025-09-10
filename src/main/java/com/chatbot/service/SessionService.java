@@ -38,8 +38,6 @@ public class SessionService {
      */
     public ChatSession createSession(String sessionId) {
         ChatSession session = new ChatSession(sessionId);
-        activeSessions.put(sessionId, session);
-        
         logger.info("创建新会话: {}", sessionId);
         return session;
     }

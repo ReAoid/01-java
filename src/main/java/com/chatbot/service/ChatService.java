@@ -106,7 +106,7 @@ public class ChatService {
         
         for (ChatMessage msg : recentMessages) {
             if (msg.getContent() != null) {
-                context.append(msg.getSender()).append(": ").append(msg.getContent()).append("\n");
+                context.append(msg.getSender() + ": " + msg.getContent() + "\n");
             }
         }
         
@@ -124,21 +124,21 @@ public class ChatService {
         
         // 人设信息
         if (personaPrompt != null && !personaPrompt.isEmpty()) {
-            prompt.append("角色设定：\n").append(personaPrompt).append("\n\n");
+            prompt.append("角色设定：\n" + personaPrompt + "\n\n");
         }
         
         // 长期记忆
         if (longTermMemory != null && !longTermMemory.isEmpty()) {
-            prompt.append("相关记忆：\n").append(longTermMemory).append("\n\n");
+            prompt.append("相关记忆：\n" + longTermMemory + "\n\n");
         }
         
         // 对话历史
         if (!context.isEmpty()) {
-            prompt.append("对话历史：\n").append(context).append("\n");
+            prompt.append("对话历史：\n" + context + "\n");
         }
         
         // 当前用户输入
-        prompt.append("用户: ").append(userInput).append("\n");
+        prompt.append("用户: " + userInput + "\n");
         prompt.append("助手: ");
         
         return prompt.toString();

@@ -1,6 +1,7 @@
 package com.chatbot.service;
 
 import com.chatbot.config.OllamaConfig;
+import com.chatbot.util.JsonUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.*;
@@ -136,13 +137,14 @@ public class OllamaService {
      */
     private String buildGenerateRequest(String prompt, boolean stream) {
         try {
-            return objectMapper.writeValueAsString(new GenerateRequest(
+            GenerateRequest request = new GenerateRequest(
                     ollamaConfig.getModel(),
                     prompt,
                     stream,
                     ollamaConfig.getMaxTokens(),
                     ollamaConfig.getTemperature()
-            ));
+            );
+            return JsonUtil.toJson(request);
         } catch (Exception e) {
             logger.error("构建请求JSON失败", e);
             throw new RuntimeException("构建请求失败", e);
@@ -165,22 +167,21 @@ public class OllamaService {
                 }
                 
                 try {
-                    JsonNode jsonNode = objectMapper.readTree(responseLine);
-                    
-                    // 检查是否完成
-                    boolean done = jsonNode.has("done") && jsonNode.get("done").asBoolean();
-                    
-                    // 提取响应文本
-                    if (jsonNode.has("response")) {
-                        String chunk = jsonNode.get("response").asText();
-                        if (!chunk.isEmpty()) {
-                            onChunk.accept(chunk);
-                        }
+                    JsonNode jsonNode = JsonUtil.parseJson(responseLine);
+                    if (jsonNode == null) {
+                        continue;
                     }
                     
-                    // 如果完成，结束处理
-                    if (done) {
+                    // 检查是否完成
+                    Boolean done = JsonUtil.getBooleanValue(jsonNode, "done");
+                    if (done != null && done) {
                         break;
+                    }
+                    
+                    // 提取响应文本
+                    String chunk = JsonUtil.getStringValue(jsonNode, "response");
+                    if (chunk != null && !chunk.isEmpty()) {
+                        onChunk.accept(chunk);
                     }
                     
                 } catch (Exception e) {
@@ -199,9 +200,15 @@ public class OllamaService {
      */
     private String extractResponseText(String responseJson) {
         try {
-            JsonNode jsonNode = objectMapper.readTree(responseJson);
-            if (jsonNode.has("response")) {
-                return jsonNode.get("response").asText();
+            JsonNode jsonNode = JsonUtil.parseJson(responseJson);
+            if (jsonNode == null) {
+                logger.warn("无法解析响应JSON: {}", responseJson);
+                return "抱歉，无法解析AI的响应。";
+            }
+            
+            String response = JsonUtil.getStringValue(jsonNode, "response");
+            if (response != null) {
+                return response;
             } else {
                 logger.warn("响应中未找到response字段: {}", responseJson);
                 return "抱歉，无法解析AI的响应。";
