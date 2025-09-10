@@ -35,6 +35,15 @@ python:
 #   max_long_term: 1000
 #   summary_trigger_threshold: 20
 
-# 日志配置
+# 资源路径配置
+resource:
+  base-path: "src/main/resources"
+  log-path: "logs"
+  data:
+    memories: "data/memories"
+    personas: "data/personas"
+    sessions: "data/sessions"
+
+# 日志配置（主要配置在logback.xml中）
 logging:
   config: classpath:logback.xml
