@@ -26,8 +26,8 @@ public class MemoryService {
     private final ConcurrentHashMap<String, Memory> memoryIndex;
     
     // 配置参数
-    private static final int MAX_MEMORIES_PER_SESSION = 1000;
-    private static final int MAX_RETRIEVED_MEMORIES = 5;
+    private static final int MAX_MEMORIES_PER_SESSION = 1000; // 每个会话最多存储的记忆数量
+    private static final int MAX_RETRIEVED_MEMORIES = 5; // 每次检索最多返回的记忆数量
     
     public MemoryService() {
         this.sessionMemories = new ConcurrentHashMap<>();
@@ -138,7 +138,6 @@ public class MemoryService {
         Memory memory = new Memory(sessionId, content, determineMemoryType(content));
         memory.setImportance(calculateImportance(content));
         memory.setKeywords(extractKeywords(content));
-        
         return memory;
     }
     
@@ -188,7 +187,7 @@ public class MemoryService {
     private String[] extractKeywords(String content) {
         // 简单的关键词提取
         String[] words = content.replaceAll("[^\\w\\s]", "")
-                               .split("\\s+");
+                               .split("\\s+"); // 将内容中的非字母数字字符替换为空格，然后按空格分割
         
         return Arrays.stream(words)
                 .filter(word -> word.length() > 1)
