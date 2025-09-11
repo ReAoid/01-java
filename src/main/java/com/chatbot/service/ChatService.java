@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -26,13 +27,15 @@ public class ChatService {
     private final MultiModalService multiModalService;
     private final AIConfig aiConfig;
     private final OllamaService ollamaService;
+    private final ConversationHistoryService conversationHistoryService;
     
     public ChatService(SessionService sessionService, 
                       PersonaService personaService,
                       MemoryService memoryService,
                       MultiModalService multiModalService,
                       AIConfig aiConfig,
-                      OllamaService ollamaService) {
+                      OllamaService ollamaService,
+                      ConversationHistoryService conversationHistoryService) {
         logger.info("初始化ChatService");
         this.sessionService = sessionService;
         this.personaService = personaService;
@@ -40,6 +43,7 @@ public class ChatService {
         this.multiModalService = multiModalService;
         this.aiConfig = aiConfig;
         this.ollamaService = ollamaService;
+        this.conversationHistoryService = conversationHistoryService;
         logger.debug("ChatService初始化完成，已注入所有依赖服务");
     }
     
@@ -65,13 +69,17 @@ public class ChatService {
                 long step1Time = System.currentTimeMillis() - step1Start;
                 logger.debug("会话获取成功，耗时: {}ms，当前会话消息数: {}", step1Time, session.getMessageHistory().size());
                 
-                // 2. 添加用户消息到会话历史
-                logger.debug("步骤2：添加用户消息到会话历史");
+                // 2. 添加用户消息到会话历史和对话记录
+                logger.debug("步骤2：添加用户消息到会话历史和对话记录");
                 long step2Start = System.currentTimeMillis();
                 userMessage.setSender("user");
                 session.addMessage(userMessage);
+                
+                // 添加到对话历史记录
+                conversationHistoryService.addMessage(sessionId, userMessage);
+                
                 long step2Time = System.currentTimeMillis() - step2Start;
-                logger.debug("用户消息已添加到会话历史，耗时: {}ms", step2Time);
+                logger.debug("用户消息已添加到会话历史和对话记录，耗时: {}ms", step2Time);
                 
                 // 3. 预处理用户输入
                 logger.debug("步骤3：预处理用户输入");
@@ -99,12 +107,12 @@ public class ChatService {
                 long step5Time = System.currentTimeMillis() - step5Start;
                 logger.debug("人设提示获取完成，耗时: {}ms，长度: {}", step5Time, personaPrompt != null ? personaPrompt.length() : 0);
                 
-                // 6. 构建完整提示
-                logger.debug("步骤6：构建完整提示");
+                // 6. 构建完整的消息列表
+                logger.debug("步骤6：构建完整的消息列表");
                 long step6Start = System.currentTimeMillis();
-                String fullPrompt = buildPrompt(personaPrompt, context, longTermMemory, processedInput);
+                List<OllamaMessage> messages = buildMessagesList(personaPrompt, session, longTermMemory, processedInput);
                 long step6Time = System.currentTimeMillis() - step6Start;
-                logger.debug("完整提示构建完成，耗时: {}ms，总长度: {}", step6Time, fullPrompt.length());
+                logger.debug("消息列表构建完成，耗时: {}ms，消息数量: {}", step6Time, messages.size());
                 
                 // 记录预处理完成时间
                 long preprocessingTime = System.currentTimeMillis() - messageStartTime;
@@ -114,7 +122,7 @@ public class ChatService {
                 // 7. 调用AI模型生成回复（流式）
                 logger.debug("步骤7：调用AI模型生成回复");
                 long aiCallStartTime = System.currentTimeMillis();
-                generateStreamingResponse(fullPrompt, sessionId, responseCallback, messageStartTime, aiCallStartTime);
+                generateStreamingResponse(messages, sessionId, responseCallback, messageStartTime, aiCallStartTime);
                 
                 long totalProcessingTime = System.currentTimeMillis() - messageStartTime;
                 logger.info("消息处理启动完成，sessionId: {}, 总启动时间: {}ms", sessionId, totalProcessingTime);
@@ -174,70 +182,119 @@ public class ChatService {
     }
     
     /**
-     * 构建完整提示
+     * 构建完整的消息列表
      */
-    private String buildPrompt(String personaPrompt, String context, String longTermMemory, String userInput) {
-        logger.debug("开始构建完整提示");
-        StringBuilder prompt = new StringBuilder();
+    private List<OllamaMessage> buildMessagesList(String personaPrompt, ChatSession session, String longTermMemory, String userInput) {
+        logger.debug("开始构建完整的消息列表");
+        List<OllamaMessage> messages = new ArrayList<>();
         
-        // 系统指令
-        String systemInstruction = "你是一个智能AI助手。请根据以下信息回复用户：\n\n";
-        prompt.append(systemInstruction);
-        logger.debug("添加系统指令: '{}'", systemInstruction.replace("\n", "\\n"));
+        // 1. 添加系统消息（人设和基础指令）
+        String systemContent = buildSystemContent(personaPrompt);
+        if (systemContent != null && !systemContent.isEmpty()) {
+            messages.add(new OllamaMessage("system", systemContent));
+            logger.debug("添加系统消息，长度: {}", systemContent.length());
+        }
+        
+        // 2. 添加历史对话消息
+        List<ChatMessage> recentMessages = session.getRecentMessages(10);
+        for (ChatMessage msg : recentMessages) {
+            if (msg.getContent() != null && !msg.getContent().trim().isEmpty()) {
+                String role = mapSenderToRole(msg.getSender());
+                messages.add(new OllamaMessage(role, msg.getContent()));
+                logger.debug("添加历史消息: role={}, contentLength={}", role, msg.getContent().length());
+            }
+        }
+        
+        // 3. 添加长期记忆（如果有的话，作为用户消息的上下文）
+        StringBuilder currentUserContent = new StringBuilder();
+        if (longTermMemory != null && !longTermMemory.isEmpty()) {
+            currentUserContent.append("相关记忆：\n").append(longTermMemory).append("\n\n");
+            logger.debug("添加长期记忆到当前用户消息，长度: {}", longTermMemory.length());
+        }
+        
+        // 4. 添加当前用户输入
+        currentUserContent.append(userInput);
+        messages.add(new OllamaMessage("user", currentUserContent.toString()));
+        
+        logger.info("消息列表构建完成，总消息数: {}, 系统消息: {}, 历史消息: {}, 当前用户消息: 1", 
+                   messages.size(), 
+                   systemContent != null && !systemContent.isEmpty() ? 1 : 0,
+                   recentMessages.size());
+        
+        return messages;
+    }
+    
+    /**
+     * 构建系统消息内容
+     */
+    private String buildSystemContent(String personaPrompt) {
+        StringBuilder systemContent = new StringBuilder();
+        
+        // 基础系统指令
+        String baseInstruction = "你是一个智能AI助手。";
+        systemContent.append(baseInstruction);
         
         // 人设信息
         if (personaPrompt != null && !personaPrompt.isEmpty()) {
-            String personaSection = "角色设定：\n" + personaPrompt + "\n\n";
-            prompt.append(personaSection);
-            logger.debug("添加人设信息: '{}' (长度: {})", 
-                        personaPrompt.replace("\n", "\\n"), personaPrompt.length());
-        } else {
-            logger.debug("无人设信息");
+            systemContent.append("\n\n").append(personaPrompt);
         }
         
-        // 长期记忆
-        if (longTermMemory != null && !longTermMemory.isEmpty()) {
-            String memorySection = "相关记忆：\n" + longTermMemory + "\n\n";
-            prompt.append(memorySection);
-            logger.debug("添加长期记忆: '{}' (长度: {})", 
-                        longTermMemory.replace("\n", "\\n"), longTermMemory.length());
-        } else {
-            logger.debug("无长期记忆");
+        return systemContent.toString();
+    }
+    
+    /**
+     * 将发送者映射为角色
+     */
+    private String mapSenderToRole(String sender) {
+        if (sender == null) return "user";
+        return switch (sender.toLowerCase()) {
+            case "assistant", "ai", "bot" -> "assistant";
+            case "system" -> "system";
+            default -> "user";
+        };
+    }
+    
+    /**
+     * 获取最后一条用户消息的内容
+     */
+    private String getLastUserMessage(List<OllamaMessage> messages) {
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            OllamaMessage msg = messages.get(i);
+            if ("user".equals(msg.getRole())) {
+                return msg.getContent();
+            }
+        }
+        return "用户消息";
+    }
+    
+    /**
+     * Ollama消息类
+     */
+    public static class OllamaMessage {
+        private final String role;
+        private final String content;
+        
+        public OllamaMessage(String role, String content) {
+            this.role = role;
+            this.content = content;
         }
         
-        // 对话历史
-        if (!context.isEmpty()) {
-            String contextSection = "对话历史：\n" + context + "\n";
-            prompt.append(contextSection);
-            logger.debug("添加对话历史: '{}' (长度: {})", 
-                        context.replace("\n", "\\n"), context.length());
-        } else {
-            logger.debug("无对话历史");
-        }
-        
-        // 当前用户输入
-        String userSection = "用户: " + userInput + "\n助手: ";
-        prompt.append(userSection);
-        logger.debug("添加用户输入: '{}'", userInput.replace("\n", "\\n"));
-        
-        String finalPrompt = prompt.toString();
-        logger.info("完整提示构建完成，总长度: {}", finalPrompt.length());
-        logger.debug("最终完整提示内容:\n{}", finalPrompt);
-        
-        return finalPrompt;
+        public String getRole() { return role; }
+        public String getContent() { return content; }
     }
     
     /**
      * 生成流式回复（使用Ollama）
      */
-    private void generateStreamingResponse(String prompt, String sessionId, Consumer<ChatMessage> callback, 
+    private void generateStreamingResponse(List<OllamaMessage> messages, String sessionId, Consumer<ChatMessage> callback, 
                                          long messageStartTime, long aiCallStartTime) {
-        logger.info("开始生成流式响应，sessionId: {}, 提示长度: {}", sessionId, prompt.length());
+        logger.info("开始生成流式响应，sessionId: {}, 消息数量: {}", sessionId, messages.size());
         
         // 检查Ollama服务是否可用
         if (!ollamaService.isServiceAvailable()) {
             logger.warn("Ollama服务不可用，使用Mock响应，sessionId: {}", sessionId);
-            generateMockStreamingResponse(prompt, sessionId, callback, messageStartTime);
+            String lastUserMessage = getLastUserMessage(messages);
+            generateMockStreamingResponse(lastUserMessage, sessionId, callback, messageStartTime);
             return;
         }
         
@@ -249,7 +306,7 @@ public class ChatService {
         
         // 使用Ollama服务生成流式响应
         ollamaService.generateStreamingResponse(
-            prompt,
+            messages,
             // 成功处理每个chunk
             chunk -> {
                 chunkCounter[0]++;
@@ -373,6 +430,9 @@ public class ChatService {
             if (session != null) {
                 session.addMessage(completeMessage);
                 
+                // 添加到对话历史记录
+                conversationHistoryService.addMessage(sessionId, completeMessage);
+                
                 // 更新长期记忆
                 memoryService.updateMemory(sessionId, completeResponse);
             }
@@ -454,6 +514,9 @@ public class ChatService {
                     ChatSession session = sessionService.getSession(sessionId);
                     if (session != null) {
                         session.addMessage(completeMessage);
+                        
+                        // 添加到对话历史记录
+                        conversationHistoryService.addMessage(sessionId, completeMessage);
                         
                         // 更新长期记忆
                         memoryService.updateMemory(sessionId, mockResponse);

@@ -123,8 +123,8 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                         }
                         
                         sendMessage(session, response);
-                        logger.debug("向客户端发送响应消息，sessionId: {}, responseType: {}",
-                                sessionId, response.getType());
+//                        logger.debug("向客户端发送响应消息，sessionId: {}, responseType: {}",
+//                                sessionId, response.getType());
                     } catch (IOException e) {
                         logger.error("发送消息失败，sessionId: {}", sessionId, e);
                     }
