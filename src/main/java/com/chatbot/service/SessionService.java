@@ -25,12 +25,14 @@ public class SessionService {
     private final ScheduledExecutorService scheduler;
     
     public SessionService(SystemConfig systemConfig) {
+        logger.info("初始化SessionService");
         this.systemConfig = systemConfig;
         this.activeSessions = new ConcurrentHashMap<>();
         this.scheduler = Executors.newSingleThreadScheduledExecutor();
         
         // 启动会话清理任务，每分钟执行一次
         scheduler.scheduleAtFixedRate(this::cleanupExpiredSessions, 1, 1, TimeUnit.MINUTES);
+        logger.info("SessionService初始化完成，会话超时时间: {}秒", systemConfig.getSessionTimeout());
     }
     
     /**
@@ -46,16 +48,31 @@ public class SessionService {
      * 获取会话，如果不存在则创建
      */
     public ChatSession getOrCreateSession(String sessionId) {
-        return activeSessions.computeIfAbsent(sessionId, this::createSession);
+        logger.debug("获取或创建会话，sessionId: {}", sessionId);
+        boolean sessionExists = activeSessions.containsKey(sessionId);
+        
+        ChatSession session = activeSessions.computeIfAbsent(sessionId, this::createSession);
+        
+        if (!sessionExists) {
+            logger.info("创建了新会话，sessionId: {}, 当前活跃会话数: {}", sessionId, activeSessions.size());
+        } else {
+            logger.debug("使用现有会话，sessionId: {}", sessionId);
+        }
+        
+        return session;
     }
     
     /**
      * 获取现有会话
      */
     public ChatSession getSession(String sessionId) {
+        logger.debug("获取现有会话，sessionId: {}", sessionId);
         ChatSession session = activeSessions.get(sessionId);
         if (session != null) {
             session.updateLastActiveTime();
+            logger.debug("会话存在，已更新活跃时间，sessionId: {}", sessionId);
+        } else {
+            logger.debug("会话不存在，sessionId: {}", sessionId);
         }
         return session;
     }

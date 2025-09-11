@@ -80,7 +80,11 @@ public class HttpUtil {
      * GET请求（带请求头和自定义客户端）
      */
     public static HttpResponse get(String url, Map<String, String> headers, OkHttpClient client) {
+        long startTime = System.currentTimeMillis();
+        logger.debug("开始GET请求，URL: {}", url);
+        
         if (StringUtil.isEmpty(url)) {
+            logger.warn("GET请求失败：URL为空");
             return new HttpResponse(400, "URL不能为空", new Headers.Builder().build());
         }
         
@@ -89,6 +93,7 @@ public class HttpUtil {
         // 添加请求头
         if (headers != null) {
             headers.forEach(requestBuilder::addHeader);
+            logger.debug("添加请求头，数量: {}", headers.size());
         }
         
         Request request = requestBuilder.build();
@@ -97,9 +102,15 @@ public class HttpUtil {
         try (Response response = httpClient.newCall(request).execute()) {
             ResponseBody responseBody = response.body();
             String body = responseBody != null ? responseBody.string() : "";
+            long responseTime = System.currentTimeMillis() - startTime;
+            
+            logger.info("GET请求完成，URL: {}, 状态码: {}, 响应时间: {}ms, 响应长度: {}", 
+                       url, response.code(), responseTime, body.length());
+            
             return new HttpResponse(response.code(), body, response.headers());
         } catch (IOException e) {
-            logger.error("GET请求失败: " + url, e);
+            long responseTime = System.currentTimeMillis() - startTime;
+            logger.error("GET请求异常，URL: {}, 响应时间: {}ms", url, responseTime, e);
             return new HttpResponse(500, "请求异常: " + e.getMessage(), new Headers.Builder().build());
         }
     }

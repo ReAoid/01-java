@@ -42,14 +42,25 @@ public class OllamaService {
      * 流式生成响应
      */
     public void generateStreamingResponse(String prompt, Consumer<String> onChunk, Consumer<Throwable> onError) {
+        logger.info("开始构建Ollama流式请求");
+        logger.debug("原始提示内容 (长度: {}):\n{}", prompt.length(), prompt);
+        
         try {
             // 构建请求体
             String requestBody = buildGenerateRequest(prompt, true);
+            logger.info("Ollama请求体构建完成，长度: {}", requestBody.length());
+            logger.debug("Ollama完整请求体:\n{}", requestBody);
+            
+            String url = ollamaConfig.getGenerateUrl();
+            logger.info("发送Ollama流式请求到: {}", url);
             
             Request request = new Request.Builder()
-                    .url(ollamaConfig.getGenerateUrl())
+                    .url(url)
                     .post(RequestBody.create(requestBody, MediaType.parse("application/json")))
                     .build();
+            
+            logger.debug("HTTP请求详情 - URL: {}, Method: {}, Content-Type: application/json", 
+                        request.url(), request.method());
             
             // 异步执行请求
             httpClient.newCall(request).enqueue(new Callback() {
@@ -61,6 +72,9 @@ public class OllamaService {
                 
                 @Override
                 public void onResponse(Call call, Response response) throws IOException {
+                    logger.info("Ollama流式响应接收完成，状态码: {}", response.code());
+                    logger.debug("响应头信息: {}", response.headers().toString());
+                    
                     if (!response.isSuccessful()) {
                         String errorMsg = "Ollama API返回错误: " + response.code() + " " + response.message();
                         logger.error(errorMsg);
@@ -70,9 +84,13 @@ public class OllamaService {
                     
                     try (ResponseBody responseBody = response.body()) {
                         if (responseBody == null) {
+                            logger.error("Ollama流式响应体为空");
                             onError.accept(new RuntimeException("响应体为空"));
                             return;
                         }
+                        
+                        logger.debug("开始处理Ollama流式响应体，Content-Type: {}", 
+                                   response.header("Content-Type"));
                         
                         // 处理流式响应
                         processStreamingResponse(responseBody, onChunk, onError);
@@ -90,26 +108,48 @@ public class OllamaService {
      * 非流式生成响应
      */
     public String generateResponse(String prompt) throws IOException {
+        logger.info("开始构建Ollama非流式请求");
+        logger.debug("原始提示内容 (长度: {}):\n{}", prompt.length(), prompt);
+        
         // 构建请求体
         String requestBody = buildGenerateRequest(prompt, false);
+        logger.info("Ollama非流式请求体构建完成，长度: {}", requestBody.length());
+        logger.debug("Ollama完整请求体:\n{}", requestBody);
+        
+        String url = ollamaConfig.getGenerateUrl();
+        logger.info("发送Ollama非流式请求到: {}", url);
         
         Request request = new Request.Builder()
-                .url(ollamaConfig.getGenerateUrl())
+                .url(url)
                 .post(RequestBody.create(requestBody, MediaType.parse("application/json")))
                 .build();
         
+        logger.debug("HTTP请求详情 - URL: {}, Method: {}, Content-Type: application/json", 
+                    request.url(), request.method());
+        
         try (Response response = httpClient.newCall(request).execute()) {
+            logger.info("Ollama非流式响应接收完成，状态码: {}", response.code());
+            
             if (!response.isSuccessful()) {
-                throw new IOException("Ollama API返回错误: " + response.code() + " " + response.message());
+                String errorMsg = "Ollama API返回错误: " + response.code() + " " + response.message();
+                logger.error(errorMsg);
+                throw new IOException(errorMsg);
             }
             
             ResponseBody responseBody = response.body();
             if (responseBody == null) {
+                logger.error("Ollama响应体为空");
                 throw new IOException("响应体为空");
             }
             
             String responseText = responseBody.string();
-            return extractResponseText(responseText);
+            logger.debug("Ollama原始响应 (长度: {}):\n{}", responseText.length(), responseText);
+            
+            String extractedText = extractResponseText(responseText);
+            logger.info("Ollama响应文本提取完成，最终长度: {}", extractedText.length());
+            logger.debug("提取的响应文本: '{}'", extractedText.replace("\n", "\\n"));
+            
+            return extractedText;
         }
     }
     
@@ -136,15 +176,29 @@ public class OllamaService {
      * 构建生成请求的JSON
      */
     private String buildGenerateRequest(String prompt, boolean stream) {
+        logger.debug("开始构建Ollama请求参数");
+        
         try {
+            String model = ollamaConfig.getModel();
+            int maxTokens = ollamaConfig.getMaxTokens();
+            double temperature = ollamaConfig.getTemperature();
+            
+            logger.debug("Ollama请求参数 - 模型: {}, 流式: {}, 最大令牌: {}, 温度: {}", 
+                        model, stream, maxTokens, temperature);
+            logger.debug("提示文本长度: {}", prompt.length());
+            
             GenerateRequest request = new GenerateRequest(
-                    ollamaConfig.getModel(),
+                    model,
                     prompt,
                     stream,
-                    ollamaConfig.getMaxTokens(),
-                    ollamaConfig.getTemperature()
+                    maxTokens,
+                    temperature
             );
-            return JsonUtil.toJson(request);
+            
+            String jsonRequest = JsonUtil.toJson(request);
+            logger.debug("请求JSON构建成功，长度: {}", jsonRequest.length());
+            
+            return jsonRequest;
         } catch (Exception e) {
             logger.error("构建请求JSON失败", e);
             throw new RuntimeException("构建请求失败", e);
@@ -155,11 +209,17 @@ public class OllamaService {
      * 处理流式响应
      */
     private void processStreamingResponse(ResponseBody responseBody, Consumer<String> onChunk, Consumer<Throwable> onError) {
+        logger.debug("开始处理Ollama流式响应");
+        StringBuilder totalResponse = new StringBuilder();
+        int chunkCount = 0;
+        
         try {
             // 按行读取响应
             byte[] bytes = responseBody.bytes();
             String responseText = new String(bytes);
             String[] lines = responseText.split("\n");
+            
+            logger.debug("Ollama响应包含{}行数据", lines.length);
             
             for (String responseLine : lines) {
                 if (responseLine.trim().isEmpty()) {
@@ -169,18 +229,28 @@ public class OllamaService {
                 try {
                     JsonNode jsonNode = JsonUtil.parseJson(responseLine);
                     if (jsonNode == null) {
+                        logger.debug("跳过无效的JSON行: {}", responseLine);
                         continue;
                     }
                     
                     // 检查是否完成
                     Boolean done = JsonUtil.getBooleanValue(jsonNode, "done");
                     if (done != null && done) {
+                        logger.debug("Ollama流式响应完成标志，done=true");
                         break;
                     }
                     
                     // 提取响应文本
                     String chunk = JsonUtil.getStringValue(jsonNode, "response");
                     if (chunk != null && !chunk.isEmpty()) {
+                        chunkCount++;
+                        totalResponse.append(chunk);
+                        
+                        logger.debug("Ollama流式数据块#{}: '{}' (长度: {})", 
+                                   chunkCount, chunk.replace("\n", "\\n"), chunk.length());
+                        logger.debug("累积响应文本: '{}' (总长度: {})", 
+                                   totalResponse.toString().replace("\n", "\\n"), totalResponse.length());
+                        
                         onChunk.accept(chunk);
                     }
                     
@@ -188,6 +258,9 @@ public class OllamaService {
                     logger.warn("解析流式响应行失败: {}", responseLine, e);
                 }
             }
+            
+            logger.info("Ollama流式响应处理完成，共处理{}个数据块，总响应长度: {}", 
+                       chunkCount, totalResponse.length());
             
         } catch (Exception e) {
             logger.error("处理流式响应时发生错误", e);

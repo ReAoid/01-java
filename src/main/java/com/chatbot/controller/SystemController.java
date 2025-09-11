@@ -4,6 +4,8 @@ import com.chatbot.service.SessionService;
 import com.chatbot.service.MemoryService;
 import com.chatbot.service.PersonaService;
 import com.chatbot.websocket.ChatWebSocketHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,6 +22,8 @@ import java.util.Map;
 @RequestMapping("/api/system")
 public class SystemController {
     
+    private static final Logger logger = LoggerFactory.getLogger(SystemController.class);
+    
     private final SessionService sessionService;
     private final MemoryService memoryService;
     private final PersonaService personaService;
@@ -29,10 +33,12 @@ public class SystemController {
                            MemoryService memoryService,
                            PersonaService personaService,
                            ChatWebSocketHandler webSocketHandler) {
+        logger.info("初始化SystemController");
         this.sessionService = sessionService;
         this.memoryService = memoryService;
         this.personaService = personaService;
         this.webSocketHandler = webSocketHandler;
+        logger.debug("SystemController初始化完成");
     }
     
     /**
@@ -40,10 +46,16 @@ public class SystemController {
      */
     @GetMapping("/health")
     public Map<String, Object> health() {
+        logger.debug("接收到健康检查请求");
+        long startTime = System.currentTimeMillis();
+        
         Map<String, Object> health = new HashMap<>();
         health.put("status", "UP");
         health.put("timestamp", LocalDateTime.now());
         health.put("service", "AI Chatbot System");
+        
+        long responseTime = System.currentTimeMillis() - startTime;
+        logger.info("健康检查完成，响应时间: {}ms", responseTime);
         return health;
     }
     
@@ -52,6 +64,9 @@ public class SystemController {
      */
     @GetMapping("/info")
     public Map<String, Object> systemInfo() {
+        logger.debug("接收到系统信息查询请求");
+        long startTime = System.currentTimeMillis();
+        
         Map<String, Object> info = new HashMap<>();
         
         // 基本信息
@@ -70,6 +85,8 @@ public class SystemController {
         features.put("session_management", true);
         info.put("features", features);
         
+        long responseTime = System.currentTimeMillis() - startTime;
+        logger.info("系统信息查询完成，响应时间: {}ms", responseTime);
         return info;
     }
     
@@ -78,21 +95,32 @@ public class SystemController {
      */
     @GetMapping("/stats")
     public Map<String, Object> systemStats() {
+        logger.debug("接收到系统统计信息查询请求");
+        long startTime = System.currentTimeMillis();
+        
         Map<String, Object> stats = new HashMap<>();
         
         // 会话统计
-        stats.put("active_sessions", sessionService.getActiveSessionCount());
-        stats.put("websocket_connections", webSocketHandler.getActiveSessionCount());
+        int activeSessions = sessionService.getActiveSessionCount();
+        int wsConnections = webSocketHandler.getActiveSessionCount();
+        stats.put("active_sessions", activeSessions);
+        stats.put("websocket_connections", wsConnections);
+        logger.debug("会话统计 - 活跃会话: {}, WebSocket连接: {}", activeSessions, wsConnections);
         
         // 人设统计
-        stats.put("total_personas", personaService.getAllPersonas().size());
-        stats.put("active_personas", personaService.getActivePersonas().size());
+        int totalPersonas = personaService.getAllPersonas().size();
+        int activePersonas = personaService.getActivePersonas().size();
+        stats.put("total_personas", totalPersonas);
+        stats.put("active_personas", activePersonas);
+        logger.debug("人设统计 - 总人设: {}, 活跃人设: {}", totalPersonas, activePersonas);
         
         // 系统运行时间
         long uptime = java.lang.management.ManagementFactory.getRuntimeMXBean().getUptime();
         stats.put("uptime_ms", uptime);
         stats.put("uptime_readable", formatUptime(uptime));
         
+        long responseTime = System.currentTimeMillis() - startTime;
+        logger.info("系统统计信息查询完成，响应时间: {}ms", responseTime);
         return stats;
     }
     
