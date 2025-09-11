@@ -82,10 +82,14 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                 ChatMessage chatMessage = objectMapper.readValue(payload, ChatMessage.class);
                 chatMessage.setSessionId(sessionId);
 
-                logger.info("收到用户消息，sessionId: {}, messageType: {}, contentLength: {}，content：{}",
+                // 记录用户消息接收时间戳
+                long userMessageTimestamp = System.currentTimeMillis();
+                
+                logger.info("收到用户消息，sessionId: {}, messageType: {}, contentLength: {}，content：{}, 时间戳: {}",
                         sessionId, chatMessage.getType(),
                         chatMessage.getContent() != null ? chatMessage.getContent().length() : 0,
-                        chatMessage.getContent() != null ? chatMessage.getContent() : "");
+                        chatMessage.getContent() != null ? chatMessage.getContent() : "",
+                        userMessageTimestamp);
 
                 // 检查是否是系统命令
                 if ("system".equals(chatMessage.getType()) &&
@@ -100,8 +104,24 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
                 // 处理普通消息并获取回复（流式处理）
                 logger.debug("开始处理普通消息，sessionId: {}", sessionId);
+                
+                // 用于跟踪是否是第一次响应
+                final boolean[] isFirstResponse = {true};
+                
                 chatService.processMessage(chatMessage, response -> {
                     try {
+                        // 记录第一次响应时间
+                        if (isFirstResponse[0] && response.getContent() != null && !response.getContent().isEmpty()) {
+                            long firstResponseTime = System.currentTimeMillis();
+                            long timeToFirstResponse = firstResponseTime - userMessageTimestamp;
+                            
+                            logger.info("🚀 首次响应时间统计 - sessionId: {}, 从用户消息到首次响应: {}ms, 响应内容: '{}'", 
+                                       sessionId, timeToFirstResponse, 
+                                       response.getContent().replace("\n", "\\n"));
+                            
+                            isFirstResponse[0] = false;
+                        }
+                        
                         sendMessage(session, response);
                         logger.debug("向客户端发送响应消息，sessionId: {}, responseType: {}",
                                 sessionId, response.getType());

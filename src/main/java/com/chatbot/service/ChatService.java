@@ -47,59 +47,80 @@ public class ChatService {
      * 处理用户消息并生成AI回复（流式处理）
      */
     public void processMessage(ChatMessage userMessage, Consumer<ChatMessage> responseCallback) {
-        logger.info("开始处理用户消息，sessionId: {}, messageType: {}, contentLength: {}", 
-                   userMessage.getSessionId(), userMessage.getType(), 
-                   userMessage.getContent() != null ? userMessage.getContent().length() : 0);
+        long messageStartTime = System.currentTimeMillis();
+        String sessionId = userMessage.getSessionId();
+        
+        logger.info("⏱️ 开始处理用户消息，sessionId: {}, messageType: {}, contentLength: {}, 开始时间戳: {}", 
+                   sessionId, userMessage.getType(), 
+                   userMessage.getContent() != null ? userMessage.getContent().length() : 0,
+                   messageStartTime);
         
         CompletableFuture.runAsync(() -> {
-            long startTime = System.currentTimeMillis();
-            String sessionId = userMessage.getSessionId();
             
             try {
                 // 1. 获取或创建会话
                 logger.debug("步骤1：获取或创建会话，sessionId: {}", sessionId);
+                long step1Start = System.currentTimeMillis();
                 ChatSession session = sessionService.getOrCreateSession(sessionId);
-                logger.debug("会话获取成功，当前会话消息数: {}", session.getMessageHistory().size());
+                long step1Time = System.currentTimeMillis() - step1Start;
+                logger.debug("会话获取成功，耗时: {}ms，当前会话消息数: {}", step1Time, session.getMessageHistory().size());
                 
                 // 2. 添加用户消息到会话历史
                 logger.debug("步骤2：添加用户消息到会话历史");
+                long step2Start = System.currentTimeMillis();
                 userMessage.setSender("user");
                 session.addMessage(userMessage);
-                logger.debug("用户消息已添加到会话历史");
+                long step2Time = System.currentTimeMillis() - step2Start;
+                logger.debug("用户消息已添加到会话历史，耗时: {}ms", step2Time);
                 
                 // 3. 预处理用户输入
                 logger.debug("步骤3：预处理用户输入");
+                long step3Start = System.currentTimeMillis();
                 String processedInput = preprocessInput(userMessage.getContent());
-                logger.debug("用户输入预处理完成，原始长度: {}, 处理后长度: {}", 
+                long step3Time = System.currentTimeMillis() - step3Start;
+                logger.debug("用户输入预处理完成，耗时: {}ms，原始长度: {}, 处理后长度: {}", 
+                           step3Time,
                            userMessage.getContent() != null ? userMessage.getContent().length() : 0,
                            processedInput.length());
                 
                 // 4. 获取上下文和记忆
                 logger.debug("步骤4：获取上下文和记忆");
+                long step4Start = System.currentTimeMillis();
                 String context = buildContext(session);
                 String longTermMemory = memoryService.retrieveRelevantMemory(sessionId, processedInput);
-                logger.debug("上下文构建完成，上下文长度: {}, 长期记忆长度: {}", 
-                           context.length(), longTermMemory != null ? longTermMemory.length() : 0);
+                long step4Time = System.currentTimeMillis() - step4Start;
+                logger.debug("上下文构建完成，耗时: {}ms，上下文长度: {}, 长期记忆长度: {}", 
+                           step4Time, context.length(), longTermMemory != null ? longTermMemory.length() : 0);
                 
                 // 5. 应用人设
                 logger.debug("步骤5：应用人设，personaId: {}", session.getCurrentPersonaId());
+                long step5Start = System.currentTimeMillis();
                 String personaPrompt = personaService.getPersonaPrompt(session.getCurrentPersonaId());
-                logger.debug("人设提示获取完成，长度: {}", personaPrompt != null ? personaPrompt.length() : 0);
+                long step5Time = System.currentTimeMillis() - step5Start;
+                logger.debug("人设提示获取完成，耗时: {}ms，长度: {}", step5Time, personaPrompt != null ? personaPrompt.length() : 0);
                 
                 // 6. 构建完整提示
                 logger.debug("步骤6：构建完整提示");
+                long step6Start = System.currentTimeMillis();
                 String fullPrompt = buildPrompt(personaPrompt, context, longTermMemory, processedInput);
-                logger.debug("完整提示构建完成，总长度: {}", fullPrompt.length());
+                long step6Time = System.currentTimeMillis() - step6Start;
+                logger.debug("完整提示构建完成，耗时: {}ms，总长度: {}", step6Time, fullPrompt.length());
+                
+                // 记录预处理完成时间
+                long preprocessingTime = System.currentTimeMillis() - messageStartTime;
+                logger.info("📊 预处理阶段完成，sessionId: {}, 总预处理时间: {}ms (步骤1: {}ms, 步骤2: {}ms, 步骤3: {}ms, 步骤4: {}ms, 步骤5: {}ms, 步骤6: {}ms)", 
+                           sessionId, preprocessingTime, step1Time, step2Time, step3Time, step4Time, step5Time, step6Time);
                 
                 // 7. 调用AI模型生成回复（流式）
                 logger.debug("步骤7：调用AI模型生成回复");
-                generateStreamingResponse(fullPrompt, sessionId, responseCallback);
+                long aiCallStartTime = System.currentTimeMillis();
+                generateStreamingResponse(fullPrompt, sessionId, responseCallback, messageStartTime, aiCallStartTime);
                 
-                long processingTime = System.currentTimeMillis() - startTime;
-                logger.info("消息处理完成，sessionId: {}, 处理时间: {}ms", sessionId, processingTime);
+                long totalProcessingTime = System.currentTimeMillis() - messageStartTime;
+                logger.info("消息处理启动完成，sessionId: {}, 总启动时间: {}ms", sessionId, totalProcessingTime);
                 
             } catch (Exception e) {
-                long processingTime = System.currentTimeMillis() - startTime;
+                long processingTime = System.currentTimeMillis() - messageStartTime;
                 logger.error("处理消息时发生错误，sessionId: {}, 处理时间: {}ms", sessionId, processingTime, e);
                 
                 ChatMessage errorResponse = new ChatMessage();
@@ -209,18 +230,20 @@ public class ChatService {
     /**
      * 生成流式回复（使用Ollama）
      */
-    private void generateStreamingResponse(String prompt, String sessionId, Consumer<ChatMessage> callback) {
+    private void generateStreamingResponse(String prompt, String sessionId, Consumer<ChatMessage> callback, 
+                                         long messageStartTime, long aiCallStartTime) {
         logger.info("开始生成流式响应，sessionId: {}, 提示长度: {}", sessionId, prompt.length());
         
         // 检查Ollama服务是否可用
         if (!ollamaService.isServiceAvailable()) {
             logger.warn("Ollama服务不可用，使用Mock响应，sessionId: {}", sessionId);
-            generateMockStreamingResponse(prompt, sessionId, callback);
+            generateMockStreamingResponse(prompt, sessionId, callback, messageStartTime);
             return;
         }
         
         StringBuilder completeResponse = new StringBuilder();
         final int[] chunkCounter = {0}; // 使用数组来在lambda中修改值
+        final boolean[] isFirstChunk = {true}; // 跟踪是否是第一个数据块
         
         logger.debug("调用Ollama服务生成流式响应，sessionId: {}", sessionId);
         
@@ -232,10 +255,22 @@ public class ChatService {
                 chunkCounter[0]++;
                 completeResponse.append(chunk);
                 
-                logger.debug("ChatService接收流式数据块#{}: '{}' (块长度: {})", 
-                           chunkCounter[0], chunk.replace("\n", "\\n"), chunk.length());
-                logger.debug("ChatService累积响应文本: '{}' (总长度: {})", 
-                           completeResponse.toString().replace("\n", "\\n"), completeResponse.length());
+                // 记录第一个数据块的接收时间
+                if (isFirstChunk[0]) {
+                    long firstChunkTime = System.currentTimeMillis();
+                    long timeToFirstChunk = firstChunkTime - messageStartTime;
+                    long aiResponseTime = firstChunkTime - aiCallStartTime;
+                    
+                    logger.info("🎯 AI首次响应时间统计 - sessionId: {}, 从用户消息到AI首次响应: {}ms, AI处理时间: {}ms, 首块内容: '{}'", 
+                               sessionId, timeToFirstChunk, aiResponseTime, chunk.replace("\n", "\\n"));
+                    
+                    isFirstChunk[0] = false;
+                }
+                
+//                logger.debug("ChatService接收流式数据块#{}: '{}' (块长度: {})",
+//                           chunkCounter[0], chunk.replace("\n", "\\n"), chunk.length());
+//                logger.debug("ChatService累积响应文本: '{}' (总长度: {})",
+//                           completeResponse.toString().replace("\n", "\\n"), completeResponse.length());
                 
                 ChatMessage streamMessage = new ChatMessage();
                 streamMessage.setType("text");
@@ -245,7 +280,7 @@ public class ChatService {
                 streamMessage.setStreaming(true);
                 streamMessage.setStreamComplete(false);
                 
-                logger.debug("发送流式消息到WebSocket，sessionId: {}, 块#{}", sessionId, chunkCounter[0]);
+//                logger.debug("发送流式消息到WebSocket，sessionId: {}, 块#{}", sessionId, chunkCounter[0]);
                 callback.accept(streamMessage);
             },
             // 错误处理
@@ -349,7 +384,8 @@ public class ChatService {
     /**
      * 生成Mock流式回复（fallback方案）
      */
-    private void generateMockStreamingResponse(String prompt, String sessionId, Consumer<ChatMessage> callback) {
+    private void generateMockStreamingResponse(String prompt, String sessionId, Consumer<ChatMessage> callback, 
+                                             long messageStartTime) {
         logger.info("开始生成Mock流式响应，sessionId: {}", sessionId);
         
         // Mock AI回复生成
@@ -365,6 +401,7 @@ public class ChatService {
         StringBuilder currentChunk = new StringBuilder();
         StringBuilder processedText = new StringBuilder();
         int chunkCount = 0;
+        boolean isFirstChunk = true;
         
         for (int i = 0; i < mockResponse.length(); i++) {
             currentChunk.append(mockResponse.charAt(i));
@@ -373,6 +410,17 @@ public class ChatService {
             if (currentChunk.length() >= chunkSize || i == mockResponse.length() - 1) {
                 chunkCount++;
                 boolean isLastChunk = (i == mockResponse.length() - 1);
+                
+                // 记录第一次Mock响应时间
+                if (isFirstChunk) {
+                    long firstMockChunkTime = System.currentTimeMillis();
+                    long timeToFirstMockChunk = firstMockChunkTime - messageStartTime;
+                    
+                    logger.info("🎯 Mock首次响应时间统计 - sessionId: {}, 从用户消息到Mock首次响应: {}ms, 首块内容: '{}'", 
+                               sessionId, timeToFirstMockChunk, currentChunk.toString().replace("\n", "\\n"));
+                    
+                    isFirstChunk = false;
+                }
                 
                 logger.debug("Mock流式数据块#{}: '{}' (块长度: {}, 是否最后一块: {})", 
                            chunkCount, currentChunk.toString().replace("\n", "\\n"), 
