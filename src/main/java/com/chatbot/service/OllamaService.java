@@ -83,8 +83,6 @@ public class OllamaService {
                 
                 @Override
                 public void onResponse(Call call, Response response) throws IOException {
-                    logger.info("Ollama流式响应接收完成，状态码: {}", response.code());
-                    
                     if (!response.isSuccessful()) {
                         String errorMsg = "Ollama API返回错误: " + response.code() + " " + response.message();
                         logger.error(errorMsg);
@@ -98,9 +96,6 @@ public class OllamaService {
                             onError.accept(new RuntimeException("响应体为空"));
                             return;
                         }
-                        
-                        logger.debug("开始处理Ollama流式响应体，Content-Type: {}", 
-                                   response.header("Content-Type"));
                         
                         // 处理流式响应
                         processStreamingResponse(responseBody, onChunk, onError);
@@ -145,8 +140,6 @@ public class OllamaService {
                 
                 @Override
                 public void onResponse(Call call, Response response) throws IOException {
-                    logger.info("Ollama流式响应接收完成，状态码: {}", response.code());
-                    
                     if (!response.isSuccessful()) {
                         String errorMsg = "Ollama API返回错误: " + response.code() + " " + response.message();
                         logger.error(errorMsg);
@@ -160,9 +153,6 @@ public class OllamaService {
                             onError.accept(new RuntimeException("响应体为空"));
                             return;
                         }
-                        
-                        logger.debug("开始处理Ollama流式响应体，Content-Type: {}", 
-                                   response.header("Content-Type"));
                         
                         // 处理流式响应
                         processStreamingResponse(responseBody, onChunk, onError);
@@ -264,11 +254,6 @@ public class OllamaService {
             String model = ollamaConfig.getModel();
             double temperature = ollamaConfig.getTemperature();
             
-            logger.debug("Ollama请求参数 - 模型: {}, 流式: {}, 温度: {}", 
-                        model, stream, temperature);
-            logger.debug("系统提示长度: {}, 用户提示长度: {}", 
-                        systemPrompt != null ? systemPrompt.length() : 0, userPrompt.length());
-            
             OllamaChatRequest request = new OllamaChatRequest(
                     model,
                     systemPrompt,
@@ -278,7 +263,6 @@ public class OllamaService {
             );
             
             String jsonRequest = JsonUtil.toJson(request);
-            logger.debug("请求JSON构建成功，长度: {}", jsonRequest.length());
             
             return jsonRequest;
         } catch (Exception e) {
@@ -291,14 +275,9 @@ public class OllamaService {
      * 从消息列表构建聊天请求的JSON
      */
     private String buildChatRequestFromMessages(List<OllamaMessage> messages, boolean stream) {
-        logger.debug("开始构建Ollama聊天请求参数（消息列表模式）");
-        
         try {
             String model = ollamaConfig.getModel();
             double temperature = ollamaConfig.getTemperature();
-            
-            logger.debug("Ollama请求参数 - 模型: {}, 流式: {}, 温度: {}, 消息数量: {}", 
-                        model, stream, temperature, messages.size());
             
             OllamaChatRequestFromMessages request = new OllamaChatRequestFromMessages(
                     model,
@@ -308,7 +287,6 @@ public class OllamaService {
             );
             
             String jsonRequest = JsonUtil.toJson(request);
-            logger.debug("请求JSON构建成功，长度: {}", jsonRequest.length());
             
             return jsonRequest;
         } catch (Exception e) {
@@ -331,8 +309,6 @@ public class OllamaService {
             byte[] bytes = responseBody.bytes();
             String responseText = new String(bytes);
             String[] lines = responseText.split("\n");
-            
-//            logger.debug("Ollama响应包含{}行数据", lines.length);
             
             for (String responseLine : lines) {
                 if (responseLine.trim().isEmpty()) {
