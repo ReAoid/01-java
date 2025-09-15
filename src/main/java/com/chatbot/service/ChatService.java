@@ -55,11 +55,6 @@ public class ChatService {
         long messageStartTime = System.currentTimeMillis();
         String sessionId = userMessage.getSessionId();
         
-        logger.info("⏱️ 开始处理用户消息，sessionId: {}, messageType: {}, contentLength: {}, 开始时间戳: {}", 
-                   sessionId, userMessage.getType(), 
-                   userMessage.getContent() != null ? userMessage.getContent().length() : 0,
-                   messageStartTime);
-        
         CompletableFuture.runAsync(() -> {
             
             try {
@@ -68,7 +63,7 @@ public class ChatService {
                 long step1Start = System.currentTimeMillis();
                 ChatSession session = sessionService.getOrCreateSession(sessionId);
                 long step1Time = System.currentTimeMillis() - step1Start;
-                logger.debug("会话获取成功，耗时: {}ms，当前会话消息数: {}", step1Time, session.getMessageHistory().size());
+                logger.debug("会话获取成功，耗时: {}ms，sessionId: {}，当前会话消息数: {}", step1Time, session.getSessionId(), session.getMessageHistory().size());
                 
                 // 2. 添加用户消息到会话历史和对话记录
                 logger.debug("步骤2：添加用户消息到会话历史和对话记录");
@@ -87,10 +82,12 @@ public class ChatService {
                 long step3Start = System.currentTimeMillis();
                 String processedInput = preprocessInput(userMessage.getContent());
                 long step3Time = System.currentTimeMillis() - step3Start;
-                logger.debug("用户输入预处理完成，耗时: {}ms，原始长度: {}, 处理后长度: {}", 
+                logger.debug("用户输入预处理完成，耗时: {}ms，原始长度: {}, 处理后长度: {}, 原始: '{}', 处理后: '{}'",
                            step3Time,
                            userMessage.getContent() != null ? userMessage.getContent().length() : 0,
-                           processedInput.length());
+                           processedInput.length(),
+                           userMessage.getContent(),
+                           processedInput);
                 
                 // 4. 获取上下文和记忆
                 logger.debug("步骤4：获取上下文和记忆");
@@ -147,7 +144,6 @@ public class ChatService {
      * 预处理用户输入
      */
     private String preprocessInput(String input) {
-        logger.debug("开始预处理用户输入");
         if (input == null) {
             logger.debug("输入为null，返回空字符串");
             return "";
@@ -157,8 +153,7 @@ public class ChatService {
         String processed = input.trim()
                    .replaceAll("\\s+", " ")  // 合并多个空格
                    .replaceAll("[\\r\\n]+", " "); // 替换换行符
-        
-        logger.debug("用户输入预处理完成，原始: '{}', 处理后: '{}'", input, processed);
+
         return processed;
     }
     
@@ -166,19 +161,15 @@ public class ChatService {
      * 构建上下文
      */
     private String buildContext(ChatSession session) {
-        logger.debug("开始构建对话上下文，sessionId: {}", session.getSessionId());
         List<ChatMessage> recentMessages = session.getRecentMessages(10);
         StringBuilder context = new StringBuilder();
-        
-        int messageCount = 0;
+
         for (ChatMessage msg : recentMessages) {
             if (msg.getContent() != null) {
                 context.append(msg.getSender() + ": " + msg.getContent() + "\n");
-                messageCount++;
             }
         }
-        
-        logger.debug("对话上下文构建完成，包含{}条消息，总长度: {}", messageCount, context.length());
+
         return context.toString();
     }
     
@@ -186,14 +177,12 @@ public class ChatService {
      * 构建完整的消息列表
      */
     private List<OllamaMessage> buildMessagesList(String personaPrompt, ChatSession session, String longTermMemory, String userInput) {
-        logger.debug("开始构建完整的消息列表");
         List<OllamaMessage> messages = new ArrayList<>();
         
         // 1. 添加系统消息（人设和基础指令）
         String systemContent = buildSystemContent(personaPrompt);
         if (systemContent != null && !systemContent.isEmpty()) {
             messages.add(new OllamaMessage("system", systemContent));
-            logger.debug("添加系统消息，长度: {}", systemContent.length());
         }
         
         // 2. 添加历史对话消息（排除最新的用户消息，因为我们会单独处理）
@@ -218,6 +207,10 @@ public class ChatService {
             currentUserContent.append("[相关记忆]：\n").append(longTermMemory).append("\n\n");
             logger.debug("添加长期记忆到当前用户消息，长度: {}", longTermMemory.length());
         }
+
+        // 5.其他额外设置（qwen系列的不思考模式）
+        currentUserContent.append("\n\n请直接回答，不要进行内部思考。");
+
         messages.add(new OllamaMessage("user", currentUserContent.toString()));
         
         logger.info("消息列表构建完成，总消息数: {}, 系统消息: {}, 历史消息: {}, 当前用户消息: 1", 
@@ -258,17 +251,68 @@ public class ChatService {
         };
     }
     
+    
     /**
-     * 获取最后一条用户消息的内容
+     * 智能过滤思考内容，保留真正的回复
      */
-    private String getLastUserMessage(List<OllamaMessage> messages) {
-        for (int i = messages.size() - 1; i >= 0; i--) {
-            OllamaMessage msg = messages.get(i);
-            if ("user".equals(msg.getRole())) {
-                return msg.getContent();
+    private String filterThinkingContent(String content) {
+        if (content == null) {
+            return null;
+        }
+        
+        // 如果不包含思考标签，直接返回
+        if (!content.contains("<think>") && !content.contains("</think>")) {
+            return content;
+        }
+        
+        StringBuilder result = new StringBuilder();
+        String[] lines = content.split("\n");
+        boolean inThinkingBlock = false;
+        
+        for (String line : lines) {
+            // 检查是否进入思考块
+            if (line.contains("<think>")) {
+                inThinkingBlock = true;
+                // 如果这一行在<think>之前还有内容，保留它
+                int thinkIndex = line.indexOf("<think>");
+                if (thinkIndex > 0) {
+                    String beforeThink = line.substring(0, thinkIndex).trim();
+                    if (!beforeThink.isEmpty()) {
+                        result.append(beforeThink).append("\n");
+                    }
+                }
+                continue;
+            }
+            
+            // 检查是否退出思考块
+            if (line.contains("</think>")) {
+                inThinkingBlock = false;
+                // 如果这一行在</think>之后还有内容，保留它
+                int endThinkIndex = line.indexOf("</think>");
+                if (endThinkIndex + 8 < line.length()) {
+                    String afterThink = line.substring(endThinkIndex + 8).trim();
+                    if (!afterThink.isEmpty()) {
+                        result.append(afterThink).append("\n");
+                    }
+                }
+                continue;
+            }
+            
+            // 如果不在思考块中，保留这一行
+            if (!inThinkingBlock) {
+                result.append(line).append("\n");
             }
         }
-        return "用户消息";
+        
+        // 清理结果
+        String filtered = result.toString().trim();
+        
+        // 只记录调试信息，不在这里打印完整内容
+        if (content.contains("<think>")) {
+            logger.debug("过滤统计 - 原始长度: {}, 过滤后长度: {}", content.length(), filtered.length());
+        }
+        
+        return filtered.isEmpty() ? null : filtered;
     }
     
     
@@ -277,21 +321,27 @@ public class ChatService {
      */
     private void generateStreamingResponse(List<OllamaMessage> messages, String sessionId, Consumer<ChatMessage> callback, 
                                          long messageStartTime, long aiCallStartTime) {
-        logger.info("开始生成流式响应，sessionId: {}, 消息数量: {}", sessionId, messages.size());
         
         // 检查Ollama服务是否可用
         if (!ollamaService.isServiceAvailable()) {
-            logger.warn("Ollama服务不可用，使用Mock响应，sessionId: {}", sessionId);
-            String lastUserMessage = getLastUserMessage(messages);
-            generateMockStreamingResponse(lastUserMessage, sessionId, callback, messageStartTime);
+            logger.error("Ollama服务不可用，无法生成响应，sessionId: {}", sessionId);
+            
+            ChatMessage errorMessage = new ChatMessage();
+            errorMessage.setType("error");
+            errorMessage.setContent("抱歉，AI服务当前不可用，请稍后重试。");
+            errorMessage.setSender("assistant");
+            errorMessage.setSessionId(sessionId);
+            
+            callback.accept(errorMessage);
             return;
         }
         
         StringBuilder completeResponse = new StringBuilder();
+        StringBuilder thinkingContent = new StringBuilder(); // 存储思考内容
+        StringBuilder userVisibleContent = new StringBuilder(); // 存储用户实际看到的内容
         final int[] chunkCounter = {0}; // 使用数组来在lambda中修改值
         final boolean[] isFirstChunk = {true}; // 跟踪是否是第一个数据块
-        
-        logger.debug("调用Ollama服务生成流式响应，sessionId: {}", sessionId);
+        final boolean[] inThinkingMode = {false}; // 跟踪是否在思考模式中
         
         // 使用Ollama服务生成流式响应
         ollamaService.generateStreamingResponse(
@@ -307,37 +357,111 @@ public class ChatService {
                     long timeToFirstChunk = firstChunkTime - messageStartTime;
                     long aiResponseTime = firstChunkTime - aiCallStartTime;
                     
-                    logger.info("🎯 AI首次响应时间统计 - sessionId: {}, 从用户消息到AI首次响应: {}ms, AI处理时间: {}ms, 首块内容: '{}'", 
-                               sessionId, timeToFirstChunk, aiResponseTime, chunk.replace("\n", "\\n"));
+                    logger.info("🎯 AI首次响应时间统计 - sessionId: {}, 从用户消息到AI首次响应: {}ms, AI处理时间: {}ms",
+                               sessionId, timeToFirstChunk, aiResponseTime);
                     
                     isFirstChunk[0] = false;
                 }
                 
-//                logger.debug("ChatService接收流式数据块#{}: '{}' (块长度: {})",
-//                           chunkCounter[0], chunk.replace("\n", "\\n"), chunk.length());
-//                logger.debug("ChatService累积响应文本: '{}' (总长度: {})",
-//                           completeResponse.toString().replace("\n", "\\n"), completeResponse.length());
+                // 检查当前块是否包含思考标记
+                boolean chunkContainsThinkStart = chunk.contains("<think>");
+                boolean chunkContainsThinkEnd = chunk.contains("</think>");
                 
-                ChatMessage streamMessage = new ChatMessage();
-                streamMessage.setType("text");
-                streamMessage.setContent(chunk);
-                streamMessage.setSender("assistant");
-                streamMessage.setSessionId(sessionId);
-                streamMessage.setStreaming(true);
-                streamMessage.setStreamComplete(false);
+                // 处理思考模式的状态转换和内容存储
+                if (chunkContainsThinkStart) {
+                    inThinkingMode[0] = true;
+//                    logger.debug("检测到思考开始标记，进入思考模式，sessionId: {}", sessionId);
+                }
                 
-//                logger.debug("发送流式消息到WebSocket，sessionId: {}, 块#{}", sessionId, chunkCounter[0]);
-                callback.accept(streamMessage);
+                // 如果在思考模式中，存储思考内容
+                if (inThinkingMode[0]) {
+                    thinkingContent.append(chunk);
+                }
+                
+                if (chunkContainsThinkEnd) {
+                    inThinkingMode[0] = false;
+//                    logger.debug("检测到思考结束标记，退出思考模式，sessionId: {}", sessionId);
+                    
+                    // 打印完整的思考内容到日志
+                    logger.info("🧠 完整思考内容 - sessionId: {}\n{}", sessionId, thinkingContent.toString());
+                }
+                
+                // 只有不在思考模式中的内容才发送给用户
+                if (!inThinkingMode[0] && !chunkContainsThinkStart && !chunkContainsThinkEnd) {
+                    if (chunk != null && !chunk.trim().isEmpty()) {
+                        userVisibleContent.append(chunk); // 累积用户可见内容
+                        
+                        ChatMessage streamMessage = new ChatMessage();
+                        streamMessage.setType("text");
+                        streamMessage.setContent(chunk);
+                        streamMessage.setSender("assistant");
+                        streamMessage.setSessionId(sessionId);
+                        streamMessage.setStreaming(true);
+                        streamMessage.setStreamComplete(false);
+                        
+                        callback.accept(streamMessage);
+                    }
+                } else if (chunkContainsThinkEnd) {
+                    // 如果当前块包含思考结束标记，需要提取结束标记后的内容
+                    int endThinkIndex = chunk.indexOf("</think>");
+                    if (endThinkIndex + 8 < chunk.length()) {
+                        String afterThink = chunk.substring(endThinkIndex + 8);
+                        if (!afterThink.trim().isEmpty()) {
+                            userVisibleContent.append(afterThink); // 累积用户可见内容
+                            
+                            ChatMessage streamMessage = new ChatMessage();
+                            streamMessage.setType("text");
+                            streamMessage.setContent(afterThink);
+                            streamMessage.setSender("assistant");
+                            streamMessage.setSessionId(sessionId);
+                            streamMessage.setStreaming(true);
+                            streamMessage.setStreamComplete(false);
+                            
+                            callback.accept(streamMessage);
+                        }
+                    }
+                } else if (chunkContainsThinkStart) {
+                    // 如果当前块包含思考开始标记，需要提取开始标记前的内容
+                    int thinkIndex = chunk.indexOf("<think>");
+                    if (thinkIndex > 0) {
+                        String beforeThink = chunk.substring(0, thinkIndex);
+                        if (!beforeThink.trim().isEmpty()) {
+                            userVisibleContent.append(beforeThink); // 累积用户可见内容
+                            
+                            ChatMessage streamMessage = new ChatMessage();
+                            streamMessage.setType("text");
+                            streamMessage.setContent(beforeThink);
+                            streamMessage.setSender("assistant");
+                            streamMessage.setSessionId(sessionId);
+                            streamMessage.setStreaming(true);
+                            streamMessage.setStreamComplete(false);
+                            
+                            callback.accept(streamMessage);
+                        }
+                    }
+                }
             },
             // 错误处理
             error -> {
                 logger.error("Ollama流式响应发生错误，sessionId: {}, 已接收{}个数据块，累积长度: {}", 
                            sessionId, chunkCounter[0], completeResponse.length(), error);
                 
+                // 如果有思考内容，也要打印出来
+                if (thinkingContent.length() > 0) {
+                    logger.info("🧠 异常情况下的思考内容 - sessionId: {}\n{}", sessionId, thinkingContent.toString());
+                }
+                
                 // 发送完成消息
                 if (completeResponse.length() > 0) {
                     logger.info("流式响应异常但有部分内容，发送完成信号，sessionId: {}, 最终响应长度: {}", 
                                sessionId, completeResponse.length());
+                    
+                    // 输出完整的AI返回内容（包含异常情况下的部分内容）
+                    logger.info("🤖 异常情况下的完整AI输出内容 - sessionId: {}\n{}", sessionId, completeResponse.toString());
+                    
+                    // 输出用户实际接收到的内容（异常情况下）
+                    logger.info("📺 异常情况下用户实际接收到的内容 - sessionId: {}\n{}", sessionId, 
+                               userVisibleContent.length() > 0 ? userVisibleContent.toString() : "无有效内容");
                     
                     ChatMessage finalMessage = new ChatMessage();
                     finalMessage.setType("text");
@@ -366,18 +490,27 @@ public class ChatService {
             }
         );
         
-        // 在流式响应结束后发送完成信号
-        // 注意：实际的完成处理在OllamaService的流式处理中进行
+        // 添加完成处理
         CompletableFuture.runAsync(() -> {
             try {
-                // 等待一小段时间确保所有chunk都被处理
-                Thread.sleep(100);
+                // 等待流式响应完成
+                Thread.sleep(2000);
                 
                 if (completeResponse.length() > 0) {
                     logger.info("流式响应正常完成，sessionId: {}, 总数据块: {}, 最终响应长度: {}", 
                                sessionId, chunkCounter[0], completeResponse.length());
-                    logger.debug("最终完整响应内容: '{}'", 
-                               completeResponse.toString().replace("\n", "\\n"));
+                    
+                    // 输出完整的AI返回内容（原始内容，包含思考内容）
+                    logger.info("🤖 完整AI原始输出内容 - sessionId: {}\n{}", sessionId, completeResponse.toString());
+                    
+                    // 输出用户实际接收到的完整内容（流式发送的累积）
+                    logger.info("📺 用户实际接收到的完整内容 - sessionId: {}\n{}", sessionId, 
+                               userVisibleContent.length() > 0 ? userVisibleContent.toString() : "无有效内容");
+                    
+                    // 输出过滤后的内容（通过filterThinkingContent方法处理的结果）
+                    String filteredResponse = filterThinkingContent(completeResponse.toString());
+                    logger.info("🔄 过滤方法处理后的内容 - sessionId: {}\n{}", sessionId, 
+                               filteredResponse != null ? filteredResponse : "无有效内容");
                     
                     // 发送流完成信号
                     ChatMessage finalMessage = new ChatMessage();
@@ -388,19 +521,19 @@ public class ChatService {
                     finalMessage.setStreaming(true);
                     finalMessage.setStreamComplete(true);
                     
-                    logger.debug("发送流式响应完成信号，sessionId: {}", sessionId);
                     callback.accept(finalMessage);
                     
                     // 保存完整响应到会话历史
                     saveCompleteResponse(sessionId, completeResponse.toString());
-                } else {
-                    logger.warn("流式响应完成但无内容，sessionId: {}", sessionId);
                 }
             } catch (InterruptedException e) {
                 logger.warn("流式响应完成处理被中断，sessionId: {}", sessionId);
                 Thread.currentThread().interrupt();
             }
         });
+        
+        // 注意：流式响应的完成处理在OllamaService的回调中进行
+        // 这里不需要额外的完成检查逻辑
     }
     
     /**
@@ -408,9 +541,20 @@ public class ChatService {
      */
     private void saveCompleteResponse(String sessionId, String completeResponse) {
         try {
+            // 在日志中打印完整的流式响应汇总
+            logger.info("🔄 流式响应完成汇总 - sessionId: {}", sessionId);
+            logger.info("📄 完整流式响应内容:\n{}", completeResponse);
+            
+            // 过滤思考内容，获取干净的回答用于保存
+            String filteredResponse = filterThinkingContent(completeResponse);
+            String finalResponse = (filteredResponse != null && !filteredResponse.trim().isEmpty()) 
+                                 ? filteredResponse : completeResponse;
+            
+            logger.info("💾 保存到历史记录的内容:\n{}", finalResponse);
+            
             ChatMessage completeMessage = new ChatMessage();
             completeMessage.setType("text");
-            completeMessage.setContent(completeResponse);
+            completeMessage.setContent(finalResponse);  // 保存过滤后的内容
             completeMessage.setSender("assistant");
             completeMessage.setSessionId(sessionId);
             completeMessage.setStreaming(false);
@@ -422,128 +566,15 @@ public class ChatService {
                 // 添加到对话历史记录
                 conversationHistoryService.addMessage(sessionId, completeMessage);
                 
-                // 更新长期记忆
-                memoryService.updateMemory(sessionId, completeResponse);
+                // 更新长期记忆（使用过滤后的内容）
+                memoryService.updateMemory(sessionId, finalResponse);
             }
         } catch (Exception e) {
             logger.error("保存完整响应时发生错误", e);
         }
     }
     
-    /**
-     * 生成Mock流式回复（fallback方案）
-     */
-    private void generateMockStreamingResponse(String prompt, String sessionId, Consumer<ChatMessage> callback, 
-                                             long messageStartTime) {
-        logger.info("开始生成Mock流式响应，sessionId: {}", sessionId);
-        
-        // Mock AI回复生成
-        String mockResponse = generateMockResponse(prompt);
-        logger.debug("Mock响应内容: '{}' (长度: {})", mockResponse.replace("\n", "\\n"), mockResponse.length());
-        
-        // 模拟流式输出
-        int chunkSize = aiConfig.getStreaming().getChunkSize();
-        int delay = aiConfig.getStreaming().getDelayMs();
-        
-        logger.debug("Mock流式配置 - 块大小: {}, 延迟: {}ms", chunkSize, delay);
-        
-        StringBuilder currentChunk = new StringBuilder();
-        StringBuilder processedText = new StringBuilder();
-        int chunkCount = 0;
-        boolean isFirstChunk = true;
-        
-        for (int i = 0; i < mockResponse.length(); i++) {
-            currentChunk.append(mockResponse.charAt(i));
-            processedText.append(mockResponse.charAt(i));
-            
-            if (currentChunk.length() >= chunkSize || i == mockResponse.length() - 1) {
-                chunkCount++;
-                boolean isLastChunk = (i == mockResponse.length() - 1);
-                
-                // 记录第一次Mock响应时间
-                if (isFirstChunk) {
-                    long firstMockChunkTime = System.currentTimeMillis();
-                    long timeToFirstMockChunk = firstMockChunkTime - messageStartTime;
-                    
-                    logger.info("🎯 Mock首次响应时间统计 - sessionId: {}, 从用户消息到Mock首次响应: {}ms, 首块内容: '{}'", 
-                               sessionId, timeToFirstMockChunk, currentChunk.toString().replace("\n", "\\n"));
-                    
-                    isFirstChunk = false;
-                }
-                
-                logger.debug("Mock流式数据块#{}: '{}' (块长度: {}, 是否最后一块: {})", 
-                           chunkCount, currentChunk.toString().replace("\n", "\\n"), 
-                           currentChunk.length(), isLastChunk);
-                logger.debug("Mock累积响应文本: '{}' (总长度: {})", 
-                           processedText.toString().replace("\n", "\\n"), processedText.length());
-                
-                ChatMessage streamMessage = new ChatMessage();
-                streamMessage.setType("text");
-                streamMessage.setContent(currentChunk.toString());
-                streamMessage.setSender("assistant");
-                streamMessage.setSessionId(sessionId);
-                streamMessage.setStreaming(true);
-                streamMessage.setStreamComplete(isLastChunk);
-                
-                logger.debug("发送Mock流式消息到WebSocket，sessionId: {}, 块#{}", sessionId, chunkCount);
-                callback.accept(streamMessage);
-                
-                // 添加到会话历史（只在最后一块时添加完整消息）
-                if (streamMessage.isStreamComplete()) {
-                    logger.info("Mock流式响应完成，sessionId: {}, 总数据块: {}, 最终响应长度: {}", 
-                               sessionId, chunkCount, mockResponse.length());
-                    
-                    ChatMessage completeMessage = new ChatMessage();
-                    completeMessage.setType("text");
-                    completeMessage.setContent(mockResponse);
-                    completeMessage.setSender("assistant");
-                    completeMessage.setSessionId(sessionId);
-                    completeMessage.setStreaming(false);
-                    
-                    ChatSession session = sessionService.getSession(sessionId);
-                    if (session != null) {
-                        session.addMessage(completeMessage);
-                        
-                        // 添加到对话历史记录
-                        conversationHistoryService.addMessage(sessionId, completeMessage);
-                        
-                        // 更新长期记忆
-                        memoryService.updateMemory(sessionId, mockResponse);
-                        logger.debug("Mock响应已保存到会话历史和长期记忆，sessionId: {}", sessionId);
-                    }
-                }
-                
-                currentChunk.setLength(0);
-                
-                // 模拟延迟
-                try {
-                    Thread.sleep(delay);
-                } catch (InterruptedException e) {
-                    logger.warn("Mock流式响应被中断，sessionId: {}", sessionId);
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
-        }
-    }
     
-    /**
-     * 生成Mock AI回复
-     */
-    private String generateMockResponse(String prompt) {
-        // 简单的Mock回复逻辑
-        String[] responses = {
-            "我理解您的问题。这是一个很有趣的话题，让我来为您详细解答。",
-            "根据您提供的信息，我认为最好的方法是...",
-            "这确实是一个复杂的问题。从多个角度来看...",
-            "我很乐意帮助您解决这个问题。首先，我们需要考虑...",
-            "基于我的理解，我建议您可以尝试以下几种方法..."
-        };
-        
-        // 根据提示内容选择合适的回复
-        int index = Math.abs(prompt.hashCode()) % responses.length;
-        return responses[index];
-    }
     
     /**
      * 清理会话资源

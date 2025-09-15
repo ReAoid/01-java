@@ -65,7 +65,6 @@ public class ConversationHistoryService {
      * 开始记录新对话
      */
     public void startConversation(String sessionId) {
-        logger.debug("开始记录对话，sessionId: {}", sessionId);
         ConversationRecord record = new ConversationRecord(sessionId);
         activeConversations.put(sessionId, record);
     }
@@ -87,10 +86,6 @@ public class ConversationHistoryService {
             message.getSender() != null ? message.getSender() : "unknown",
             message.getContent()
         );
-        
-        logger.debug("添加消息到对话记录，sessionId: {}, role: {}, contentLength: {}", 
-                    sessionId, message.getSender(), 
-                    message.getContent() != null ? message.getContent().length() : 0);
     }
     
     /**

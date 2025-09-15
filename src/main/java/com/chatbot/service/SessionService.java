@@ -48,7 +48,6 @@ public class SessionService {
      * 获取会话，如果不存在则创建
      */
     public ChatSession getOrCreateSession(String sessionId) {
-        logger.debug("获取或创建会话，sessionId: {}", sessionId);
         boolean sessionExists = activeSessions.containsKey(sessionId);
         
         ChatSession session = activeSessions.computeIfAbsent(sessionId, this::createSession);

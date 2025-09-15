@@ -77,33 +77,22 @@ public class ChatWebSocketHandler implements WebSocketHandler {
             try {
                 // 解析收到的消息
                 String payload = textMessage.getPayload();
-                logger.debug("消息载荷长度: {}, sessionId: {}", payload.length(), sessionId);
 
                 ChatMessage chatMessage = objectMapper.readValue(payload, ChatMessage.class);
                 chatMessage.setSessionId(sessionId);
 
                 // 记录用户消息接收时间戳
                 long userMessageTimestamp = System.currentTimeMillis();
-                
-                logger.info("收到用户消息，sessionId: {}, messageType: {}, contentLength: {}，content：{}, 时间戳: {}",
-                        sessionId, chatMessage.getType(),
-                        chatMessage.getContent() != null ? chatMessage.getContent().length() : 0,
-                        chatMessage.getContent() != null ? chatMessage.getContent() : "",
-                        userMessageTimestamp);
 
                 // 检查是否是系统命令
                 if ("system".equals(chatMessage.getType()) &&
                         chatMessage.getMetadata() != null &&
                         "check_service".equals(chatMessage.getMetadata().get("action"))) {
 
-                    logger.debug("处理Ollama服务状态检查命令，sessionId: {}", sessionId);
                     // 处理Ollama服务状态检查
                     handleOllamaStatusCheck(session, sessionId);
                     return;
                 }
-
-                // 处理普通消息并获取回复（流式处理）
-                logger.debug("开始处理普通消息，sessionId: {}", sessionId);
                 
                 // 用于跟踪是否是第一次响应
                 final boolean[] isFirstResponse = {true};
@@ -115,9 +104,8 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                             long firstResponseTime = System.currentTimeMillis();
                             long timeToFirstResponse = firstResponseTime - userMessageTimestamp;
                             
-                            logger.info("🚀 首次响应时间统计 - sessionId: {}, 从用户消息到首次响应: {}ms, 响应内容: '{}'", 
-                                       sessionId, timeToFirstResponse, 
-                                       response.getContent().replace("\n", "\\n"));
+                            logger.info("🚀 首次响应时间统计 - sessionId: {}, 从用户消息到首次响应: {}ms",
+                                       sessionId, timeToFirstResponse);
                             
                             isFirstResponse[0] = false;
                         }
@@ -131,7 +119,6 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                 });
 
                 long processingTime = System.currentTimeMillis() - startTime;
-                logger.debug("WebSocket消息处理完成，sessionId: {}, 处理时间: {}ms", sessionId, processingTime);
 
             } catch (Exception e) {
                 long processingTime = System.currentTimeMillis() - startTime;
@@ -181,8 +168,8 @@ public class ChatWebSocketHandler implements WebSocketHandler {
         if (session.isOpen()) {
             String messageJson = objectMapper.writeValueAsString(message);
             session.sendMessage(new TextMessage(messageJson));
-            logger.debug("消息发送成功，sessionId: {}, messageType: {}, messageLength: {}",
-                    message.getSessionId(), message.getType(), messageJson.length());
+//            logger.debug("消息发送成功，sessionId: {}, messageType: {}, messageLength: {}",
+//                    message.getSessionId(), message.getType(), messageJson.length());
         } else {
             logger.warn("WebSocket会话已关闭，无法发送消息，sessionId: {}", message.getSessionId());
         }
@@ -209,8 +196,6 @@ public class ChatWebSocketHandler implements WebSocketHandler {
             statusMessage.setMetadata(Map.of("ollama_status", isAvailable ? "available" : "unavailable"));
 
             sendMessage(session, statusMessage);
-
-            logger.debug("Ollama服务状态检查完成，会话ID: {}, 状态: {}", sessionId, isAvailable ? "可用" : "不可用");
 
         } catch (Exception e) {
             logger.error("检查Ollama服务状态时发生错误，会话ID: {}", sessionId, e);

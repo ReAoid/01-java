@@ -34,10 +34,10 @@ public class OllamaService {
         
         // 配置HTTP客户端 - 改进连接池和超时配置
         this.httpClient = new OkHttpClient.Builder()
-                .connectTimeout(5, TimeUnit.SECONDS)
-                .readTimeout(60, TimeUnit.SECONDS)  // 固定60秒超时，避免过长等待
-                .writeTimeout(10, TimeUnit.SECONDS)
-                .connectionPool(new ConnectionPool(3, 1, TimeUnit.MINUTES))  // 限制连接池大小
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(120, TimeUnit.SECONDS)  // 增加读取超时到120秒
+                .writeTimeout(15, TimeUnit.SECONDS)
+                .connectionPool(new ConnectionPool(10, 5, TimeUnit.MINUTES))  // 增加连接池大小和保持时间
                 .retryOnConnectionFailure(true)  // 启用连接失败重试
                 .build();
     }
@@ -53,7 +53,6 @@ public class OllamaService {
      * 流式生成响应（支持系统提示词分离）
      */
     public void generateStreamingResponse(String systemPrompt, String userPrompt, Consumer<String> onChunk, Consumer<Throwable> onError) {
-        logger.info("开始构建Ollama流式请求");
         logger.debug("系统提示内容 (长度: {}):\n{}", 
                    systemPrompt != null ? systemPrompt.length() : 0, 
                    systemPrompt != null ? systemPrompt : "无");
@@ -62,11 +61,9 @@ public class OllamaService {
         try {
             // 构建请求体
             String requestBody = buildChatRequest(systemPrompt, userPrompt, true);
-            logger.info("Ollama请求体构建完成，长度: {}", requestBody.length());
-            logger.debug("Ollama完整请求体:\n{}", requestBody);
+            logger.debug("完整请求体:\n{}", requestBody);
             
             String url = ollamaConfig.getChatUrl();
-            logger.info("发送Ollama流式请求到: {}", url);
             
             Request request = new Request.Builder()
                     .url(url)
@@ -87,7 +84,6 @@ public class OllamaService {
                 @Override
                 public void onResponse(Call call, Response response) throws IOException {
                     logger.info("Ollama流式响应接收完成，状态码: {}", response.code());
-                    logger.debug("响应头信息: {}", response.headers().toString());
                     
                     if (!response.isSuccessful()) {
                         String errorMsg = "Ollama API返回错误: " + response.code() + " " + response.message();
@@ -122,17 +118,14 @@ public class OllamaService {
      * 流式生成响应（支持完整消息列表）
      */
     public void generateStreamingResponse(List<OllamaMessage> messages, Consumer<String> onChunk, Consumer<Throwable> onError) {
-        logger.info("开始构建Ollama流式请求（消息列表模式）");
         logger.debug("消息数量: {}", messages.size());
         
         try {
             // 构建请求体
             String requestBody = buildChatRequestFromMessages(messages, true);
-            logger.info("Ollama请求体构建完成，长度: {}", requestBody.length());
-            logger.debug("Ollama完整请求体:\n{}", requestBody);
+            logger.debug("完整请求体:\n{}", requestBody);
             
             String url = ollamaConfig.getChatUrl();
-            logger.info("发送Ollama流式请求到: {}", url);
             
             Request request = new Request.Builder()
                     .url(url)
@@ -153,7 +146,6 @@ public class OllamaService {
                 @Override
                 public void onResponse(Call call, Response response) throws IOException {
                     logger.info("Ollama流式响应接收完成，状态码: {}", response.code());
-                    logger.debug("响应头信息: {}", response.headers().toString());
                     
                     if (!response.isSuccessful()) {
                         String errorMsg = "Ollama API返回错误: " + response.code() + " " + response.message();
@@ -326,13 +318,13 @@ public class OllamaService {
     }
     
     /**
-     * 处理流式响应 - 改进版，确保资源正确释放
+     * 处理流式响应 - 改进版，确保资源正确释放和错误处理
      */
     private void processStreamingResponse(ResponseBody responseBody, Consumer<String> onChunk, Consumer<Throwable> onError) {
-        logger.debug("开始处理Ollama流式响应");
         StringBuilder totalResponse = new StringBuilder();
         int chunkCount = 0;
         boolean hasError = false;
+        boolean hasContent = false;
         
         try {
             // 确保完全读取响应体，避免连接泄漏
@@ -340,7 +332,7 @@ public class OllamaService {
             String responseText = new String(bytes);
             String[] lines = responseText.split("\n");
             
-            logger.debug("Ollama响应包含{}行数据", lines.length);
+//            logger.debug("Ollama响应包含{}行数据", lines.length);
             
             for (String responseLine : lines) {
                 if (responseLine.trim().isEmpty()) {
@@ -352,6 +344,14 @@ public class OllamaService {
                     if (jsonNode == null) {
                         logger.debug("跳过无效的JSON行: {}", responseLine);
                         continue;
+                    }
+                    
+                    // 检查是否有错误
+                    String error = JsonUtil.getStringValue(jsonNode, "error");
+                    if (error != null && !error.isEmpty()) {
+                        logger.error("Ollama返回错误: {}", error);
+                        onError.accept(new RuntimeException("Ollama API错误: " + error));
+                        return;
                     }
                     
                     // 检查是否完成
@@ -367,6 +367,7 @@ public class OllamaService {
                         String chunk = JsonUtil.getStringValue(messageNode, "content");
                         if (chunk != null && !chunk.isEmpty()) {
                             chunkCount++;
+                            hasContent = true;
                             totalResponse.append(chunk);
                             
 //                            logger.debug("Ollama流式数据块#{}: '{}' (长度: {})",
@@ -384,8 +385,14 @@ public class OllamaService {
                 }
             }
             
-            logger.info("Ollama流式响应处理完成，共处理{}个数据块，总响应长度: {}, 有错误: {}", 
-                       chunkCount, totalResponse.length(), hasError);
+            logger.info("Ollama流式响应处理完成，共处理{}个数据块，总响应长度: {}, 有错误: {}, 有内容: {}", 
+                       chunkCount, totalResponse.length(), hasError, hasContent);
+            
+            // 如果没有收到任何内容，触发错误回调
+            if (!hasContent && !hasError) {
+                logger.warn("Ollama流式响应没有返回任何内容");
+                onError.accept(new RuntimeException("AI服务返回空响应"));
+            }
             
         } catch (Exception e) {
             logger.error("处理流式响应时发生错误", e);
