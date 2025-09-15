@@ -333,7 +333,6 @@ public class OllamaService {
                     // 检查是否完成
                     Boolean done = JsonUtil.getBooleanValue(jsonNode, "done");
                     if (done != null && done) {
-                        logger.debug("Ollama流式响应完成标志，done=true");
                         break;
                     }
                     
@@ -377,7 +376,6 @@ public class OllamaService {
             // 确保响应体资源被释放
             try {
                 responseBody.close();
-                logger.debug("流式响应体资源已释放");
             } catch (Exception e) {
                 logger.debug("关闭响应体时出现异常", e);
             }
