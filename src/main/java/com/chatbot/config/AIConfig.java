@@ -1,5 +1,7 @@
 package com.chatbot.config;
 
+import com.chatbot.model.StreamingConfig;
+import com.chatbot.model.VoiceConfig;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -37,65 +39,4 @@ public class AIConfig {
         this.voice = voice;
     }
     
-    /**
-     * 流式处理配置子类
-     */
-    public static class StreamingConfig {
-        /**
-         * 分块大小
-         */
-        private int chunkSize = 16;
-        
-        /**
-         * 延迟毫秒数
-         */
-        private int delayMs = 50;
-        
-        public int getChunkSize() {
-            return chunkSize;
-        }
-        
-        public void setChunkSize(int chunkSize) {
-            this.chunkSize = chunkSize;
-        }
-        
-        public int getDelayMs() {
-            return delayMs;
-        }
-        
-        public void setDelayMs(int delayMs) {
-            this.delayMs = delayMs;
-        }
-    }
-    
-    /**
-     * 语音配置子类
-     */
-    public static class VoiceConfig {
-        /**
-         * ASR模型名称
-         */
-        private String asrModel = "whisper-medium";
-        
-        /**
-         * TTS语音类型
-         */
-        private String ttsVoice = "zh-CN-XiaoxiaoNeural";
-        
-        public String getAsrModel() {
-            return asrModel;
-        }
-        
-        public void setAsrModel(String asrModel) {
-            this.asrModel = asrModel;
-        }
-        
-        public String getTtsVoice() {
-            return ttsVoice;
-        }
-        
-        public void setTtsVoice(String ttsVoice) {
-            this.ttsVoice = ttsVoice;
-        }
-    }
 }

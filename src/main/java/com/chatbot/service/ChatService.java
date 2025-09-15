@@ -3,6 +3,7 @@ package com.chatbot.service;
 import com.chatbot.config.AIConfig;
 import com.chatbot.model.ChatMessage;
 import com.chatbot.model.ChatSession;
+import com.chatbot.model.OllamaMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -195,31 +196,34 @@ public class ChatService {
             logger.debug("添加系统消息，长度: {}", systemContent.length());
         }
         
-        // 2. 添加历史对话消息
+        // 2. 添加历史对话消息（排除最新的用户消息，因为我们会单独处理）
         List<ChatMessage> recentMessages = session.getRecentMessages(10);
-        for (ChatMessage msg : recentMessages) {
+        // 排除最后一条消息，因为它是刚刚添加的当前用户消息
+        int historyCount = Math.max(0, recentMessages.size() - 1);
+        for (int i = 0; i < historyCount; i++) {
+            ChatMessage msg = recentMessages.get(i);
             if (msg.getContent() != null && !msg.getContent().trim().isEmpty()) {
                 String role = mapSenderToRole(msg.getSender());
                 messages.add(new OllamaMessage(role, msg.getContent()));
                 logger.debug("添加历史消息: role={}, contentLength={}", role, msg.getContent().length());
             }
         }
-        
-        // 3. 添加长期记忆（如果有的话，作为用户消息的上下文）
+
+        // 3. 添加当前用户输入
         StringBuilder currentUserContent = new StringBuilder();
+        currentUserContent.append(userInput);
+
+        // 4. 添加长期记忆（如果有的话，作为用户消息的上下文）
         if (longTermMemory != null && !longTermMemory.isEmpty()) {
-            currentUserContent.append("相关记忆：\n").append(longTermMemory).append("\n\n");
+            currentUserContent.append("[相关记忆]：\n").append(longTermMemory).append("\n\n");
             logger.debug("添加长期记忆到当前用户消息，长度: {}", longTermMemory.length());
         }
-        
-        // 4. 添加当前用户输入
-        currentUserContent.append(userInput);
         messages.add(new OllamaMessage("user", currentUserContent.toString()));
         
         logger.info("消息列表构建完成，总消息数: {}, 系统消息: {}, 历史消息: {}, 当前用户消息: 1", 
                    messages.size(), 
                    systemContent != null && !systemContent.isEmpty() ? 1 : 0,
-                   recentMessages.size());
+                   historyCount);
         
         return messages;
     }
@@ -267,21 +271,6 @@ public class ChatService {
         return "用户消息";
     }
     
-    /**
-     * Ollama消息类
-     */
-    public static class OllamaMessage {
-        private final String role;
-        private final String content;
-        
-        public OllamaMessage(String role, String content) {
-            this.role = role;
-            this.content = content;
-        }
-        
-        public String getRole() { return role; }
-        public String getContent() { return content; }
-    }
     
     /**
      * 生成流式回复（使用Ollama）

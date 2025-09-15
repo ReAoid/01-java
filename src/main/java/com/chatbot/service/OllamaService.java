@@ -1,6 +1,7 @@
 package com.chatbot.service;
 
 import com.chatbot.config.OllamaConfig;
+import com.chatbot.model.*;
 import com.chatbot.util.JsonUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,11 +32,13 @@ public class OllamaService {
         this.ollamaConfig = ollamaConfig;
         this.objectMapper = new ObjectMapper();
         
-        // 配置HTTP客户端
+        // 配置HTTP客户端 - 改进连接池和超时配置
         this.httpClient = new OkHttpClient.Builder()
                 .connectTimeout(5, TimeUnit.SECONDS)
-                .readTimeout(ollamaConfig.getTimeout(), TimeUnit.MILLISECONDS)
-                .writeTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)  // 固定60秒超时，避免过长等待
+                .writeTimeout(10, TimeUnit.SECONDS)
+                .connectionPool(new ConnectionPool(3, 1, TimeUnit.MINUTES))  // 限制连接池大小
+                .retryOnConnectionFailure(true)  // 启用连接失败重试
                 .build();
     }
     
@@ -118,7 +121,7 @@ public class OllamaService {
     /**
      * 流式生成响应（支持完整消息列表）
      */
-    public void generateStreamingResponse(List<ChatService.OllamaMessage> messages, Consumer<String> onChunk, Consumer<Throwable> onError) {
+    public void generateStreamingResponse(List<OllamaMessage> messages, Consumer<String> onChunk, Consumer<Throwable> onError) {
         logger.info("开始构建Ollama流式请求（消息列表模式）");
         logger.debug("消息数量: {}", messages.size());
         
@@ -274,7 +277,7 @@ public class OllamaService {
             logger.debug("系统提示长度: {}, 用户提示长度: {}", 
                         systemPrompt != null ? systemPrompt.length() : 0, userPrompt.length());
             
-            ChatRequest request = new ChatRequest(
+            OllamaChatRequest request = new OllamaChatRequest(
                     model,
                     systemPrompt,
                     userPrompt,
@@ -295,7 +298,7 @@ public class OllamaService {
     /**
      * 从消息列表构建聊天请求的JSON
      */
-    private String buildChatRequestFromMessages(List<ChatService.OllamaMessage> messages, boolean stream) {
+    private String buildChatRequestFromMessages(List<OllamaMessage> messages, boolean stream) {
         logger.debug("开始构建Ollama聊天请求参数（消息列表模式）");
         
         try {
@@ -305,7 +308,7 @@ public class OllamaService {
             logger.debug("Ollama请求参数 - 模型: {}, 流式: {}, 温度: {}, 消息数量: {}", 
                         model, stream, temperature, messages.size());
             
-            ChatRequestFromMessages request = new ChatRequestFromMessages(
+            OllamaChatRequestFromMessages request = new OllamaChatRequestFromMessages(
                     model,
                     messages,
                     stream,
@@ -323,15 +326,16 @@ public class OllamaService {
     }
     
     /**
-     * 处理流式响应
+     * 处理流式响应 - 改进版，确保资源正确释放
      */
     private void processStreamingResponse(ResponseBody responseBody, Consumer<String> onChunk, Consumer<Throwable> onError) {
         logger.debug("开始处理Ollama流式响应");
         StringBuilder totalResponse = new StringBuilder();
         int chunkCount = 0;
+        boolean hasError = false;
         
         try {
-            // 按行读取响应
+            // 确保完全读取响应体，避免连接泄漏
             byte[] bytes = responseBody.bytes();
             String responseText = new String(bytes);
             String[] lines = responseText.split("\n");
@@ -365,10 +369,10 @@ public class OllamaService {
                             chunkCount++;
                             totalResponse.append(chunk);
                             
-                            logger.debug("Ollama流式数据块#{}: '{}' (长度: {})", 
-                                       chunkCount, chunk.replace("\n", "\\n"), chunk.length());
-                            logger.debug("累积响应文本: '{}' (总长度: {})", 
-                                       totalResponse.toString().replace("\n", "\\n"), totalResponse.length());
+//                            logger.debug("Ollama流式数据块#{}: '{}' (长度: {})",
+//                                       chunkCount, chunk.replace("\n", "\\n"), chunk.length());
+//                            logger.debug("累积响应文本: '{}' (总长度: {})",
+//                                       totalResponse.toString().replace("\n", "\\n"), totalResponse.length());
                             
                             onChunk.accept(chunk);
                         }
@@ -376,15 +380,24 @@ public class OllamaService {
                     
                 } catch (Exception e) {
                     logger.warn("解析流式响应行失败: {}", responseLine, e);
+                    hasError = true;
                 }
             }
             
-            logger.info("Ollama流式响应处理完成，共处理{}个数据块，总响应长度: {}", 
-                       chunkCount, totalResponse.length());
+            logger.info("Ollama流式响应处理完成，共处理{}个数据块，总响应长度: {}, 有错误: {}", 
+                       chunkCount, totalResponse.length(), hasError);
             
         } catch (Exception e) {
             logger.error("处理流式响应时发生错误", e);
             onError.accept(e);
+        } finally {
+            // 确保响应体资源被释放
+            try {
+                responseBody.close();
+                logger.debug("流式响应体资源已释放");
+            } catch (Exception e) {
+                logger.debug("关闭响应体时出现异常", e);
+            }
         }
     }
     
@@ -419,124 +432,4 @@ public class OllamaService {
         }
     }
     
-    /**
-     * 聊天请求数据类
-     */
-    private static class ChatRequest {
-        public final String model;
-        public final Message[] messages;
-        public final boolean stream;
-        public final Options options;
-        
-        public ChatRequest(String model, String systemPrompt, String userPrompt, boolean stream, double temperature) {
-            this.model = model;
-            
-            // 构建消息数组
-            if (systemPrompt != null && !systemPrompt.trim().isEmpty()) {
-                this.messages = new Message[] { 
-                    new Message("system", systemPrompt.trim()),
-                    new Message("user", userPrompt) 
-                };
-            } else {
-                this.messages = new Message[] { 
-                    new Message("user", userPrompt) 
-                };
-            }
-            
-            this.stream = stream;
-            this.options = new Options(temperature);
-        }
-        
-        // Getters for Jackson serialization
-        public String getModel() {
-            return model;
-        }
-        
-        public Message[] getMessages() {
-            return messages;
-        }
-        
-        public boolean isStream() {
-            return stream;
-        }
-        
-        public Options getOptions() {
-            return options;
-        }
-    }
-    
-    /**
-     * 从消息列表构建的聊天请求数据类
-     */
-    private static class ChatRequestFromMessages {
-        public final String model;
-        public final Message[] messages;
-        public final boolean stream;
-        public final Options options;
-        
-        public ChatRequestFromMessages(String model, List<ChatService.OllamaMessage> messageList, boolean stream, double temperature) {
-            this.model = model;
-            
-            // 将 OllamaMessage 列表转换为 Message 数组
-            this.messages = messageList.stream()
-                    .map(msg -> new Message(msg.getRole(), msg.getContent()))
-                    .toArray(Message[]::new);
-            
-            this.stream = stream;
-            this.options = new Options(temperature);
-        }
-        
-        // Getters for Jackson serialization
-        public String getModel() {
-            return model;
-        }
-        
-        public Message[] getMessages() {
-            return messages;
-        }
-        
-        public boolean isStream() {
-            return stream;
-        }
-        
-        public Options getOptions() {
-            return options;
-        }
-    }
-    
-    /**
-     * 消息数据类
-     */
-    private static class Message {
-        public final String role;
-        public final String content;
-        
-        public Message(String role, String content) {
-            this.role = role;
-            this.content = content;
-        }
-        
-        public String getRole() {
-            return role;
-        }
-        
-        public String getContent() {
-            return content;
-        }
-    }
-    
-    /**
-     * 选项数据类
-     */
-    private static class Options {
-        public final double temperature;
-        
-        public Options(double temperature) {
-            this.temperature = temperature;
-        }
-        
-        public double getTemperature() {
-            return temperature;
-        }
-    }
 }

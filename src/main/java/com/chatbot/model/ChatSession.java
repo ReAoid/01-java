@@ -146,46 +146,4 @@ public class ChatSession {
         this.currentPersonaId = currentPersonaId;
     }
     
-    /**
-     * 用户偏好设置内部类
-     */
-    public static class UserPreferences {
-        private String language = "zh-CN";
-        private boolean enableVoice = false;
-        private String preferredTtsVoice;
-        private double responseSpeed = 1.0;
-        
-        // Getters and Setters
-        public String getLanguage() {
-            return language;
-        }
-        
-        public void setLanguage(String language) {
-            this.language = language;
-        }
-        
-        public boolean isEnableVoice() {
-            return enableVoice;
-        }
-        
-        public void setEnableVoice(boolean enableVoice) {
-            this.enableVoice = enableVoice;
-        }
-        
-        public String getPreferredTtsVoice() {
-            return preferredTtsVoice;
-        }
-        
-        public void setPreferredTtsVoice(String preferredTtsVoice) {
-            this.preferredTtsVoice = preferredTtsVoice;
-        }
-        
-        public double getResponseSpeed() {
-            return responseSpeed;
-        }
-        
-        public void setResponseSpeed(double responseSpeed) {
-            this.responseSpeed = responseSpeed;
-        }
-    }
 }

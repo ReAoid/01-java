@@ -1,6 +1,7 @@
 package com.chatbot.service;
 
 import com.chatbot.model.Memory;
+import com.chatbot.model.MemoryStats;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -303,24 +304,4 @@ public class MemoryService {
         return new MemoryStats(memories.size(), (int) activeCount);
     }
     
-    /**
-     * 记忆统计信息类
-     */
-    public static class MemoryStats {
-        private final int totalMemories;
-        private final int activeMemories;
-        
-        public MemoryStats(int totalMemories, int activeMemories) {
-            this.totalMemories = totalMemories;
-            this.activeMemories = activeMemories;
-        }
-        
-        public int getTotalMemories() {
-            return totalMemories;
-        }
-        
-        public int getActiveMemories() {
-            return activeMemories;
-        }
-    }
 }

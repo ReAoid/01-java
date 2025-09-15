@@ -1,6 +1,8 @@
 package com.chatbot.service;
 
 import com.chatbot.config.PythonApiConfig;
+import com.chatbot.model.VadResult;
+import com.chatbot.model.OcrResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -210,47 +212,4 @@ public class MultiModalService {
         return mockAnalysis[index];
     }
     
-    // ========== 内部类定义 ==========
-    
-    /**
-     * VAD检测结果
-     */
-    public static class VadResult {
-        private final boolean hasVoice;
-        private final double confidence;
-        
-        public VadResult(boolean hasVoice, double confidence) {
-            this.hasVoice = hasVoice;
-            this.confidence = confidence;
-        }
-        
-        public boolean hasVoice() {
-            return hasVoice;
-        }
-        
-        public double getConfidence() {
-            return confidence;
-        }
-    }
-    
-    /**
-     * OCR识别结果
-     */
-    public static class OcrResult {
-        private final String text;
-        private final double confidence;
-        
-        public OcrResult(String text, double confidence) {
-            this.text = text;
-            this.confidence = confidence;
-        }
-        
-        public String getText() {
-            return text;
-        }
-        
-        public double getConfidence() {
-            return confidence;
-        }
-    }
 }
