@@ -360,8 +360,8 @@ public class OllamaService {
                 }
             }
             
-            logger.info("Ollama流式响应处理完成，共处理{}个数据块，总响应长度: {}, 有错误: {}, 有内容: {}", 
-                       chunkCount, totalResponse.length(), hasError, hasContent);
+            logger.info("Ollama流式响应处理完成，共处理{}个数据块，总响应长度: {}, 有错误: {}, 有内容: {}, 完整内容为: {}",
+                       chunkCount, totalResponse.length(), hasError, hasContent, totalResponse.toString());
             
             // 如果没有收到任何内容，触发错误回调
             if (!hasContent && !hasError) {

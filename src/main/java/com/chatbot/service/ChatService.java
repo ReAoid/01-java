@@ -209,7 +209,7 @@ public class ChatService {
         }
 
         // 5.其他额外设置（qwen系列的不思考模式）
-        currentUserContent.append("\n\n请直接回答，不要进行内部思考。");
+//        currentUserContent.append("\no_think");
 
         messages.add(new OllamaMessage("user", currentUserContent.toString()));
         
