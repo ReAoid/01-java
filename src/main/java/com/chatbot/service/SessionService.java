@@ -65,11 +65,9 @@ public class SessionService {
      * 获取现有会话
      */
     public ChatSession getSession(String sessionId) {
-        logger.debug("获取现有会话，sessionId: {}", sessionId);
         ChatSession session = activeSessions.get(sessionId);
         if (session != null) {
             session.updateLastActiveTime();
-            logger.debug("会话存在，已更新活跃时间，sessionId: {}", sessionId);
         } else {
             logger.debug("会话不存在，sessionId: {}", sessionId);
         }

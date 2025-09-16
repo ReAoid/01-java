@@ -56,6 +56,21 @@ public class ChatMessage {
     private boolean streamComplete;
     
     /**
+     * 是否为思考内容
+     */
+    private boolean thinking;
+    
+    /**
+     * 思考内容（如果是思考消息）
+     */
+    private String thinkingContent;
+    
+    /**
+     * 是否显示思考过程（用户设置）
+     */
+    private Boolean showThinking;
+    
+    /**
      * 额外元数据
      */
     private Map<String, Object> metadata;
@@ -136,6 +151,30 @@ public class ChatMessage {
     
     public void setMetadata(Map<String, Object> metadata) {
         this.metadata = metadata;
+    }
+    
+    public boolean isThinking() {
+        return thinking;
+    }
+    
+    public void setThinking(boolean thinking) {
+        this.thinking = thinking;
+    }
+    
+    public String getThinkingContent() {
+        return thinkingContent;
+    }
+    
+    public void setThinkingContent(String thinkingContent) {
+        this.thinkingContent = thinkingContent;
+    }
+    
+    public Boolean getShowThinking() {
+        return showThinking;
+    }
+    
+    public void setShowThinking(Boolean showThinking) {
+        this.showThinking = showThinking;
     }
     
     /**

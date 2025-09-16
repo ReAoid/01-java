@@ -3,6 +3,8 @@ package com.chatbot.model;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
@@ -51,6 +53,11 @@ public class ChatSession {
      */
     private String currentPersonaId;
     
+    /**
+     * 会话元数据（包括用户偏好设置等）
+     */
+    private Map<String, Object> metadata;
+    
     public ChatSession(String sessionId) {
         this.sessionId = sessionId;
         this.createdAt = LocalDateTime.now();
@@ -59,6 +66,7 @@ public class ChatSession {
         this.currentTokenCount = 0;
         this.status = "active";
         this.userPreferences = new UserPreferences();
+        this.metadata = new ConcurrentHashMap<>();
     }
     
     /**
@@ -144,6 +152,14 @@ public class ChatSession {
     
     public void setCurrentPersonaId(String currentPersonaId) {
         this.currentPersonaId = currentPersonaId;
+    }
+    
+    public Map<String, Object> getMetadata() {
+        return metadata;
+    }
+    
+    public void setMetadata(Map<String, Object> metadata) {
+        this.metadata = metadata;
     }
     
 }

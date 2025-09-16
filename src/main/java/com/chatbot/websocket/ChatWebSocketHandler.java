@@ -31,7 +31,8 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     // 存储活跃的WebSocket会话
     private final ConcurrentHashMap<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
 
-    // 生成唯一会话ID
+    // 生成唯一会话ID (备用，当前使用IdUtil工具类)
+    @SuppressWarnings("unused")
     private final AtomicLong sessionIdGenerator = new AtomicLong(0);
 
     public ChatWebSocketHandler(ChatService chatService, OllamaService ollamaService, ObjectMapper objectMapper) {
@@ -85,13 +86,18 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                 long userMessageTimestamp = System.currentTimeMillis();
 
                 // 检查是否是系统命令
-                if ("system".equals(chatMessage.getType()) &&
-                        chatMessage.getMetadata() != null &&
-                        "check_service".equals(chatMessage.getMetadata().get("action"))) {
-
-                    // 处理Ollama服务状态检查
-                    handleOllamaStatusCheck(session, sessionId);
-                    return;
+                if ("system".equals(chatMessage.getType()) && chatMessage.getMetadata() != null) {
+                    String action = (String) chatMessage.getMetadata().get("action");
+                    
+                    if ("check_service".equals(action)) {
+                        // 处理Ollama服务状态检查
+                        handleOllamaStatusCheck(session, sessionId);
+                        return;
+                    } else if ("toggle_thinking".equals(action)) {
+                        // 处理思考显示切换
+                        handleThinkingToggle(session, sessionId, chatMessage);
+                        return;
+                    }
                 }
                 
                 // 用于跟踪是否是第一次响应
@@ -110,9 +116,9 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                             isFirstResponse[0] = false;
                         }
                         
-                        sendMessage(session, response);
-//                        logger.debug("向客户端发送响应消息，sessionId: {}, responseType: {}",
-//                                sessionId, response.getType());
+                        // 优化流式消息发送
+                        sendStreamingMessage(session, response, sessionId);
+                        
                     } catch (IOException e) {
                         logger.error("发送消息失败，sessionId: {}", sessionId, e);
                     }
@@ -168,11 +174,63 @@ public class ChatWebSocketHandler implements WebSocketHandler {
         if (session.isOpen()) {
             String messageJson = objectMapper.writeValueAsString(message);
             session.sendMessage(new TextMessage(messageJson));
-//            logger.debug("消息发送成功，sessionId: {}, messageType: {}, messageLength: {}",
-//                    message.getSessionId(), message.getType(), messageJson.length());
         } else {
             logger.warn("WebSocket会话已关闭，无法发送消息，sessionId: {}", message.getSessionId());
         }
+    }
+    
+    /**
+     * 优化的流式消息发送
+     */
+    private void sendStreamingMessage(WebSocketSession session, ChatMessage message, String sessionId) throws IOException {
+        if (!session.isOpen()) {
+            logger.warn("WebSocket会话已关闭，无法发送消息，sessionId: {}", sessionId);
+            return;
+        }
+        
+        try {
+            // 对于流式消息，优化JSON序列化
+            String messageJson;
+            if (message.isStreaming() && message.getContent() != null) {
+                // 使用简化的JSON结构减少序列化开销
+                messageJson = String.format(
+                    "{\"type\":\"%s\",\"content\":\"%s\",\"sender\":\"%s\",\"sessionId\":\"%s\",\"streaming\":%s,\"streamComplete\":%s}",
+                    message.getType(),
+                    escapeJson(message.getContent()),
+                    message.getSender(),
+                    message.getSessionId(),
+                    message.isStreaming(),
+                    message.isStreamComplete()
+                );
+            } else {
+                // 非流式消息使用正常序列化
+                messageJson = objectMapper.writeValueAsString(message);
+            }
+            
+            session.sendMessage(new TextMessage(messageJson));
+            
+            // 只在调试模式下记录流式消息
+            if (logger.isDebugEnabled() && message.isStreaming() && !message.isStreamComplete()) {
+                logger.debug("流式消息发送 - sessionId: {}, 内容长度: {}", 
+                           sessionId, message.getContent() != null ? message.getContent().length() : 0);
+            }
+            
+        } catch (Exception e) {
+            logger.error("发送流式消息失败，sessionId: {}", sessionId, e);
+            throw new IOException("发送流式消息失败", e);
+        }
+    }
+    
+    /**
+     * 转义JSON字符串
+     */
+    private String escapeJson(String input) {
+        if (input == null) return "";
+        return input.replace("\\", "\\\\")
+                   .replace("\"", "\\\"")
+                   .replace("\n", "\\n")
+                   .replace("\r", "\\r")
+                   .replace("\t", "\\t");
     }
 
     /**
@@ -214,6 +272,49 @@ public class ChatWebSocketHandler implements WebSocketHandler {
         }
     }
 
+    /**
+     * 处理思考显示切换
+     */
+    private void handleThinkingToggle(WebSocketSession session, String sessionId, ChatMessage message) {
+        try {
+            Boolean showThinking = (Boolean) message.getMetadata().get("showThinking");
+            if (showThinking == null) {
+                showThinking = false;
+            }
+            
+            // 设置用户偏好
+            chatService.setUserThinkingPreference(sessionId, showThinking);
+            
+            // 发送确认消息
+            ChatMessage confirmMessage = new ChatMessage();
+            confirmMessage.setType("system");
+            confirmMessage.setContent(showThinking ? "已开启思考过程显示" : "已关闭思考过程显示");
+            confirmMessage.setSessionId(sessionId);
+            confirmMessage.setMetadata(Map.of(
+                "thinking_toggle", "confirmed",
+                "showThinking", showThinking
+            ));
+            
+            sendMessage(session, confirmMessage);
+            
+            logger.info("用户切换思考显示状态 - sessionId: {}, showThinking: {}", sessionId, showThinking);
+            
+        } catch (Exception e) {
+            logger.error("处理思考显示切换时发生错误，会话 ID: {}", sessionId, e);
+            
+            try {
+                ChatMessage errorMessage = new ChatMessage();
+                errorMessage.setType("system");
+                errorMessage.setContent("切换思考显示状态失败");
+                errorMessage.setSessionId(sessionId);
+                
+                sendMessage(session, errorMessage);
+            } catch (IOException ex) {
+                logger.error("发送错误消息失败", ex);
+            }
+        }
+    }
+    
     /**
      * 获取活跃会话数量
      */

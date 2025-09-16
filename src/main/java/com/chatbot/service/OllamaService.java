@@ -26,6 +26,7 @@ public class OllamaService {
     
     private final OllamaConfig ollamaConfig;
     private final OkHttpClient httpClient;
+    @SuppressWarnings("unused")
     private final ObjectMapper objectMapper;
     
     public OllamaService(OllamaConfig ollamaConfig) {
@@ -296,7 +297,7 @@ public class OllamaService {
     }
     
     /**
-     * 处理流式响应 - 改进版，确保资源正确释放和错误处理
+     * 处理流式响应 - 优化版，支持真正的实时流式处理
      */
     private void processStreamingResponse(ResponseBody responseBody, Consumer<String> onChunk, Consumer<Throwable> onError) {
         StringBuilder totalResponse = new StringBuilder();
@@ -305,58 +306,57 @@ public class OllamaService {
         boolean hasContent = false;
         
         try {
-            // 确保完全读取响应体，避免连接泄漏
-            byte[] bytes = responseBody.bytes();
-            String responseText = new String(bytes);
-            String[] lines = responseText.split("\n");
-            
-            for (String responseLine : lines) {
-                if (responseLine.trim().isEmpty()) {
-                    continue;
-                }
-                
-                try {
-                    JsonNode jsonNode = JsonUtil.parseJson(responseLine);
-                    if (jsonNode == null) {
-                        logger.debug("跳过无效的JSON行: {}", responseLine);
+            // 使用流式读取，而不是一次性读取所有内容
+            try (var source = responseBody.source()) {
+                String line;
+                while ((line = source.readUtf8Line()) != null) {
+                    if (line.trim().isEmpty()) {
                         continue;
                     }
                     
-                    // 检查是否有错误
-                    String error = JsonUtil.getStringValue(jsonNode, "error");
-                    if (error != null && !error.isEmpty()) {
-                        logger.error("Ollama返回错误: {}", error);
-                        onError.accept(new RuntimeException("Ollama API错误: " + error));
-                        return;
-                    }
-                    
-                    // 检查是否完成
-                    Boolean done = JsonUtil.getBooleanValue(jsonNode, "done");
-                    if (done != null && done) {
-                        break;
-                    }
-                    
-                    // 提取响应文本 - /api/chat 接口返回的是 message 对象
-                    JsonNode messageNode = jsonNode.get("message");
-                    if (messageNode != null) {
-                        String chunk = JsonUtil.getStringValue(messageNode, "content");
-                        if (chunk != null && !chunk.isEmpty()) {
-                            chunkCount++;
-                            hasContent = true;
-                            totalResponse.append(chunk);
-                            
-//                            logger.debug("Ollama流式数据块#{}: '{}' (长度: {})",
-//                                       chunkCount, chunk.replace("\n", "\\n"), chunk.length());
-//                            logger.debug("累积响应文本: '{}' (总长度: {})",
-//                                       totalResponse.toString().replace("\n", "\\n"), totalResponse.length());
-                            
-                            onChunk.accept(chunk);
+                    try {
+                        JsonNode jsonNode = JsonUtil.parseJson(line);
+                        if (jsonNode == null) {
+                            logger.debug("跳过无效的JSON行: {}", line);
+                            continue;
                         }
+                        
+                        // 检查是否有错误
+                        String error = JsonUtil.getStringValue(jsonNode, "error");
+                        if (error != null && !error.isEmpty()) {
+                            logger.error("Ollama返回错误: {}", error);
+                            onError.accept(new RuntimeException("Ollama API错误: " + error));
+                            return;
+                        }
+                        
+                        // 检查是否完成
+                        Boolean done = JsonUtil.getBooleanValue(jsonNode, "done");
+                        if (done != null && done) {
+                            logger.debug("流式响应完成信号接收");
+                            break;
+                        }
+                        
+                        // 提取响应文本 - /api/chat 接口返回的是 message 对象
+                        JsonNode messageNode = jsonNode.get("message");
+                        if (messageNode != null) {
+                            String chunk = JsonUtil.getStringValue(messageNode, "content");
+                            if (chunk != null && !chunk.isEmpty()) {
+                                chunkCount++;
+                                hasContent = true;
+                                totalResponse.append(chunk);
+                                
+//                                logger.debug("实时流式数据块#{}: '{}' (长度: {})",
+//                                           chunkCount, chunk.replace("\n", "\\n"), chunk.length());
+                                
+                                // 立即发送给消费者
+                                onChunk.accept(chunk);
+                            }
+                        }
+                        
+                    } catch (Exception e) {
+                        logger.warn("解析流式响应行失败: {}", line, e);
+                        hasError = true;
                     }
-                    
-                } catch (Exception e) {
-                    logger.warn("解析流式响应行失败: {}", responseLine, e);
-                    hasError = true;
                 }
             }
             

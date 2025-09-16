@@ -88,10 +88,48 @@
             font-style: italic;
             animation: pulse 1.5s infinite;
         }
+        .typing-indicator .dots {
+            animation: blink 1.4s infinite both;
+        }
         @keyframes pulse {
             0% { opacity: 0.6; }
             50% { opacity: 1; }
             100% { opacity: 0.6; }
+        }
+        @keyframes blink {
+            0%, 80%, 100% { opacity: 0; }
+            40% { opacity: 1; }
+        }
+        .message.assistant[data-streamable="true"] {
+            position: relative;
+        }
+        .message.assistant[data-streamable="true"]:after {
+            content: '|';
+            animation: cursor-blink 1s infinite;
+            color: #007bff;
+        }
+        .message.assistant.stream-complete:after {
+            display: none;
+        }
+        .message.thinking {
+            background: #fff8dc;
+            border-left: 4px solid #ffa500;
+            font-style: italic;
+            opacity: 0.8;
+        }
+        .message.thinking::before {
+            content: '🧠 思考: ';
+            font-weight: bold;
+            color: #ff8c00;
+        }
+        @keyframes cursor-blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        .send-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
         }
         .input-container {
             padding: 20px;
@@ -118,20 +156,57 @@
         .send-btn:hover {
             background: #0056b3;
         }
-        .send-btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
         .persona-selector {
             padding: 10px 20px;
             background: #f8f9fa;
             border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
         }
         .persona-selector select {
             padding: 5px 10px;
             border: 1px solid #ddd;
             border-radius: 5px;
             background: white;
+        }
+        .thinking-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .thinking-toggle label {
+            font-size: 14px;
+            color: #666;
+            margin: 0;
+        }
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 24px;
+            background: #ccc;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .toggle-switch.active {
+            background: #007bff;
+        }
+        .toggle-switch::before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+        .toggle-switch.active::before {
+            transform: translateX(26px);
         }
         .ollama-status {
             padding: 5px 20px;
@@ -163,12 +238,18 @@
         </div>
         
         <div class="persona-selector">
-            <label>选择人设: </label>
-            <select id="personaSelect">
-                <option value="default">智能助手</option>
-                <option value="advisor">专业顾问</option>
-                <option value="creative">创意助手</option>
-            </select>
+            <div>
+                <label>选择人设: </label>
+                <select id="personaSelect">
+                    <option value="default">智能助手</option>
+                    <option value="advisor">专业顾问</option>
+                    <option value="creative">创意助手</option>
+                </select>
+            </div>
+            <div class="thinking-toggle">
+                <label for="thinkingToggle">显示思考过程:</label>
+                <div class="toggle-switch" id="thinkingToggle" title="切换是否显示AI的思考过程"></div>
+            </div>
         </div>
         
         <div class="chat-container" id="chatContainer">
@@ -189,6 +270,7 @@
         let currentAssistantMessage = null;
         let reconnectAttempts = 0;
         const maxReconnectAttempts = 5;
+        let showThinking = false; // 思考显示状态
 
         const statusDiv = document.getElementById('status');
         const ollamaStatusDiv = document.getElementById('ollamaStatus');
@@ -196,6 +278,7 @@
         const messageInput = document.getElementById('messageInput');
         const sendBtn = document.getElementById('sendBtn');
         const personaSelect = document.getElementById('personaSelect');
+        const thinkingToggle = document.getElementById('thinkingToggle');
 
         // 连接WebSocket
         function connect() {
@@ -271,7 +354,7 @@
             }
         }
 
-        // 处理收到的消息
+        // 处理收到的消息 - 优化版
         function handleIncomingMessage(message) {
             if (message.type === 'system') {
                 if (!currentSessionId) {
@@ -281,6 +364,9 @@
                 // 检查是否是Ollama状态更新
                 if (message.metadata && message.metadata.ollama_status) {
                     updateOllamaStatus(message.metadata.ollama_status === 'available');
+                } else if (message.metadata && message.metadata.thinking_toggle) {
+                    // 处理思考切换确认
+                    handleThinkingToggleConfirmation(message);
                 } else {
                     addMessage('system', message.content);
                 }
@@ -288,21 +374,38 @@
                 removeTypingIndicator();
                 if (message.streaming) {
                     // 流式消息处理
-                    if (!message.content && message.streamComplete) {
-                        // 流式响应结束
-                        if (currentAssistantMessage) {
-                            currentAssistantMessage.dataset.streamable = 'false';
-                            currentAssistantMessage = null;
-                        }
-                    } else {
-                        appendToLastMessage(message.content, message.streamComplete);
-                    }
+                    handleStreamingMessage(message);
                 } else {
                     addMessage('assistant', message.content);
                 }
             } else if (message.type === 'error') {
                 removeTypingIndicator();
                 addMessage('error', '❌ ' + message.content);
+                // 重新启用发送按钮
+                enableSendButton();
+            }
+        }
+        
+        // 处理流式消息
+        function handleStreamingMessage(message) {
+            if (!message.content && message.streamComplete) {
+                // 流式响应结束
+                if (currentAssistantMessage) {
+                    currentAssistantMessage.dataset.streamable = 'false';
+                    currentAssistantMessage.classList.add('stream-complete');
+                    currentAssistantMessage = null;
+                }
+                // 重新启用发送按钮
+                enableSendButton();
+            } else if (message.content) {
+                // 有内容的流式消息
+                if (message.thinking) {
+                    // 思考内容
+                    appendToLastThinkingMessage(message.content, message.streamComplete);
+                } else {
+                    // 普通内容
+                    appendToLastMessage(message.content, message.streamComplete);
+                }
             }
         }
 
@@ -332,6 +435,18 @@
                 currentAssistantMessage = messageDiv;
             }
         }
+        
+        // 添加思考消息到聊天容器
+        function addThinkingMessage(content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message assistant thinking';
+            messageDiv.textContent = content;
+            
+            chatContainer.appendChild(messageDiv);
+            scrollToBottom();
+            
+            return messageDiv;
+        }
 
         // 显示正在输入指示器
         function showTypingIndicator() {
@@ -340,10 +455,18 @@
             const typingDiv = document.createElement('div');
             typingDiv.className = 'typing-indicator';
             typingDiv.id = 'typingIndicator';
-            typingDiv.textContent = 'AI正在思考中...';
+            typingDiv.innerHTML = 'AI正在思考中<span class="dots">...</span>';
             
             chatContainer.appendChild(typingDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+            scrollToBottom();
+        }
+        
+        // 滚动到底部 - 优化版
+        function scrollToBottom() {
+            // 使用requestAnimationFrame保证滚动的流畅性
+            requestAnimationFrame(() => {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            });
         }
 
         // 移除正在输入指示器
@@ -354,7 +477,7 @@
             }
         }
 
-        // 追加内容到最后一条助手消息
+        // 追加内容到最后一条助手消息 - 优化版
         function appendToLastMessage(content, isComplete) {
             if (!currentAssistantMessage) {
                 // 如果没有当前消息，创建新消息
@@ -362,20 +485,79 @@
                 return;
             }
             
+            // 批量处理DOM更新以提高性能
             if (currentAssistantMessage.textContent === 'AI正在思考中...') {
-                // 如果是首次内容，替换掉占位文本
+                // 首次内容，替换占位文本
                 currentAssistantMessage.textContent = content;
             } else {
-                // 否则追加内容
+                // 追加内容
                 currentAssistantMessage.textContent += content;
             }
             
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+            // 使用节流滚动以提高性能
+            throttledScrollToBottom();
             
             if (isComplete) {
                 currentAssistantMessage.dataset.streamable = 'false';
+                currentAssistantMessage.classList.add('stream-complete');
                 currentAssistantMessage = null;
+                // 重新启用发送按钮
+                enableSendButton();
             }
+        }
+        
+        // 追加内容到最后一条思考消息
+        function appendToLastThinkingMessage(content, isComplete) {
+            // 查找最后一条思考消息
+            const thinkingMessages = chatContainer.querySelectorAll('.message.thinking');
+            let lastThinkingMessage = null;
+            
+            if (thinkingMessages.length > 0) {
+                lastThinkingMessage = thinkingMessages[thinkingMessages.length - 1];
+                // 检查是否是最新的消息（简单检查）
+                const allMessages = chatContainer.querySelectorAll('.message');
+                const lastMessage = allMessages[allMessages.length - 1];
+                if (lastMessage !== lastThinkingMessage) {
+                    lastThinkingMessage = null;
+                }
+            }
+            
+            if (!lastThinkingMessage) {
+                // 创建新的思考消息
+                lastThinkingMessage = addThinkingMessage(content);
+            } else {
+                // 追加到现有消息
+                lastThinkingMessage.textContent += content;
+            }
+            
+            throttledScrollToBottom();
+            
+            if (isComplete) {
+                lastThinkingMessage.classList.add('stream-complete');
+            }
+        }
+        
+        // 节流滚动函数
+        const throttledScrollToBottom = throttle(scrollToBottom, 16); // 60fps
+        
+        // 节流函数
+        function throttle(func, delay) {
+            let timeoutId;
+            let lastExecTime = 0;
+            return function (...args) {
+                const currentTime = Date.now();
+                
+                if (currentTime - lastExecTime > delay) {
+                    func.apply(this, args);
+                    lastExecTime = currentTime;
+                } else {
+                    clearTimeout(timeoutId);
+                    timeoutId = setTimeout(() => {
+                        func.apply(this, args);
+                        lastExecTime = Date.now();
+                    }, delay - (currentTime - lastExecTime));
+                }
+            };
         }
 
         // 发送消息
@@ -403,16 +585,14 @@
             messageInput.value = '';
             
             // 禁用发送按钮防止重复发送
-            sendBtn.disabled = true;
-            messageInput.disabled = true;
+            disableSendButton();
             
-            // 3秒后重新启用（防止卡死）
+            // 10秒后强制重新启用（防止卡死）
             setTimeout(() => {
                 if (isConnected) {
-                    sendBtn.disabled = false;
-                    messageInput.disabled = false;
+                    enableSendButton();
                 }
-            }, 3000);
+            }, 10000);
         }
 
         // 事件监听
@@ -439,7 +619,68 @@
                 ws.send(JSON.stringify(message));
             }
         });
+        
+        // 思考切换事件监听
+        thinkingToggle.addEventListener('click', toggleThinkingDisplay);
 
+        // 启用/禁用发送按钮的工具函数
+        function enableSendButton() {
+            if (isConnected) {
+                sendBtn.disabled = false;
+                messageInput.disabled = false;
+                sendBtn.textContent = '发送';
+            }
+        }
+        
+        function disableSendButton() {
+            sendBtn.disabled = true;
+            messageInput.disabled = true;
+            sendBtn.textContent = '发送中...';
+        }
+        
+        // 处理思考切换确认
+        function handleThinkingToggleConfirmation(message) {
+            if (message.metadata.thinking_toggle === 'confirmed') {
+                const newState = message.metadata.showThinking;
+                showThinking = newState;
+                updateThinkingToggleUI(newState);
+                addMessage('system', message.content);
+            }
+        }
+        
+        // 更新思考切换UI
+        function updateThinkingToggleUI(state) {
+            if (state) {
+                thinkingToggle.classList.add('active');
+            } else {
+                thinkingToggle.classList.remove('active');
+            }
+        }
+        
+        // 发送思考切换请求
+        function toggleThinkingDisplay() {
+            if (!ws || !isConnected) {
+                addMessage('system', '请先连接到服务器');
+                return;
+            }
+            
+            const newState = !showThinking;
+            
+            const toggleMessage = {
+                type: 'system',
+                content: 'toggle_thinking',
+                metadata: {
+                    action: 'toggle_thinking',
+                    showThinking: newState
+                }
+            };
+            
+            ws.send(JSON.stringify(toggleMessage));
+        }
+        
+        // 初始化思考切换UI
+        updateThinkingToggleUI(showThinking);
+        
         // 页面加载时连接
         window.addEventListener('load', connect);
     </script>
