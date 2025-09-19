@@ -70,70 +70,65 @@ public class ChatService {
                 long step1Time = System.currentTimeMillis() - step1Start;
                 logger.debug("会话获取成功，耗时: {}ms，sessionId: {}，当前会话消息数: {}", step1Time, session.getSessionId(), session.getMessageHistory().size());
                 
-                // 1.5. 加载历史记录到会话中（如果会话是新创建的或内存中没有历史）
-                logger.debug("步骤1.5：加载历史记录到会话中");
-                long step1_5Start = System.currentTimeMillis();
-                loadHistoryToSession(session);
-                long step1_5Time = System.currentTimeMillis() - step1_5Start;
-                logger.debug("历史记录加载完成，耗时: {}ms，当前会话消息数: {}", step1_5Time, session.getMessageHistory().size());
-                
-                // 2. 添加用户消息到会话历史和对话记录
-                logger.debug("步骤2：添加用户消息到会话历史和对话记录");
+                // 2. 获取系统提示词和人设提示词
+                logger.debug("步骤2：获取系统提示词和人设提示词");
                 long step2Start = System.currentTimeMillis();
-                userMessage.setRole("user");
-                session.addMessage(userMessage);
-                
-                // 添加到对话历史记录和会话历史文件
-                conversationHistoryService.addMessage(sessionId, userMessage);
-                sessionHistoryService.addMessageAndSave(sessionId, userMessage);
-                
+                List<ChatMessage> systemPrompts = getSystemPrompts(session);
                 long step2Time = System.currentTimeMillis() - step2Start;
-                logger.debug("用户消息已添加到会话历史和对话记录，耗时: {}ms", step2Time);
+                logger.debug("系统提示词获取完成，耗时: {}ms，提示词数量: {}", step2Time, systemPrompts.size());
                 
-                // 3. 预处理用户输入
-                logger.debug("步骤3：预处理用户输入");
+                // 3. 获取历史对话记录（去掉系统提示词部分，只保留AI和用户对话历史）
+                logger.debug("步骤3：获取历史对话记录");
                 long step3Start = System.currentTimeMillis();
-                String processedInput = preprocessInput(userMessage.getContent());
+                List<ChatMessage> dialogueHistory = getDialogueHistory(session);
                 long step3Time = System.currentTimeMillis() - step3Start;
+                logger.debug("历史对话记录获取完成，耗时: {}ms，对话消息数: {}", step3Time, dialogueHistory.size());
+                
+                // 4. 预处理用户输入
+                logger.debug("步骤4：预处理用户输入");
+                long step4Start = System.currentTimeMillis();
+                String processedInput = preprocessInput(userMessage.getContent());
+                long step4Time = System.currentTimeMillis() - step4Start;
                 logger.debug("用户输入预处理完成，耗时: {}ms，原始长度: {}, 处理后长度: {}, 原始: '{}', 处理后: '{}'",
-                           step3Time,
+                           step4Time,
                            userMessage.getContent() != null ? userMessage.getContent().length() : 0,
                            processedInput.length(),
                            userMessage.getContent(),
                            processedInput);
                 
-                // 4. 获取上下文和记忆
-                logger.debug("步骤4：获取上下文和记忆");
-                long step4Start = System.currentTimeMillis();
-                String context = buildContext(session);
-                String longTermMemory = memoryService.retrieveRelevantMemory(sessionId, processedInput);
-                long step4Time = System.currentTimeMillis() - step4Start;
-                logger.debug("上下文构建完成，耗时: {}ms，上下文长度: {}, 长期记忆长度: {}", 
-                           step4Time, context.length(), longTermMemory != null ? longTermMemory.length() : 0);
-                
-                // 5. 应用人设
-                logger.debug("步骤5：应用人设，personaId: {}", session.getCurrentPersonaId());
+                // 5. 获取世界书设定（长期记忆）
+                logger.debug("步骤5：获取世界书设定");
                 long step5Start = System.currentTimeMillis();
-                String personaPrompt = personaService.getPersonaPrompt(session.getCurrentPersonaId());
+                ChatMessage worldBookSetting = getWorldBookSetting(session, processedInput);
                 long step5Time = System.currentTimeMillis() - step5Start;
-                logger.debug("人设提示获取完成，耗时: {}ms，长度: {}", step5Time, personaPrompt != null ? personaPrompt.length() : 0);
+                logger.debug("世界书设定获取完成，耗时: {}ms，是否有设定: {}", step5Time, worldBookSetting != null);
                 
-                // 6. 构建完整的消息列表
-                logger.debug("步骤6：构建完整的消息列表");
+                // 6. 准备用户消息（不提前保存，等AI回答完成后一起保存）
+                logger.debug("步骤6：准备用户消息");
                 long step6Start = System.currentTimeMillis();
-                List<OllamaMessage> messages = buildMessagesList(personaPrompt, session, longTermMemory, processedInput);
+                userMessage.setRole("user");
+                userMessage.setContent(processedInput); // 使用预处理后的输入
+                
                 long step6Time = System.currentTimeMillis() - step6Start;
-                logger.debug("消息列表构建完成，耗时: {}ms，消息数量: {}", step6Time, messages.size());
+                logger.debug("用户消息准备完成，耗时: {}ms", step6Time);
+                
+                // 7. 构建完整的消息列表（带 token 限制）
+                logger.debug("步骤7：构建完整的消息列表");
+                long step7Start = System.currentTimeMillis();
+                List<OllamaMessage> messages = buildMessagesListWithTokenLimit(
+                    systemPrompts, dialogueHistory, worldBookSetting, userMessage);
+                long step7Time = System.currentTimeMillis() - step7Start;
+                logger.debug("消息列表构建完成，耗时: {}ms，消息数量: {}", step7Time, messages.size());
                 
                 // 记录预处理完成时间
                 long preprocessingTime = System.currentTimeMillis() - messageStartTime;
-                logger.info("📊 预处理阶段完成，sessionId: {}, 总预处理时间: {}ms (步骤1: {}ms, 步骤2: {}ms, 步骤3: {}ms, 步骤4: {}ms, 步骤5: {}ms, 步骤6: {}ms)", 
-                           sessionId, preprocessingTime, step1Time, step2Time, step3Time, step4Time, step5Time, step6Time);
+                logger.info("📊 预处理阶段完成，sessionId: {}, 总预处理时间: {}ms (步骤1: {}ms, 步骤2: {}ms, 步骤3: {}ms, 步骤4: {}ms, 步骤5: {}ms, 步骤6: {}ms, 步骤7: {}ms)", 
+                           sessionId, preprocessingTime, step1Time, step2Time, step3Time, step4Time, step5Time, step6Time, step7Time);
                 
-                // 7. 调用AI模型生成回复（流式）
-                logger.debug("步骤7：调用AI模型生成回复");
+                // 8. 调用AI模型生成回复（流式）
+                logger.debug("步骤8：调用AI模型生成回复");
                 long aiCallStartTime = System.currentTimeMillis();
-                generateStreamingResponse(messages, sessionId, responseCallback, messageStartTime, aiCallStartTime);
+                generateStreamingResponse(messages, sessionId, responseCallback, messageStartTime, aiCallStartTime, userMessage);
                 
                 long totalProcessingTime = System.currentTimeMillis() - messageStartTime;
                 logger.info("消息处理启动完成，sessionId: {}, 总启动时间: {}ms", sessionId, totalProcessingTime);
@@ -170,87 +165,6 @@ public class ChatService {
         return processed;
     }
     
-    /**
-     * 构建上下文
-     */
-    private String buildContext(ChatSession session) {
-        List<ChatMessage> recentMessages = session.getRecentMessages(10);
-        StringBuilder context = new StringBuilder();
-
-        for (ChatMessage msg : recentMessages) {
-            if (msg.getContent() != null) {
-                context.append(msg.getRole() + ": " + msg.getContent() + "\n");
-            }
-        }
-
-        return context.toString();
-    }
-    
-    /**
-     * 构建完整的消息列表
-     */
-    private List<OllamaMessage> buildMessagesList(String personaPrompt, ChatSession session, String longTermMemory, String userInput) {
-        List<OllamaMessage> messages = new ArrayList<>();
-        
-        // 1. 添加系统消息（人设和基础指令）
-        String systemContent = buildSystemContent(personaPrompt);
-        if (systemContent != null && !systemContent.isEmpty()) {
-            messages.add(new OllamaMessage("system", systemContent));
-        }
-        
-        // 2. 添加历史对话消息（排除最新的用户消息，因为我们会单独处理）
-        List<ChatMessage> recentMessages = session.getRecentMessages(10);
-        // 排除最后一条消息，因为它是刚刚添加的当前用户消息
-        int historyCount = Math.max(0, recentMessages.size() - 1);
-        for (int i = 0; i < historyCount; i++) {
-            ChatMessage msg = recentMessages.get(i);
-            if (msg.getContent() != null && !msg.getContent().trim().isEmpty()) {
-                String role = mapSenderToRole(msg.getRole());
-                messages.add(new OllamaMessage(role, msg.getContent()));
-                logger.debug("添加历史消息: role={}, contentLength={}", role, msg.getContent().length());
-            }
-        }
-
-        // 3. 添加当前用户输入
-        StringBuilder currentUserContent = new StringBuilder();
-        currentUserContent.append(userInput);
-
-        // 4. 添加长期记忆（如果有的话，作为用户消息的上下文）
-        if (longTermMemory != null && !longTermMemory.isEmpty()) {
-            currentUserContent.append("[相关记忆]：\n").append(longTermMemory).append("\n\n");
-            logger.debug("添加长期记忆到当前用户消息，长度: {}", longTermMemory.length());
-        }
-
-        // 5.其他额外设置（qwen系列的不思考模式）
-//        currentUserContent.append("\no_think");
-
-        messages.add(new OllamaMessage("user", currentUserContent.toString()));
-        
-        logger.info("消息列表构建完成，总消息数: {}, 系统消息: {}, 历史消息: {}, 当前用户消息: 1", 
-                   messages.size(), 
-                   systemContent != null && !systemContent.isEmpty() ? 1 : 0,
-                   historyCount);
-        
-        return messages;
-    }
-    
-    /**
-     * 构建系统消息内容
-     */
-    private String buildSystemContent(String personaPrompt) {
-        StringBuilder systemContent = new StringBuilder();
-        
-        // 基础系统指令
-        String baseInstruction = "你是一个智能AI助手。";
-        systemContent.append(baseInstruction);
-        
-        // 人设信息
-        if (personaPrompt != null && !personaPrompt.isEmpty()) {
-            systemContent.append("\n\n").append(personaPrompt);
-        }
-        
-        return systemContent.toString();
-    }
     
     /**
      * 将发送者映射为角色
@@ -333,7 +247,7 @@ public class ChatService {
      * 生成流式回复（使用Ollama）- 优化版
      */
     private void generateStreamingResponse(List<OllamaMessage> messages, String sessionId, Consumer<ChatMessage> callback, 
-                                         long messageStartTime, long aiCallStartTime) {
+                                         long messageStartTime, long aiCallStartTime, ChatMessage userMessage) {
         
         // 检查Ollama服务是否可用
         if (!ollamaService.isServiceAvailable()) {
@@ -361,7 +275,7 @@ public class ChatService {
             },
             // 错误处理
             error -> {
-                handleStreamError(error, sessionId, callback, state);
+                handleStreamError(error, sessionId, callback, state, userMessage);
             }
         );
         
@@ -382,11 +296,11 @@ public class ChatService {
                 
                 callback.accept(finalMessage);
                 
-                // 保存完整响应
+                // 保存完整响应（同时保存用户消息和AI回答）
                 if (state.completeResponse.length() > 0) {
-                    logger.info("💾 触发AI回答保存 - sessionId: {}, 响应长度: {}", 
+                    logger.info("💾 触发对话保存 - sessionId: {}, AI响应长度: {}", 
                                sessionId, state.completeResponse.length());
-                    saveCompleteResponse(sessionId, state.completeResponse.toString());
+                    saveCompleteConversation(sessionId, userMessage, state.completeResponse.toString());
                 } else {
                     logger.warn("⚠️ 没有AI回答内容需要保存 - sessionId: {}", sessionId);
                 }
@@ -573,46 +487,11 @@ public class ChatService {
             logger.error("设置用户思考显示偏好失败", e);
         }
     }
-    
-    /**
-     * 获取用户思考过程保存偏好
-     */
-    private boolean getUserThinkingSavePreference(String sessionId) {
-        try {
-            ChatSession session = sessionService.getSession(sessionId);
-            if (session != null && session.getMetadata() != null) {
-                Object saveThinking = session.getMetadata().get("saveThinking");
-                if (saveThinking instanceof Boolean) {
-                    return (Boolean) saveThinking;
-                }
-            }
-        } catch (Exception e) {
-            logger.error("获取用户思考过程保存偏好失败", e);
-        }
-        // 默认不保存思考过程
-        return false;
-    }
-    
-    /**
-     * 设置用户思考过程保存偏好
-     */
-    public void setUserThinkingSavePreference(String sessionId, boolean saveThinking) {
-        try {
-            ChatSession session = sessionService.getOrCreateSession(sessionId);
-            if (session.getMetadata() == null) {
-                session.setMetadata(new java.util.HashMap<>());
-            }
-            session.getMetadata().put("saveThinking", saveThinking);
-            logger.info("设置用户思考过程保存偏好 - sessionId: {}, saveThinking: {}", sessionId, saveThinking);
-        } catch (Exception e) {
-            logger.error("设置用户思考过程保存偏好失败", e);
-        }
-    }
-    
+
     /**
      * 处理流式错误
      */
-    private void handleStreamError(Throwable error, String sessionId, Consumer<ChatMessage> callback, StreamingState state) {
+    private void handleStreamError(Throwable error, String sessionId, Consumer<ChatMessage> callback, StreamingState state, ChatMessage userMessage) {
         logger.error("Ollama流式响应发生错误，sessionId: {}, 已接收{}个数据块，累积长度: {}", 
                    sessionId, state.chunkCounter, state.completeResponse.length(), error);
         
@@ -635,7 +514,9 @@ public class ChatService {
             callback.accept(finalMessage);
             
             // 保存部分响应
-            saveCompleteResponse(sessionId, state.completeResponse.toString());
+            if (userMessage != null) {
+                saveCompleteConversation(sessionId, userMessage, state.completeResponse.toString());
+            }
         } else {
             // 发送错误消息
             ChatMessage errorMessage = new ChatMessage();
@@ -649,100 +530,319 @@ public class ChatService {
     }
     
     /**
-     * 保存完整响应到会话历史
+     * 保存完整对话到会话历史（用户消息 + AI回答）
      */
-    private void saveCompleteResponse(String sessionId, String completeResponse) {
+    private void saveCompleteConversation(String sessionId, ChatMessage userMessage, String aiResponse) {
         try {
-            logger.info("🔄 流式响应完成汇总 - sessionId: {}, 内容长度: {}, 内容预览: {}", 
-                       sessionId, completeResponse.length(), 
-                       completeResponse.length() > 100 ? completeResponse.substring(0, 100) + "..." : completeResponse);
+            logger.info("🔄 对话保存开始 - sessionId: {}, AI响应长度: {}, 内容预览: {}", 
+                       sessionId, aiResponse.length(), 
+                       aiResponse.length() > 100 ? aiResponse.substring(0, 100) + "..." : aiResponse);
             
-            // 获取用户的思考过程保存偏好
-            boolean saveThinking = getUserThinkingSavePreference(sessionId);
+            // 过滤AI回答中的思考内容，只保存干净的回答
+            String filteredResponse = filterThinkingContent(aiResponse);
+            String finalResponse = (filteredResponse != null && !filteredResponse.trim().isEmpty()) 
+                                  ? filteredResponse : aiResponse;
+            logger.debug("💾 过滤思考内容后，AI回答长度: {}", finalResponse.length());
             
-            String finalResponse;
-            if (saveThinking) {
-                // 如果用户选择保存思考过程，保存完整内容
-                finalResponse = completeResponse;
-                logger.debug("💾 保存完整内容（包含思考过程）到历史记录，长度: {}", finalResponse.length());
-            } else {
-                // 过滤思考内容，获取干净的回答用于保存
-                String filteredResponse = filterThinkingContent(completeResponse);
-                finalResponse = (filteredResponse != null && !filteredResponse.trim().isEmpty()) 
-                               ? filteredResponse : completeResponse;
-                logger.debug("💾 保存过滤后的内容到历史记录，长度: {}", finalResponse.length());
-            }
-            
-            ChatMessage completeMessage = new ChatMessage();
-            completeMessage.setType("text");
-            completeMessage.setContent(finalResponse);
-            completeMessage.setRole("assistant");
-            completeMessage.setSessionId(sessionId);
-            completeMessage.setStreaming(false);
-            
-            // 如果保存了思考过程，标记消息包含思考内容
-            if (saveThinking && completeResponse.contains("<think>")) {
-                completeMessage.setThinking(true);
-            }
+            // 创建AI回答消息
+            ChatMessage aiMessage = new ChatMessage();
+            aiMessage.setType("text");
+            aiMessage.setContent(finalResponse);
+            aiMessage.setRole("assistant");
+            aiMessage.setSessionId(sessionId);
+            aiMessage.setStreaming(false);
             
             ChatSession session = sessionService.getSession(sessionId);
             if (session != null) {
-                session.addMessage(completeMessage);
-                conversationHistoryService.addMessage(sessionId, completeMessage);
+                // 1. 先保存用户消息
+                logger.debug("💾 保存用户消息 - sessionId: {}, 内容长度: {}", 
+                           sessionId, userMessage.getContent().length());
+                session.addMessage(userMessage);
+                conversationHistoryService.addMessage(sessionId, userMessage);
+                sessionHistoryService.addMessageAndSave(sessionId, userMessage);
                 
-                // 同时保存到会话历史文件
-                logger.debug("💾 开始保存AI回答到历史文件 - sessionId: {}, role: {}, contentLength: {}", 
-                           sessionId, completeMessage.getRole(), completeMessage.getContent().length());
-                sessionHistoryService.addMessageAndSave(sessionId, completeMessage);
-                logger.debug("💾 AI回答保存完成 - sessionId: {}", sessionId);
+                // 2. 再保存AI回答
+                logger.debug("💾 保存AI回答 - sessionId: {}, 内容长度: {}", 
+                           sessionId, aiMessage.getContent().length());
+                session.addMessage(aiMessage);
+                conversationHistoryService.addMessage(sessionId, aiMessage);
+                sessionHistoryService.addMessageAndSave(sessionId, aiMessage);
                 
-                // 对于记忆更新，始终使用过滤后的内容
-                String memoryContent = filterThinkingContent(completeResponse);
-                String finalMemoryContent = (memoryContent != null && !memoryContent.trim().isEmpty()) 
-                                          ? memoryContent : completeResponse;
-                memoryService.updateMemory(sessionId, finalMemoryContent);
+                // 3. 更新记忆（使用过滤后的AI回答）
+                memoryService.updateMemory(sessionId, finalResponse);
+                
+                logger.info("💾 对话保存完成 - sessionId: {}, 用户消息和AI回答已保存", sessionId);
             }
         } catch (Exception e) {
-            logger.error("保存完整响应时发生错误", e);
+            logger.error("保存完整对话时发生错误", e);
         }
     }
     
     /**
-     * 加载历史记录到会话中
+     * 获取系统提示词和人设提示词
      */
-    private void loadHistoryToSession(ChatSession session) {
+    private List<ChatMessage> getSystemPrompts(ChatSession session) {
+        List<ChatMessage> systemPrompts = new ArrayList<>();
+        
+        // 1. 添加通用系统提示词
+        String baseSystemPrompt = "你是一个智能AI助手。";
+        ChatMessage systemMessage = new ChatMessage();
+        systemMessage.setRole("system");
+        systemMessage.setContent(baseSystemPrompt);
+        systemMessage.setSessionId(session.getSessionId());
+        systemMessage.setType("text");
+        systemPrompts.add(systemMessage);
+        logger.debug("创建通用系统提示词，内容: {}", baseSystemPrompt);
+        
+        // 2. 如果有人设，添加人设提示词
+        String personaId = session.getCurrentPersonaId();
+        if (personaId != null) {
+            String personaPrompt = personaService.getPersonaPrompt(personaId);
+            if (personaPrompt != null && !personaPrompt.isEmpty()) {
+                ChatMessage personaMessage = new ChatMessage();
+                personaMessage.setRole("system");
+                personaMessage.setContent(personaPrompt);
+                personaMessage.setSessionId(session.getSessionId());
+                personaMessage.setType("text");
+                systemPrompts.add(personaMessage);
+                logger.debug("创建人设提示词，personaId: {}, 内容长度: {}", 
+                           personaId, personaPrompt.length());
+            }
+        }
+        
+        return systemPrompts;
+    }
+    
+    /**
+     * 获取历史对话记录（去掉系统提示词部分，只保留AI和用户对话历史）
+     */
+    private List<ChatMessage> getDialogueHistory(ChatSession session) {
         String sessionId = session.getSessionId();
+        List<ChatMessage> dialogueMessages = new ArrayList<>();
         
-        // 如果内存中已有消息历史，且不是只有系统消息，则不需要重新加载
+        // 首先检查内存中是否已有对话历史
         List<ChatMessage> currentHistory = new ArrayList<>(session.getMessageHistory());
-        if (currentHistory != null && currentHistory.size() > 0) {
-            // 检查是否有用户或助手的消息（非系统消息）
-            boolean hasUserOrAssistantMessages = currentHistory.stream()
-                .anyMatch(msg -> "user".equals(msg.getRole()) || "assistant".equals(msg.getRole()));
+        List<ChatMessage> existingDialogue = currentHistory.stream()
+            .filter(msg -> "user".equals(msg.getRole()) || "assistant".equals(msg.getRole()))
+            .toList();
             
-            if (hasUserOrAssistantMessages) {
-                logger.debug("会话内存中已有对话历史，跳过加载，sessionId: {}, 消息数: {}", 
-                           sessionId, currentHistory.size());
-                return;
-            }
-        }
-        
-        // 从文件加载历史记录
-        List<ChatMessage> historyMessages = sessionHistoryService.loadSessionHistory(sessionId);
-        
-        if (historyMessages != null && !historyMessages.isEmpty()) {
-            logger.info("从文件加载历史记录到会话，sessionId: {}, 历史消息数: {}", 
-                       sessionId, historyMessages.size());
-            
-            // 将历史消息添加到会话中
-            for (ChatMessage msg : historyMessages) {
-                session.addMessage(msg);
-            }
-            
-            logger.debug("历史记录加载完成，会话当前消息数: {}", session.getMessageHistory().size());
+        if (!existingDialogue.isEmpty()) {
+            logger.debug("从会话内存中获取对话历史，sessionId: {}, 消息数: {}", 
+                       sessionId, existingDialogue.size());
+            dialogueMessages.addAll(existingDialogue);
         } else {
-            logger.debug("没有找到历史记录文件或文件为空，sessionId: {}", sessionId);
+            // 从文件加载历史记录
+            List<ChatMessage> historyMessages = sessionHistoryService.loadSessionHistory(sessionId);
+            
+            if (historyMessages != null && !historyMessages.isEmpty()) {
+                // 过滤掉系统提示词部分，只保留AI和用户的对话历史
+                List<ChatMessage> filteredDialogue = historyMessages.stream()
+                    .filter(msg -> "user".equals(msg.getRole()) || "assistant".equals(msg.getRole()))
+                    .toList();
+                    
+                logger.info("从文件加载对话历史，sessionId: {}, 原始消息数: {}, 过滤后对话消息数: {}", 
+                           sessionId, historyMessages.size(), filteredDialogue.size());
+                
+                dialogueMessages.addAll(filteredDialogue);
+            } else {
+                logger.debug("没有找到历史记录文件或文件为空，sessionId: {}", sessionId);
+            }
         }
+        
+        return dialogueMessages;
+    }
+    
+    /**
+     * 获取世界书设定（按相关性排序并设置阈值）
+     */
+    private ChatMessage getWorldBookSetting(ChatSession session, String userInput) {
+        try {
+            // 从世界书中获取相关设定
+            String worldBookContent = retrieveRelevantWorldBook(session.getSessionId(), userInput);
+            
+            if (worldBookContent != null && !worldBookContent.trim().isEmpty()) {
+                // 创建世界书消息
+                ChatMessage worldBookMessage = new ChatMessage();
+                worldBookMessage.setRole("system");
+                worldBookMessage.setContent("为了回答用户的问题，你需要知道：\n" + worldBookContent);
+                worldBookMessage.setSessionId(session.getSessionId());
+                worldBookMessage.setType("text");
+                
+                logger.debug("创建世界书设定消息，内容长度: {}", worldBookContent.length());
+                return worldBookMessage;
+            } else {
+                logger.debug("没有找到相关的世界书设定");
+                return null;
+            }
+        } catch (Exception e) {
+            logger.error("获取世界书设定时发生错误", e);
+            return null;
+        }
+    }
+    
+    /**
+     * 从世界书中检索相关内容（基于相关性阈值）
+     */
+    private String retrieveRelevantWorldBook(String sessionId, String userInput) {
+        try {
+            // 使用现有的记忆服务来获取相关内容，但这里可以扩展为专门的世界书服务
+            String relevantMemory = memoryService.retrieveRelevantMemory(sessionId, userInput);
+            
+            // 设置相关性阈值（这里简化处理，实际应该基于相关性评分）
+            if (relevantMemory != null && relevantMemory.length() > 10) {
+                return relevantMemory;
+            }
+            
+            // TODO: 这里可以扩展为从专门的世界书文件中读取内容
+            // 例如从 resources/data/memories/ 目录下的世界书文件中读取
+            
+            return null;
+        } catch (Exception e) {
+            logger.error("检索世界书内容时发生错误", e);
+            return null;
+        }
+    }
+    
+    /**
+     * 构建完整的消息列表（带 token 限制和智能删除）
+     */
+    private List<OllamaMessage> buildMessagesListWithTokenLimit(
+            List<ChatMessage> systemPrompts,
+            List<ChatMessage> dialogueHistory, 
+            ChatMessage worldBookSetting,
+            ChatMessage userMessage) {
+        
+        List<OllamaMessage> messages = new ArrayList<>();
+        
+        // 配置参数（可以从配置文件或环境变量读取）
+        final int MAX_TOKENS = getMaxTokenLimit(); // 最大 token 数量限制
+        final int ESTIMATED_TOKENS_PER_CHAR = getTokensPerCharEstimate(); // 估算每个字符的 token 数（中文通常更高）
+        
+        int currentTokens = 0;
+        
+        // 1. 首先添加系统提示词（这些不能删除）
+        for (ChatMessage systemMsg : systemPrompts) {
+            if (systemMsg.getContent() != null && !systemMsg.getContent().trim().isEmpty()) {
+                String role = mapSenderToRole(systemMsg.getRole());
+                messages.add(new OllamaMessage(role, systemMsg.getContent()));
+                currentTokens += estimateTokens(systemMsg.getContent(), ESTIMATED_TOKENS_PER_CHAR);
+                logger.debug("添加系统消息: role={}, tokens={}", role, estimateTokens(systemMsg.getContent(), ESTIMATED_TOKENS_PER_CHAR));
+            }
+        }
+        
+        // 2. 添加世界书设定（如果有的话）
+        if (worldBookSetting != null && worldBookSetting.getContent() != null && !worldBookSetting.getContent().trim().isEmpty()) {
+            String role = mapSenderToRole(worldBookSetting.getRole());
+            int worldBookTokens = estimateTokens(worldBookSetting.getContent(), ESTIMATED_TOKENS_PER_CHAR);
+            
+            if (currentTokens + worldBookTokens <= MAX_TOKENS) {
+                messages.add(new OllamaMessage(role, worldBookSetting.getContent()));
+                currentTokens += worldBookTokens;
+                logger.debug("添加世界书设定: tokens={}", worldBookTokens);
+            } else {
+                logger.warn("世界书设定超过 token 限制，跳过添加");
+            }
+        }
+        
+        // 3. 添加当前用户消息（这个必须包含）
+        if (userMessage != null && userMessage.getContent() != null && !userMessage.getContent().trim().isEmpty()) {
+            String role = mapSenderToRole(userMessage.getRole());
+            int userTokens = estimateTokens(userMessage.getContent(), ESTIMATED_TOKENS_PER_CHAR);
+            messages.add(new OllamaMessage(role, userMessage.getContent()));
+            currentTokens += userTokens;
+            logger.debug("添加用户消息: tokens={}", userTokens);
+        }
+        
+        // 4. 智能添加对话历史（从最新的开始，向前添加，直到达到 token 限制）
+        List<ChatMessage> filteredHistory = filterDialogueHistoryByTokens(
+            dialogueHistory, MAX_TOKENS - currentTokens, ESTIMATED_TOKENS_PER_CHAR);
+        
+        // 将过滤后的历史消息插入到系统消息之后、用户消息之前
+        int insertIndex = systemPrompts.size();
+        if (worldBookSetting != null) {
+            insertIndex++;
+        }
+        
+        for (ChatMessage historyMsg : filteredHistory) {
+            if (historyMsg.getContent() != null && !historyMsg.getContent().trim().isEmpty()) {
+                String role = mapSenderToRole(historyMsg.getRole());
+                messages.add(insertIndex++, new OllamaMessage(role, historyMsg.getContent()));
+                logger.debug("添加历史对话: role={}, contentLength={}", role, historyMsg.getContent().length());
+            }
+        }
+        
+        // 计算最终的 token 数量
+        int finalTokens = messages.stream()
+            .mapToInt(msg -> estimateTokens(msg.getContent(), ESTIMATED_TOKENS_PER_CHAR))
+            .sum();
+            
+        logger.info("消息列表构建完成 - 总消息数: {}, 估算 tokens: {}/{}, 系统消息: {}, 历史消息: {}, 世界书: {}, 用户消息: 1", 
+                   messages.size(), finalTokens, MAX_TOKENS, systemPrompts.size(), 
+                   filteredHistory.size(), worldBookSetting != null ? 1 : 0);
+        
+        return messages;
+    }
+    
+    /**
+     * 估算文本的 token 数量
+     */
+    private int estimateTokens(String text, int tokensPerChar) {
+        if (text == null || text.isEmpty()) {
+            return 0;
+        }
+        return text.length() / tokensPerChar;
+    }
+    
+    /**
+     * 根据 token 限制过滤对话历史（从最远的开始删除）
+     */
+    private List<ChatMessage> filterDialogueHistoryByTokens(List<ChatMessage> dialogueHistory, int maxTokens, int tokensPerChar) {
+        if (dialogueHistory == null || dialogueHistory.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        List<ChatMessage> result = new ArrayList<>();
+        int currentTokens = 0;
+        
+        // 从最新的消息开始向前检查（倒序遍历）
+        for (int i = dialogueHistory.size() - 1; i >= 0; i--) {
+            ChatMessage msg = dialogueHistory.get(i);
+            if (msg.getContent() != null && !msg.getContent().trim().isEmpty()) {
+                int msgTokens = estimateTokens(msg.getContent(), tokensPerChar);
+                
+                if (currentTokens + msgTokens <= maxTokens) {
+                    result.add(0, msg); // 插入到列表开头以保持原有顺序
+                    currentTokens += msgTokens;
+                } else {
+                    // 超过限制，停止添加更早的消息
+                    logger.debug("历史消息超过 token 限制，丢弃 {} 条更早的消息", i + 1);
+                    break;
+                }
+            }
+        }
+        
+        logger.debug("过滤对话历史完成，保留 {}/{} 条消息，使用 tokens: {}/{}", 
+                   result.size(), dialogueHistory.size(), currentTokens, maxTokens);
+        
+        return result;
+    }
+    
+    /**
+     * 获取最大 token 限制（可配置）
+     */
+    private int getMaxTokenLimit() {
+        // 这里可以从配置文件或环境变量读取
+        // 目前使用默认值 4000
+        return 4000;
+    }
+    
+    /**
+     * 获取每个字符的 token 估算值（可配置）
+     */
+    private int getTokensPerCharEstimate() {
+        // 中文字符通常比英文占用更多 token
+        // 这里使用保守估算值 4
+        return 4;
     }
     
     /**
