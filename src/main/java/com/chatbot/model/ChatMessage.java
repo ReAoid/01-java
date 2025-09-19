@@ -35,9 +35,9 @@ public class ChatMessage {
     private String messageId;
     
     /**
-     * 发送者：user, assistant, system
+     * 角色：user, assistant, system
      */
-    private String sender;
+    private String role;
     
     /**
      * 时间戳
@@ -113,12 +113,12 @@ public class ChatMessage {
         this.messageId = messageId;
     }
     
-    public String getSender() {
-        return sender;
+    public String getRole() {
+        return role;
     }
     
-    public void setSender(String sender) {
-        this.sender = sender;
+    public void setRole(String role) {
+        this.role = role;
     }
     
     public LocalDateTime getTimestamp() {
@@ -186,6 +186,6 @@ public class ChatMessage {
     
     @Override
     public String toString() {
-        return "ChatMessage{type='" + type + "', content='" + content + "', sessionId='" + sessionId + "', sender='" + sender + "', timestamp=" + timestamp + "}";
+        return "ChatMessage{type='" + type + "', content='" + content + "', sessionId='" + sessionId + "', role='" + role + "', timestamp=" + timestamp + "}";
     }
 }

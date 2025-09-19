@@ -31,6 +31,7 @@ public class ChatService {
     private final AIConfig aiConfig;
     private final OllamaService ollamaService;
     private final ConversationHistoryService conversationHistoryService;
+    private final SessionHistoryService sessionHistoryService;
     
     public ChatService(SessionService sessionService, 
                       PersonaService personaService,
@@ -38,7 +39,8 @@ public class ChatService {
                       MultiModalService multiModalService,
                       AIConfig aiConfig,
                       OllamaService ollamaService,
-                      ConversationHistoryService conversationHistoryService) {
+                      ConversationHistoryService conversationHistoryService,
+                      SessionHistoryService sessionHistoryService) {
         logger.info("初始化ChatService");
         this.sessionService = sessionService;
         this.personaService = personaService;
@@ -47,6 +49,7 @@ public class ChatService {
         this.aiConfig = aiConfig;
         this.ollamaService = ollamaService;
         this.conversationHistoryService = conversationHistoryService;
+        this.sessionHistoryService = sessionHistoryService;
         logger.debug("ChatService初始化完成，已注入所有依赖服务");
     }
     
@@ -67,14 +70,22 @@ public class ChatService {
                 long step1Time = System.currentTimeMillis() - step1Start;
                 logger.debug("会话获取成功，耗时: {}ms，sessionId: {}，当前会话消息数: {}", step1Time, session.getSessionId(), session.getMessageHistory().size());
                 
+                // 1.5. 加载历史记录到会话中（如果会话是新创建的或内存中没有历史）
+                logger.debug("步骤1.5：加载历史记录到会话中");
+                long step1_5Start = System.currentTimeMillis();
+                loadHistoryToSession(session);
+                long step1_5Time = System.currentTimeMillis() - step1_5Start;
+                logger.debug("历史记录加载完成，耗时: {}ms，当前会话消息数: {}", step1_5Time, session.getMessageHistory().size());
+                
                 // 2. 添加用户消息到会话历史和对话记录
                 logger.debug("步骤2：添加用户消息到会话历史和对话记录");
                 long step2Start = System.currentTimeMillis();
-                userMessage.setSender("user");
+                userMessage.setRole("user");
                 session.addMessage(userMessage);
                 
-                // 添加到对话历史记录
+                // 添加到对话历史记录和会话历史文件
                 conversationHistoryService.addMessage(sessionId, userMessage);
+                sessionHistoryService.addMessageAndSave(sessionId, userMessage);
                 
                 long step2Time = System.currentTimeMillis() - step2Start;
                 logger.debug("用户消息已添加到会话历史和对话记录，耗时: {}ms", step2Time);
@@ -134,7 +145,7 @@ public class ChatService {
                 ChatMessage errorResponse = new ChatMessage();
                 errorResponse.setType("error");
                 errorResponse.setContent("抱歉，处理您的消息时出现了问题，请稍后重试。");
-                errorResponse.setSender("assistant");
+                errorResponse.setRole("assistant");
                 errorResponse.setSessionId(sessionId);
                 
                 responseCallback.accept(errorResponse);
@@ -168,7 +179,7 @@ public class ChatService {
 
         for (ChatMessage msg : recentMessages) {
             if (msg.getContent() != null) {
-                context.append(msg.getSender() + ": " + msg.getContent() + "\n");
+                context.append(msg.getRole() + ": " + msg.getContent() + "\n");
             }
         }
 
@@ -194,7 +205,7 @@ public class ChatService {
         for (int i = 0; i < historyCount; i++) {
             ChatMessage msg = recentMessages.get(i);
             if (msg.getContent() != null && !msg.getContent().trim().isEmpty()) {
-                String role = mapSenderToRole(msg.getSender());
+                String role = mapSenderToRole(msg.getRole());
                 messages.add(new OllamaMessage(role, msg.getContent()));
                 logger.debug("添加历史消息: role={}, contentLength={}", role, msg.getContent().length());
             }
@@ -331,7 +342,7 @@ public class ChatService {
             ChatMessage errorMessage = new ChatMessage();
             errorMessage.setType("error");
             errorMessage.setContent("抱歉，AI服务当前不可用，请稍后重试。");
-            errorMessage.setSender("assistant");
+            errorMessage.setRole("assistant");
             errorMessage.setSessionId(sessionId);
             
             callback.accept(errorMessage);
@@ -354,17 +365,17 @@ public class ChatService {
             }
         );
         
-        // 添加完成处理回调
+        // 添加完成处理回调 - 使用更短的延迟
         CompletableFuture.runAsync(() -> {
             try {
-                // 等待流式响应完成
-                Thread.sleep(3000);
+                // 等待流式响应完成 - 减少延迟时间
+                Thread.sleep(500); // 从3000ms减少到500ms
                 
                 // 发送流完成信号
                 ChatMessage finalMessage = new ChatMessage();
                 finalMessage.setType("text");
                 finalMessage.setContent("");
-                finalMessage.setSender("assistant");
+                finalMessage.setRole("assistant");
                 finalMessage.setSessionId(sessionId);
                 finalMessage.setStreaming(true);
                 finalMessage.setStreamComplete(true);
@@ -373,7 +384,11 @@ public class ChatService {
                 
                 // 保存完整响应
                 if (state.completeResponse.length() > 0) {
+                    logger.info("💾 触发AI回答保存 - sessionId: {}, 响应长度: {}", 
+                               sessionId, state.completeResponse.length());
                     saveCompleteResponse(sessionId, state.completeResponse.toString());
+                } else {
+                    logger.warn("⚠️ 没有AI回答内容需要保存 - sessionId: {}", sessionId);
                 }
                 
             } catch (InterruptedException e) {
@@ -428,7 +443,7 @@ public class ChatService {
             ChatMessage thinkingMessage = new ChatMessage();
             thinkingMessage.setType("text");
             thinkingMessage.setContent(result.thinkingContent);
-            thinkingMessage.setSender("assistant");
+            thinkingMessage.setRole("assistant");
             thinkingMessage.setSessionId(sessionId);
             thinkingMessage.setStreaming(true);
             thinkingMessage.setStreamComplete(false);
@@ -445,7 +460,7 @@ public class ChatService {
             ChatMessage streamMessage = new ChatMessage();
             streamMessage.setType("text");
             streamMessage.setContent(result.visibleContent);
-            streamMessage.setSender("assistant");
+            streamMessage.setRole("assistant");
             streamMessage.setSessionId(sessionId);
             streamMessage.setStreaming(true);
             streamMessage.setStreamComplete(false);
@@ -560,6 +575,41 @@ public class ChatService {
     }
     
     /**
+     * 获取用户思考过程保存偏好
+     */
+    private boolean getUserThinkingSavePreference(String sessionId) {
+        try {
+            ChatSession session = sessionService.getSession(sessionId);
+            if (session != null && session.getMetadata() != null) {
+                Object saveThinking = session.getMetadata().get("saveThinking");
+                if (saveThinking instanceof Boolean) {
+                    return (Boolean) saveThinking;
+                }
+            }
+        } catch (Exception e) {
+            logger.error("获取用户思考过程保存偏好失败", e);
+        }
+        // 默认不保存思考过程
+        return false;
+    }
+    
+    /**
+     * 设置用户思考过程保存偏好
+     */
+    public void setUserThinkingSavePreference(String sessionId, boolean saveThinking) {
+        try {
+            ChatSession session = sessionService.getOrCreateSession(sessionId);
+            if (session.getMetadata() == null) {
+                session.setMetadata(new java.util.HashMap<>());
+            }
+            session.getMetadata().put("saveThinking", saveThinking);
+            logger.info("设置用户思考过程保存偏好 - sessionId: {}, saveThinking: {}", sessionId, saveThinking);
+        } catch (Exception e) {
+            logger.error("设置用户思考过程保存偏好失败", e);
+        }
+    }
+    
+    /**
      * 处理流式错误
      */
     private void handleStreamError(Throwable error, String sessionId, Consumer<ChatMessage> callback, StreamingState state) {
@@ -577,7 +627,7 @@ public class ChatService {
             ChatMessage finalMessage = new ChatMessage();
             finalMessage.setType("text");
             finalMessage.setContent("");
-            finalMessage.setSender("assistant");
+            finalMessage.setRole("assistant");
             finalMessage.setSessionId(sessionId);
             finalMessage.setStreaming(true);
             finalMessage.setStreamComplete(true);
@@ -591,7 +641,7 @@ public class ChatService {
             ChatMessage errorMessage = new ChatMessage();
             errorMessage.setType("error");
             errorMessage.setContent("抱歉，AI服务暂时不可用，请稍后重试。");
-            errorMessage.setSender("assistant");
+            errorMessage.setRole("assistant");
             errorMessage.setSessionId(sessionId);
             
             callback.accept(errorMessage);
@@ -603,27 +653,54 @@ public class ChatService {
      */
     private void saveCompleteResponse(String sessionId, String completeResponse) {
         try {
-            logger.info("🔄 流式响应完成汇总 - sessionId: {}, 内容长度: {}", sessionId, completeResponse.length());
+            logger.info("🔄 流式响应完成汇总 - sessionId: {}, 内容长度: {}, 内容预览: {}", 
+                       sessionId, completeResponse.length(), 
+                       completeResponse.length() > 100 ? completeResponse.substring(0, 100) + "..." : completeResponse);
             
-            // 过滤思考内容，获取干净的回答用于保存
-            String filteredResponse = filterThinkingContent(completeResponse);
-            String finalResponse = (filteredResponse != null && !filteredResponse.trim().isEmpty()) 
-                                 ? filteredResponse : completeResponse;
+            // 获取用户的思考过程保存偏好
+            boolean saveThinking = getUserThinkingSavePreference(sessionId);
             
-            logger.debug("💾 保存到历史记录的内容长度: {}", finalResponse.length());
+            String finalResponse;
+            if (saveThinking) {
+                // 如果用户选择保存思考过程，保存完整内容
+                finalResponse = completeResponse;
+                logger.debug("💾 保存完整内容（包含思考过程）到历史记录，长度: {}", finalResponse.length());
+            } else {
+                // 过滤思考内容，获取干净的回答用于保存
+                String filteredResponse = filterThinkingContent(completeResponse);
+                finalResponse = (filteredResponse != null && !filteredResponse.trim().isEmpty()) 
+                               ? filteredResponse : completeResponse;
+                logger.debug("💾 保存过滤后的内容到历史记录，长度: {}", finalResponse.length());
+            }
             
             ChatMessage completeMessage = new ChatMessage();
             completeMessage.setType("text");
             completeMessage.setContent(finalResponse);
-            completeMessage.setSender("assistant");
+            completeMessage.setRole("assistant");
             completeMessage.setSessionId(sessionId);
             completeMessage.setStreaming(false);
+            
+            // 如果保存了思考过程，标记消息包含思考内容
+            if (saveThinking && completeResponse.contains("<think>")) {
+                completeMessage.setThinking(true);
+            }
             
             ChatSession session = sessionService.getSession(sessionId);
             if (session != null) {
                 session.addMessage(completeMessage);
                 conversationHistoryService.addMessage(sessionId, completeMessage);
-                memoryService.updateMemory(sessionId, finalResponse);
+                
+                // 同时保存到会话历史文件
+                logger.debug("💾 开始保存AI回答到历史文件 - sessionId: {}, role: {}, contentLength: {}", 
+                           sessionId, completeMessage.getRole(), completeMessage.getContent().length());
+                sessionHistoryService.addMessageAndSave(sessionId, completeMessage);
+                logger.debug("💾 AI回答保存完成 - sessionId: {}", sessionId);
+                
+                // 对于记忆更新，始终使用过滤后的内容
+                String memoryContent = filterThinkingContent(completeResponse);
+                String finalMemoryContent = (memoryContent != null && !memoryContent.trim().isEmpty()) 
+                                          ? memoryContent : completeResponse;
+                memoryService.updateMemory(sessionId, finalMemoryContent);
             }
         } catch (Exception e) {
             logger.error("保存完整响应时发生错误", e);
@@ -631,9 +708,78 @@ public class ChatService {
     }
     
     /**
+     * 加载历史记录到会话中
+     */
+    private void loadHistoryToSession(ChatSession session) {
+        String sessionId = session.getSessionId();
+        
+        // 如果内存中已有消息历史，且不是只有系统消息，则不需要重新加载
+        List<ChatMessage> currentHistory = new ArrayList<>(session.getMessageHistory());
+        if (currentHistory != null && currentHistory.size() > 0) {
+            // 检查是否有用户或助手的消息（非系统消息）
+            boolean hasUserOrAssistantMessages = currentHistory.stream()
+                .anyMatch(msg -> "user".equals(msg.getRole()) || "assistant".equals(msg.getRole()));
+            
+            if (hasUserOrAssistantMessages) {
+                logger.debug("会话内存中已有对话历史，跳过加载，sessionId: {}, 消息数: {}", 
+                           sessionId, currentHistory.size());
+                return;
+            }
+        }
+        
+        // 从文件加载历史记录
+        List<ChatMessage> historyMessages = sessionHistoryService.loadSessionHistory(sessionId);
+        
+        if (historyMessages != null && !historyMessages.isEmpty()) {
+            logger.info("从文件加载历史记录到会话，sessionId: {}, 历史消息数: {}", 
+                       sessionId, historyMessages.size());
+            
+            // 将历史消息添加到会话中
+            for (ChatMessage msg : historyMessages) {
+                session.addMessage(msg);
+            }
+            
+            logger.debug("历史记录加载完成，会话当前消息数: {}", session.getMessageHistory().size());
+        } else {
+            logger.debug("没有找到历史记录文件或文件为空，sessionId: {}", sessionId);
+        }
+    }
+    
+    /**
+     * 结束会话并保存历史记录
+     */
+    public void endSession(String sessionId) {
+        try {
+            logger.info("结束会话并保存历史记录，sessionId: {}", sessionId);
+            
+            ChatSession session = sessionService.getSession(sessionId);
+            if (session != null) {
+                // 获取会话中的所有消息
+                List<ChatMessage> allMessages = new ArrayList<>(session.getMessageHistory());
+                
+                if (!allMessages.isEmpty()) {
+                    // 保存完整的会话历史到文件
+                    sessionHistoryService.saveSessionHistory(sessionId, allMessages);
+                    logger.info("会话历史已保存到文件，sessionId: {}, 消息数量: {}", sessionId, allMessages.size());
+                } else {
+                    logger.debug("会话没有消息，跳过保存，sessionId: {}", sessionId);
+                }
+            } else {
+                logger.warn("未找到会话，无法保存历史记录，sessionId: {}", sessionId);
+            }
+            
+        } catch (Exception e) {
+            logger.error("结束会话并保存历史记录时发生错误，sessionId: {}", sessionId, e);
+        }
+    }
+    
+    /**
      * 清理会话资源
      */
     public void cleanupSession(String sessionId) {
+        // 先结束会话并保存历史记录
+        endSession(sessionId);
+        
         // 清理会话相关的资源
         logger.info("清理会话资源: {}", sessionId);
         

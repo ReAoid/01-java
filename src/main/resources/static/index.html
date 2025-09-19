@@ -250,6 +250,10 @@
                 <label for="thinkingToggle">显示思考过程:</label>
                 <div class="toggle-switch" id="thinkingToggle" title="切换是否显示AI的思考过程"></div>
             </div>
+            <div class="thinking-toggle">
+                <label for="thinkingSaveToggle">保存思考过程:</label>
+                <div class="toggle-switch" id="thinkingSaveToggle" title="切换是否保存AI的思考过程到历史记录"></div>
+            </div>
         </div>
         
         <div class="chat-container" id="chatContainer">
@@ -271,6 +275,7 @@
         let reconnectAttempts = 0;
         const maxReconnectAttempts = 5;
         let showThinking = false; // 思考显示状态
+        let saveThinking = false; // 思考过程保存状态
 
         const statusDiv = document.getElementById('status');
         const ollamaStatusDiv = document.getElementById('ollamaStatus');
@@ -279,6 +284,7 @@
         const sendBtn = document.getElementById('sendBtn');
         const personaSelect = document.getElementById('personaSelect');
         const thinkingToggle = document.getElementById('thinkingToggle');
+        const thinkingSaveToggle = document.getElementById('thinkingSaveToggle');
 
         // 连接WebSocket
         function connect() {
@@ -367,6 +373,9 @@
                 } else if (message.metadata && message.metadata.thinking_toggle) {
                     // 处理思考切换确认
                     handleThinkingToggleConfirmation(message);
+                } else if (message.metadata && message.metadata.thinking_save_toggle) {
+                    // 处理思考过程保存切换确认
+                    handleThinkingSaveToggleConfirmation(message);
                 } else {
                     addMessage('system', message.content);
                 }
@@ -568,7 +577,7 @@
             const message = {
                 type: 'text',
                 content: content,
-                sender: 'user',
+                role: 'user',
                 sessionId: currentSessionId
             };
 
@@ -622,6 +631,7 @@
         
         // 思考切换事件监听
         thinkingToggle.addEventListener('click', toggleThinkingDisplay);
+        thinkingSaveToggle.addEventListener('click', toggleThinkingSave);
 
         // 启用/禁用发送按钮的工具函数
         function enableSendButton() {
@@ -648,12 +658,31 @@
             }
         }
         
+        // 处理思考过程保存切换确认
+        function handleThinkingSaveToggleConfirmation(message) {
+            if (message.metadata.thinking_save_toggle === 'confirmed') {
+                const newState = message.metadata.saveThinking;
+                saveThinking = newState;
+                updateThinkingSaveToggleUI(newState);
+                addMessage('system', message.content);
+            }
+        }
+        
         // 更新思考切换UI
         function updateThinkingToggleUI(state) {
             if (state) {
                 thinkingToggle.classList.add('active');
             } else {
                 thinkingToggle.classList.remove('active');
+            }
+        }
+        
+        // 更新思考过程保存切换UI
+        function updateThinkingSaveToggleUI(state) {
+            if (state) {
+                thinkingSaveToggle.classList.add('active');
+            } else {
+                thinkingSaveToggle.classList.remove('active');
             }
         }
         
@@ -678,8 +707,30 @@
             ws.send(JSON.stringify(toggleMessage));
         }
         
+        // 发送思考过程保存切换请求
+        function toggleThinkingSave() {
+            if (!ws || !isConnected) {
+                addMessage('system', '请先连接到服务器');
+                return;
+            }
+            
+            const newState = !saveThinking;
+            
+            const toggleMessage = {
+                type: 'system',
+                content: 'toggle_thinking_save',
+                metadata: {
+                    action: 'toggle_thinking_save',
+                    saveThinking: newState
+                }
+            };
+            
+            ws.send(JSON.stringify(toggleMessage));
+        }
+        
         // 初始化思考切换UI
         updateThinkingToggleUI(showThinking);
+        updateThinkingSaveToggleUI(saveThinking);
         
         // 页面加载时连接
         window.addEventListener('load', connect);

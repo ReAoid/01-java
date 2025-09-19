@@ -1,6 +1,6 @@
 # AI聊天机器人系统配置
 server:
-  port: 8080
+  port: 8086
 
 # 系统配置
 system:

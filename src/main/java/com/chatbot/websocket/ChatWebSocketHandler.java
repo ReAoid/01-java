@@ -3,7 +3,6 @@ package com.chatbot.websocket;
 import com.chatbot.model.ChatMessage;
 import com.chatbot.service.ChatService;
 import com.chatbot.service.OllamaService;
-import com.chatbot.util.IdUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -96,6 +95,10 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                     } else if ("toggle_thinking".equals(action)) {
                         // 处理思考显示切换
                         handleThinkingToggle(session, sessionId, chatMessage);
+                        return;
+                    } else if ("toggle_thinking_save".equals(action)) {
+                        // 处理思考过程保存切换
+                        handleThinkingSaveToggle(session, sessionId, chatMessage);
                         return;
                     }
                 }
@@ -194,10 +197,10 @@ public class ChatWebSocketHandler implements WebSocketHandler {
             if (message.isStreaming() && message.getContent() != null) {
                 // 使用简化的JSON结构减少序列化开销
                 messageJson = String.format(
-                    "{\"type\":\"%s\",\"content\":\"%s\",\"sender\":\"%s\",\"sessionId\":\"%s\",\"streaming\":%s,\"streamComplete\":%s}",
+                    "{\"type\":\"%s\",\"content\":\"%s\",\"role\":\"%s\",\"sessionId\":\"%s\",\"streaming\":%s,\"streamComplete\":%s}",
                     message.getType(),
                     escapeJson(message.getContent()),
-                    message.getSender(),
+                    message.getRole(),
                     message.getSessionId(),
                     message.isStreaming(),
                     message.isStreamComplete()
@@ -208,12 +211,6 @@ public class ChatWebSocketHandler implements WebSocketHandler {
             }
             
             session.sendMessage(new TextMessage(messageJson));
-            
-            // 只在调试模式下记录流式消息
-            if (logger.isDebugEnabled() && message.isStreaming() && !message.isStreamComplete()) {
-                logger.debug("流式消息发送 - sessionId: {}, 内容长度: {}", 
-                           sessionId, message.getContent() != null ? message.getContent().length() : 0);
-            }
             
         } catch (Exception e) {
             logger.error("发送流式消息失败，sessionId: {}", sessionId, e);
@@ -234,10 +231,10 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     }
 
     /**
-     * 生成唯一会话ID (使用IdUtil工具类)
+     * 生成基于日期的会话ID (格式: YYYYMMDD)
      */
     private String generateSessionId() {
-        return IdUtil.sessionId();
+        return java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
     }
 
     /**
@@ -306,6 +303,49 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                 ChatMessage errorMessage = new ChatMessage();
                 errorMessage.setType("system");
                 errorMessage.setContent("切换思考显示状态失败");
+                errorMessage.setSessionId(sessionId);
+                
+                sendMessage(session, errorMessage);
+            } catch (IOException ex) {
+                logger.error("发送错误消息失败", ex);
+            }
+        }
+    }
+    
+    /**
+     * 处理思考过程保存切换
+     */
+    private void handleThinkingSaveToggle(WebSocketSession session, String sessionId, ChatMessage message) {
+        try {
+            Boolean saveThinking = (Boolean) message.getMetadata().get("saveThinking");
+            if (saveThinking == null) {
+                saveThinking = false;
+            }
+            
+            // 设置用户偏好
+            chatService.setUserThinkingSavePreference(sessionId, saveThinking);
+            
+            // 发送确认消息
+            ChatMessage confirmMessage = new ChatMessage();
+            confirmMessage.setType("system");
+            confirmMessage.setContent(saveThinking ? "已开启思考过程保存到历史记录" : "已关闭思考过程保存到历史记录");
+            confirmMessage.setSessionId(sessionId);
+            confirmMessage.setMetadata(Map.of(
+                "thinking_save_toggle", "confirmed",
+                "saveThinking", saveThinking
+            ));
+            
+            sendMessage(session, confirmMessage);
+            
+            logger.info("用户切换思考过程保存状态 - sessionId: {}, saveThinking: {}", sessionId, saveThinking);
+            
+        } catch (Exception e) {
+            logger.error("处理思考过程保存切换时发生错误，会话 ID: {}", sessionId, e);
+            
+            try {
+                ChatMessage errorMessage = new ChatMessage();
+                errorMessage.setType("system");
+                errorMessage.setContent("切换思考过程保存状态失败");
                 errorMessage.setSessionId(sessionId);
                 
                 sendMessage(session, errorMessage);

@@ -83,7 +83,7 @@ public class ConversationHistoryService {
         // 添加消息到记录
         record.addMessage(
             message.getTimestamp() != null ? message.getTimestamp() : LocalDateTime.now(),
-            message.getSender() != null ? message.getSender() : "unknown",
+            message.getRole() != null ? message.getRole() : "unknown",
             message.getContent()
         );
     }
