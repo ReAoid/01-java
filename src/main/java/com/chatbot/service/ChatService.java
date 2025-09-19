@@ -1,6 +1,6 @@
 package com.chatbot.service;
 
-import com.chatbot.config.AIConfig;
+import com.chatbot.config.AppConfig;
 import com.chatbot.model.ChatMessage;
 import com.chatbot.model.ChatSession;
 import com.chatbot.model.OllamaMessage;
@@ -28,7 +28,7 @@ public class ChatService {
     @SuppressWarnings("unused")
     private final MultiModalService multiModalService;
     @SuppressWarnings("unused")
-    private final AIConfig aiConfig;
+    private final AppConfig.AIConfig aiConfig;
     private final OllamaService ollamaService;
     private final ConversationHistoryService conversationHistoryService;
     private final SessionHistoryService sessionHistoryService;
@@ -37,7 +37,7 @@ public class ChatService {
                       PersonaService personaService,
                       MemoryService memoryService,
                       MultiModalService multiModalService,
-                      AIConfig aiConfig,
+                      AppConfig appConfig,
                       OllamaService ollamaService,
                       ConversationHistoryService conversationHistoryService,
                       SessionHistoryService sessionHistoryService) {
@@ -46,7 +46,7 @@ public class ChatService {
         this.personaService = personaService;
         this.memoryService = memoryService;
         this.multiModalService = multiModalService;
-        this.aiConfig = aiConfig;
+        this.aiConfig = appConfig.getAi();
         this.ollamaService = ollamaService;
         this.conversationHistoryService = conversationHistoryService;
         this.sessionHistoryService = sessionHistoryService;

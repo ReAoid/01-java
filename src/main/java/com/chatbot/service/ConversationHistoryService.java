@@ -1,6 +1,6 @@
 package com.chatbot.service;
 
-import com.chatbot.config.ResourceConfig;
+import com.chatbot.config.AppConfig;
 import com.chatbot.model.ChatMessage;
 import com.chatbot.model.ConversationRecord;
 import com.chatbot.model.ConversationStats;
@@ -31,7 +31,7 @@ public class ConversationHistoryService {
     
     private static final Logger logger = LoggerFactory.getLogger(ConversationHistoryService.class);
     
-    private final ResourceConfig resourceConfig;
+    private final AppConfig.ResourceConfig resourceConfig;
     
     // 内存中的对话记录缓存
     private final ConcurrentHashMap<String, ConversationRecord> activeConversations = new ConcurrentHashMap<>();
@@ -40,8 +40,8 @@ public class ConversationHistoryService {
     private static final DateTimeFormatter FILE_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
     private static final DateTimeFormatter DIR_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy/MM/dd");
     
-    public ConversationHistoryService(ResourceConfig resourceConfig) {
-        this.resourceConfig = resourceConfig;
+    public ConversationHistoryService(AppConfig appConfig) {
+        this.resourceConfig = appConfig.getResource();
         initializeHistoryDirectory();
     }
     

@@ -1,6 +1,6 @@
 package com.chatbot.service;
 
-import com.chatbot.config.ResourceConfig;
+import com.chatbot.config.AppConfig;
 import com.chatbot.model.ChatMessage;
 import com.chatbot.util.FileUtil;
 import com.chatbot.util.JsonUtil;
@@ -30,10 +30,10 @@ public class SessionHistoryService {
     
     private static final Logger logger = LoggerFactory.getLogger(SessionHistoryService.class);
     
-    private final ResourceConfig resourceConfig;
+    private final AppConfig.ResourceConfig resourceConfig;
     
-    public SessionHistoryService(ResourceConfig resourceConfig) {
-        this.resourceConfig = resourceConfig;
+    public SessionHistoryService(AppConfig appConfig) {
+        this.resourceConfig = appConfig.getResource();
         initializeSessionsDirectory();
     }
     

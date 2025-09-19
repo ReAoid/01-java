@@ -1,6 +1,6 @@
 package com.chatbot.service;
 
-import com.chatbot.config.OllamaConfig;
+import com.chatbot.config.AppConfig;
 import com.chatbot.model.*;
 import com.chatbot.util.JsonUtil;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -24,13 +24,13 @@ public class OllamaService {
     
     private static final Logger logger = LoggerFactory.getLogger(OllamaService.class);
     
-    private final OllamaConfig ollamaConfig;
+    private final AppConfig.OllamaConfig ollamaConfig;
     private final OkHttpClient httpClient;
     @SuppressWarnings("unused")
     private final ObjectMapper objectMapper;
     
-    public OllamaService(OllamaConfig ollamaConfig) {
-        this.ollamaConfig = ollamaConfig;
+    public OllamaService(AppConfig appConfig) {
+        this.ollamaConfig = appConfig.getOllama();
         this.objectMapper = new ObjectMapper();
         
         // 配置HTTP客户端 - 改进连接池和超时配置

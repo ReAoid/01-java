@@ -1,6 +1,6 @@
 package com.chatbot.service;
 
-import com.chatbot.config.PythonApiConfig;
+import com.chatbot.config.AppConfig;
 import com.chatbot.model.VadResult;
 import com.chatbot.model.OcrResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,11 +20,11 @@ public class MultiModalService {
     
     private static final Logger logger = LoggerFactory.getLogger(MultiModalService.class);
     
-    private final PythonApiConfig pythonApiConfig;
+    private final AppConfig.PythonApiConfig pythonApiConfig;
     private final ObjectMapper objectMapper;
     
-    public MultiModalService(PythonApiConfig pythonApiConfig) {
-        this.pythonApiConfig = pythonApiConfig;
+    public MultiModalService(AppConfig appConfig) {
+        this.pythonApiConfig = appConfig.getPython();
         this.objectMapper = new ObjectMapper();
     }
     

@@ -2,56 +2,57 @@
 server:
   port: 8086
 
-# 系统配置
-system:
-  max_context_tokens: 8192
-  session_timeout: 3600
-  websocket:
-    ping_interval: 30
-    max_reconnect_attempts: 5
+# 应用统一配置
+app:
+  # 系统配置
+  system:
+    max-context-tokens: 8192
+    session-timeout: 3600
+    websocket:
+      ping-interval: 30
+      max-reconnect-attempts: 5
 
-# AI配置
-ai:
-  streaming:
-    chunk_size: 16
-    delay_ms: 50
-  voice:
-    asr_model: "whisper-medium"
-    tts_voice: "zh-CN-XiaoxiaoNeural"
+  # AI配置
+  ai:
+    streaming:
+      chunk-size: 16
+      delay-ms: 50
+    voice:
+      asr-model: "whisper-medium"
+      tts-voice: "zh-CN-XiaoxiaoNeural"
 
-# Ollama配置
-ollama:
-  base_url: "http://localhost:11434"
-  model: "qwen3:4b"
-  timeout: 30000
-  max_tokens: 4096
-  temperature: 0.7
-  stream: true
+  # Ollama配置
+  ollama:
+    base-url: "http://localhost:11434"
+    model: "qwen3:4b"
+    timeout: 30000
+    max-tokens: 4096
+    temperature: 0.7
+    stream: true
 
-# Python API配置 (Mock)
-python:
-  api:
-    base_url: "http://localhost:5000"
+  # Python API配置
+  python:
+    base-url: "http://localhost:5000"
     endpoints:
       asr: "/api/asr"
       tts: "/api/tts"
       vad: "/api/vad"
       ocr: "/api/ocr"
 
-# 记忆系统配置
+  # 资源路径配置
+  resource:
+    base-path: "src/main/resources"
+    log-path: "logs"
+    data:
+      memories: "data/memories"
+      personas: "data/personas"
+      sessions: "data/sessions"
+
+# 记忆系统配置（预留）
 # memory:
 #   max_short_term: 50
 #   max_long_term: 1000
 #   summary_trigger_threshold: 20
-
-# 资源路径配置
-resource:
-  base-path: "src/main/resources"
-  log-path: "logs"
-  data:
-    memories: "data/memories"
-    personas: "data/personas"
-    sessions: "data/sessions"
 
 # 日志配置（主要配置在logback.xml中）
 logging:
