@@ -127,8 +127,6 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                     }
                 });
 
-                long processingTime = System.currentTimeMillis() - startTime;
-
             } catch (Exception e) {
                 long processingTime = System.currentTimeMillis() - startTime;
                 logger.error("处理WebSocket消息时发生错误，sessionId: {}, 处理时间: {}ms",
