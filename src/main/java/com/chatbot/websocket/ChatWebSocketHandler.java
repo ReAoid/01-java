@@ -96,10 +96,6 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                         // 处理思考显示切换
                         handleThinkingToggle(session, sessionId, chatMessage);
                         return;
-                    } else if ("toggle_thinking_save".equals(action)) {
-                        // 处理思考过程保存切换
-                        handleThinkingSaveToggle(session, sessionId, chatMessage);
-                        return;
                     }
                 }
                 
@@ -310,48 +306,6 @@ public class ChatWebSocketHandler implements WebSocketHandler {
         }
     }
     
-    /**
-     * 处理思考过程保存切换
-     */
-    private void handleThinkingSaveToggle(WebSocketSession session, String sessionId, ChatMessage message) {
-        try {
-            Boolean saveThinking = (Boolean) message.getMetadata().get("saveThinking");
-            if (saveThinking == null) {
-                saveThinking = false;
-            }
-            
-            // 设置用户偏好
-            chatService.setUserThinkingSavePreference(sessionId, saveThinking);
-            
-            // 发送确认消息
-            ChatMessage confirmMessage = new ChatMessage();
-            confirmMessage.setType("system");
-            confirmMessage.setContent(saveThinking ? "已开启思考过程保存到历史记录" : "已关闭思考过程保存到历史记录");
-            confirmMessage.setSessionId(sessionId);
-            confirmMessage.setMetadata(Map.of(
-                "thinking_save_toggle", "confirmed",
-                "saveThinking", saveThinking
-            ));
-            
-            sendMessage(session, confirmMessage);
-            
-            logger.info("用户切换思考过程保存状态 - sessionId: {}, saveThinking: {}", sessionId, saveThinking);
-            
-        } catch (Exception e) {
-            logger.error("处理思考过程保存切换时发生错误，会话 ID: {}", sessionId, e);
-            
-            try {
-                ChatMessage errorMessage = new ChatMessage();
-                errorMessage.setType("system");
-                errorMessage.setContent("切换思考过程保存状态失败");
-                errorMessage.setSessionId(sessionId);
-                
-                sendMessage(session, errorMessage);
-            } catch (IOException ex) {
-                logger.error("发送错误消息失败", ex);
-            }
-        }
-    }
     
     /**
      * 获取活跃会话数量
