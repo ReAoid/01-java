@@ -143,8 +143,8 @@ public class SessionHistoryService {
                     
                     simpleMessages.add(simple);
                     
-                    logger.debug("添加消息到历史记录: role={}, contentLength={}, timestamp={}", 
-                               msg.getRole(), content.length(), timestamp);
+//                    logger.debug("添加消息到历史记录: role={}, contentLength={}, timestamp={}",
+//                               msg.getRole(), content.length(), timestamp);
                 }
             }
             

@@ -276,14 +276,10 @@ public class ChatService {
             // 错误处理
             error -> {
                 handleStreamError(error, sessionId, callback, state, userMessage);
-            }
-        );
-        
-        // 添加完成处理回调 - 使用更短的延迟
-        CompletableFuture.runAsync(() -> {
-            try {
-                // 等待流式响应完成 - 减少延迟时间
-                Thread.sleep(500); // 从3000ms减少到500ms
+            },
+            // 完成处理回调 - 在流式响应真正完成时调用
+            () -> {
+                logger.debug("收到流式响应完成通知，sessionId: {}", sessionId);
                 
                 // 发送流完成信号
                 ChatMessage finalMessage = new ChatMessage();
@@ -298,18 +294,14 @@ public class ChatService {
                 
                 // 保存完整响应（同时保存用户消息和AI回答）
                 if (state.completeResponse.length() > 0) {
-                    logger.info("💾 触发对话保存 - sessionId: {}, AI响应长度: {}", 
-                               sessionId, state.completeResponse.length());
+//                    logger.info("💾 触发对话保存 - sessionId: {}, AI响应长度: {}",
+//                               sessionId, state.completeResponse.length());
                     saveCompleteConversation(sessionId, userMessage, state.completeResponse.toString());
                 } else {
                     logger.warn("⚠️ 没有AI回答内容需要保存 - sessionId: {}", sessionId);
                 }
-                
-            } catch (InterruptedException e) {
-                logger.warn("流式响应完成处理被中断，sessionId: {}", sessionId);
-                Thread.currentThread().interrupt();
             }
-        });
+        );
     }
     
     /**
@@ -542,7 +534,7 @@ public class ChatService {
             String filteredResponse = filterThinkingContent(aiResponse);
             String finalResponse = (filteredResponse != null && !filteredResponse.trim().isEmpty()) 
                                   ? filteredResponse : aiResponse;
-            logger.debug("💾 过滤思考内容后，AI回答长度: {}", finalResponse.length());
+//            logger.debug("💾 过滤思考内容后，AI回答长度: {}", finalResponse.length());
             
             // 创建AI回答消息
             ChatMessage aiMessage = new ChatMessage();

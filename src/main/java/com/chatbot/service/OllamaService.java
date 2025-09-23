@@ -99,7 +99,7 @@ public class OllamaService {
                         }
                         
                         // 处理流式响应
-                        processStreamingResponse(responseBody, onChunk, onError);
+                        processStreamingResponse(responseBody, onChunk, onError, null);
                     }
                 }
             });
@@ -113,7 +113,7 @@ public class OllamaService {
     /**
      * 流式生成响应（支持完整消息列表）
      */
-    public void generateStreamingResponse(List<OllamaMessage> messages, Consumer<String> onChunk, Consumer<Throwable> onError) {
+    public void generateStreamingResponse(List<OllamaMessage> messages, Consumer<String> onChunk, Consumer<Throwable> onError, Runnable onComplete) {
         logger.debug("消息数量: {}", messages.size());
         
         try {
@@ -156,7 +156,7 @@ public class OllamaService {
                         }
                         
                         // 处理流式响应
-                        processStreamingResponse(responseBody, onChunk, onError);
+                        processStreamingResponse(responseBody, onChunk, onError, onComplete);
                     }
                 }
             });
@@ -299,7 +299,7 @@ public class OllamaService {
     /**
      * 处理流式响应 - 优化版，支持真正的实时流式处理
      */
-    private void processStreamingResponse(ResponseBody responseBody, Consumer<String> onChunk, Consumer<Throwable> onError) {
+    private void processStreamingResponse(ResponseBody responseBody, Consumer<String> onChunk, Consumer<Throwable> onError, Runnable onComplete) {
         StringBuilder totalResponse = new StringBuilder();
         int chunkCount = 0;
         boolean hasError = false;
@@ -367,6 +367,12 @@ public class OllamaService {
             if (!hasContent && !hasError) {
                 logger.warn("Ollama流式响应没有返回任何内容");
                 onError.accept(new RuntimeException("AI服务返回空响应"));
+            } else if (hasContent) {
+                // 只有在成功收到内容时才调用完成回调
+//                logger.debug("调用流式响应完成回调");
+                if (onComplete != null) {
+                    onComplete.run();
+                }
             }
             
         } catch (Exception e) {
