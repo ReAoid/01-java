@@ -40,13 +40,15 @@ app:
       ocr: "/api/ocr"
 
   # 资源路径配置
-  resource:
+  resources:
     base-path: "src/main/resources"
     log-path: "logs"
-    data:
+    data-paths:
       memories: "data/memories"
       personas: "data/personas"
       sessions: "data/sessions"
+      worldbook-manual: "src/main/resources/data/worldbook/manual_worldbook.json"
+      worldbook-extracted: "src/main/resources/data/worldbook/extracted_worldbook.json"
 
 # 记忆系统配置（预留）
 # memory:

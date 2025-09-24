@@ -25,6 +25,7 @@ public class ChatService {
     private final SessionService sessionService;
     private final PersonaService personaService;
     private final MemoryService memoryService;
+    private final WorldBookService worldBookService;
     @SuppressWarnings("unused")
     private final MultiModalService multiModalService;
     @SuppressWarnings("unused")
@@ -36,6 +37,7 @@ public class ChatService {
     public ChatService(SessionService sessionService, 
                       PersonaService personaService,
                       MemoryService memoryService,
+                      WorldBookService worldBookService,
                       MultiModalService multiModalService,
                       AppConfig appConfig,
                       OllamaService ollamaService,
@@ -45,6 +47,7 @@ public class ChatService {
         this.sessionService = sessionService;
         this.personaService = personaService;
         this.memoryService = memoryService;
+        this.worldBookService = worldBookService;
         this.multiModalService = multiModalService;
         this.aiConfig = appConfig.getAi();
         this.ollamaService = ollamaService;
@@ -560,8 +563,9 @@ public class ChatService {
                 conversationHistoryService.addMessage(sessionId, aiMessage);
                 sessionHistoryService.addMessageAndSave(sessionId, aiMessage);
                 
-                // 3. 更新记忆（使用过滤后的AI回答）
-                memoryService.updateMemory(sessionId, finalResponse);
+                // 3. 更新记忆和世界书（使用用户输入内容，而不是AI回答）
+                memoryService.updateMemory(sessionId, userMessage.getContent());
+                worldBookService.extractAndAddEntry(sessionId, userMessage.getContent());
                 
                 logger.info("💾 对话保存完成 - sessionId: {}, 用户消息和AI回答已保存", sessionId);
             }
@@ -677,17 +681,15 @@ public class ChatService {
      */
     private String retrieveRelevantWorldBook(String sessionId, String userInput) {
         try {
-            // 使用现有的记忆服务来获取相关内容，但这里可以扩展为专门的世界书服务
-            String relevantMemory = memoryService.retrieveRelevantMemory(sessionId, userInput);
+            // 使用WorldBookService获取相关内容（包含手动配置和自动提取的内容）
+            String worldBookContent = worldBookService.retrieveRelevantContent(sessionId, userInput);
             
-            // 设置相关性阈值（这里简化处理，实际应该基于相关性评分）
-            if (relevantMemory != null && relevantMemory.length() > 10) {
-                return relevantMemory;
+            if (worldBookContent != null && !worldBookContent.trim().isEmpty()) {
+                logger.debug("检索到世界书内容，长度: {}", worldBookContent.length());
+                return worldBookContent;
             }
             
-            // TODO: 这里可以扩展为从专门的世界书文件中读取内容
-            // 例如从 resources/data/memories/ 目录下的世界书文件中读取
-            
+            logger.debug("未找到相关的世界书内容");
             return null;
         } catch (Exception e) {
             logger.error("检索世界书内容时发生错误", e);
