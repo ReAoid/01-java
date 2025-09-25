@@ -87,14 +87,36 @@ public class AppConfig {
      * AI相关配置
      */
     public static class AIConfig {
+        private SystemPromptConfig systemPrompt = new SystemPromptConfig();
         private StreamingConfig streaming = new StreamingConfig();
         private VoiceConfig voice = new VoiceConfig();
+        
+        public SystemPromptConfig getSystemPrompt() { return systemPrompt; }
+        public void setSystemPrompt(SystemPromptConfig systemPrompt) { this.systemPrompt = systemPrompt; }
         
         public StreamingConfig getStreaming() { return streaming; }
         public void setStreaming(StreamingConfig streaming) { this.streaming = streaming; }
         
         public VoiceConfig getVoice() { return voice; }
         public void setVoice(VoiceConfig voice) { this.voice = voice; }
+        
+        /**
+         * 系统提示词配置
+         */
+        public static class SystemPromptConfig {
+            private String base = "你是一个智能AI助手，专注于提供准确、有用的信息和建议。";
+            private String fallback = "你是一个友善的AI助手，请帮助用户解决问题。";
+            private boolean enablePersona = true;
+            
+            public String getBase() { return base; }
+            public void setBase(String base) { this.base = base; }
+            
+            public String getFallback() { return fallback; }
+            public void setFallback(String fallback) { this.fallback = fallback; }
+            
+            public boolean isEnablePersona() { return enablePersona; }
+            public void setEnablePersona(boolean enablePersona) { this.enablePersona = enablePersona; }
+        }
         
         public static class StreamingConfig {
             private int chunkSize = 16;

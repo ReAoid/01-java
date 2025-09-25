@@ -1,10 +1,16 @@
 package com.chatbot.service;
 
+import com.chatbot.config.AppConfig;
 import com.chatbot.model.Persona;
+import com.chatbot.util.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
 import java.util.ArrayList;
@@ -19,17 +25,63 @@ public class PersonaService {
     private static final Logger logger = LoggerFactory.getLogger(PersonaService.class);
     
     private final ConcurrentHashMap<String, Persona> personas;
+    private final AppConfig appConfig;
     private static final String DEFAULT_PERSONA_ID = "default";
+    private static final String PERSONAS_FILE = "personas.json";
     
-    public PersonaService() {
+    public PersonaService(AppConfig appConfig) {
+        this.appConfig = appConfig;
         this.personas = new ConcurrentHashMap<>();
-        initializeDefaultPersonas();
+        initializePersonas();
     }
     
     /**
-     * 初始化默认人设
+     * 初始化人设（从外部文件读取）
      */
-    private void initializeDefaultPersonas() {
+    private void initializePersonas() {
+        try {
+            // 先尝试从外部文件读取
+            loadPersonasFromFile();
+        } catch (Exception e) {
+            logger.warn("从外部文件加载人设失败，使用内置默认人设: {}", e.getMessage());
+            // 如果文件读取失败，使用内置默认人设
+            initializeBuiltinPersonas();
+        }
+        
+        logger.info("初始化了 {} 个人设", personas.size());
+    }
+    
+    /**
+     * 从外部JSON文件加载人设
+     */
+    private void loadPersonasFromFile() throws IOException {
+        String personasPath = appConfig.getResource().getPersonasPath();
+        Path personasFilePath = Paths.get(personasPath, PERSONAS_FILE);
+        
+        if (!Files.exists(personasFilePath)) {
+            throw new IOException("人设文件不存在: " + personasFilePath);
+        }
+        
+        String jsonContent = Files.readString(personasFilePath);
+        List<Persona> personaList = JsonUtil.fromJsonToList(jsonContent, Persona.class);
+        
+        if (personaList != null && !personaList.isEmpty()) {
+            for (Persona persona : personaList) {
+                if (persona.getPersonaId() != null) {
+                    personas.put(persona.getPersonaId(), persona);
+                    logger.debug("加载人设: {} - {}", persona.getPersonaId(), persona.getName());
+                }
+            }
+            logger.info("从文件 {} 成功加载了 {} 个人设", personasFilePath, personaList.size());
+        } else {
+            throw new IOException("人设文件内容为空或格式错误");
+        }
+    }
+    
+    /**
+     * 初始化内置默认人设（备用方案）
+     */
+    private void initializeBuiltinPersonas() {
         // 默认助手人设
         Persona defaultPersona = new Persona(DEFAULT_PERSONA_ID, "智能助手");
         defaultPersona.setDescription("一个友善、专业的AI助手");
@@ -78,7 +130,7 @@ public class PersonaService {
         );
         personas.put("creative", creativePersona);
         
-        logger.info("初始化了 {} 个默认人设", personas.size());
+        logger.info("使用内置默认人设，共 {} 个", personas.size());
     }
     
     /**
@@ -166,5 +218,43 @@ public class PersonaService {
      */
     public String getDefaultPersonaId() {
         return DEFAULT_PERSONA_ID;
+    }
+    
+    /**
+     * 保存人设到外部JSON文件（格式化）
+     */
+    public boolean savePersonasToFile() {
+        try {
+            String personasPath = appConfig.getResource().getPersonasPath();
+            Path personasFilePath = Paths.get(personasPath, PERSONAS_FILE);
+            
+            List<Persona> personaList = new ArrayList<>(personas.values());
+            String jsonContent = JsonUtil.toPrettyJson(personaList);
+            
+            Files.createDirectories(personasFilePath.getParent());
+            Files.writeString(personasFilePath, jsonContent);
+            
+            logger.info("人设配置已保存到文件: {}, 共 {} 个人设", personasFilePath, personaList.size());
+            return true;
+            
+        } catch (Exception e) {
+            logger.error("保存人设配置到文件失败", e);
+            return false;
+        }
+    }
+    
+    /**
+     * 重新加载人设配置
+     */
+    public boolean reloadPersonas() {
+        try {
+            personas.clear();
+            initializePersonas();
+            logger.info("人设配置重新加载成功，共 {} 个人设", personas.size());
+            return true;
+        } catch (Exception e) {
+            logger.error("重新加载人设配置失败", e);
+            return false;
+        }
     }
 }

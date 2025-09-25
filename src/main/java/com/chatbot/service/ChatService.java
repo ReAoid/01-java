@@ -28,7 +28,6 @@ public class ChatService {
     private final WorldBookService worldBookService;
     @SuppressWarnings("unused")
     private final MultiModalService multiModalService;
-    @SuppressWarnings("unused")
     private final AppConfig.AIConfig aiConfig;
     private final OllamaService ollamaService;
     private final ConversationHistoryService conversationHistoryService;
@@ -580,8 +579,12 @@ public class ChatService {
     private List<ChatMessage> getSystemPrompts(ChatSession session) {
         List<ChatMessage> systemPrompts = new ArrayList<>();
         
-        // 1. 添加通用系统提示词
-        String baseSystemPrompt = "你是一个智能AI助手。";
+        // 1. 添加通用系统提示词（从配置文件读取）
+        String baseSystemPrompt = aiConfig.getSystemPrompt().getBase();
+        if (baseSystemPrompt == null || baseSystemPrompt.trim().isEmpty()) {
+            baseSystemPrompt = aiConfig.getSystemPrompt().getFallback();
+        }
+        
         ChatMessage systemMessage = new ChatMessage();
         systemMessage.setRole("system");
         systemMessage.setContent(baseSystemPrompt);
@@ -590,20 +593,24 @@ public class ChatService {
         systemPrompts.add(systemMessage);
         logger.debug("创建通用系统提示词，内容: {}", baseSystemPrompt);
         
-        // 2. 如果有人设，添加人设提示词
-        String personaId = session.getCurrentPersonaId();
-        if (personaId != null) {
-            String personaPrompt = personaService.getPersonaPrompt(personaId);
-            if (personaPrompt != null && !personaPrompt.isEmpty()) {
-                ChatMessage personaMessage = new ChatMessage();
-                personaMessage.setRole("system");
-                personaMessage.setContent(personaPrompt);
-                personaMessage.setSessionId(session.getSessionId());
-                personaMessage.setType("text");
-                systemPrompts.add(personaMessage);
-                logger.debug("创建人设提示词，personaId: {}, 内容长度: {}", 
-                           personaId, personaPrompt.length());
+        // 2. 如果启用人设且有人设，添加人设提示词
+        if (aiConfig.getSystemPrompt().isEnablePersona()) {
+            String personaId = session.getCurrentPersonaId();
+            if (personaId != null) {
+                String personaPrompt = personaService.getPersonaPrompt(personaId);
+                if (personaPrompt != null && !personaPrompt.isEmpty()) {
+                    ChatMessage personaMessage = new ChatMessage();
+                    personaMessage.setRole("system");
+                    personaMessage.setContent(personaPrompt);
+                    personaMessage.setSessionId(session.getSessionId());
+                    personaMessage.setType("text");
+                    systemPrompts.add(personaMessage);
+                    logger.debug("创建人设提示词，personaId: {}, 内容长度: {}", 
+                               personaId, personaPrompt.length());
+                }
             }
+        } else {
+            logger.debug("人设系统提示词已禁用");
         }
         
         return systemPrompts;
