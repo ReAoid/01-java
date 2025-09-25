@@ -13,6 +13,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 
@@ -239,6 +243,60 @@ public class JsonUtil {
         } catch (IOException e) {
             logger.error("JSON合并失败", e);
             return mainNode;
+        }
+    }
+    
+    /**
+     * 将对象保存为格式化的JSON文件
+     */
+    public static boolean saveToPrettyJsonFile(Object obj, String filePath) {
+        if (obj == null || StringUtil.isEmpty(filePath)) {
+            return false;
+        }
+        
+        try {
+            String jsonContent = toPrettyJson(obj);
+            if (jsonContent == null) {
+                return false;
+            }
+            
+            Path path = Paths.get(filePath);
+            Files.createDirectories(path.getParent());
+            Files.writeString(path, jsonContent, StandardCharsets.UTF_8);
+            
+            logger.debug("对象已保存为格式化JSON文件: {}", filePath);
+            return true;
+            
+        } catch (IOException e) {
+            logger.error("保存对象到JSON文件失败: " + filePath, e);
+            return false;
+        }
+    }
+    
+    /**
+     * 将对象保存为压缩的JSON文件
+     */
+    public static boolean saveToJsonFile(Object obj, String filePath) {
+        if (obj == null || StringUtil.isEmpty(filePath)) {
+            return false;
+        }
+        
+        try {
+            String jsonContent = toJson(obj);
+            if (jsonContent == null) {
+                return false;
+            }
+            
+            Path path = Paths.get(filePath);
+            Files.createDirectories(path.getParent());
+            Files.writeString(path, jsonContent, StandardCharsets.UTF_8);
+            
+            logger.debug("对象已保存为压缩JSON文件: {}", filePath);
+            return true;
+            
+        } catch (IOException e) {
+            logger.error("保存对象到JSON文件失败: " + filePath, e);
+            return false;
         }
     }
     

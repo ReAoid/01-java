@@ -162,8 +162,8 @@ public class WorldBookService {
             entry2.setRelevanceThreshold(0.4);
             defaultEntries.add(entry2);
             
-            // 保存到文件
-            String jsonContent = JsonUtil.toJson(defaultEntries);
+            // 保存到文件（使用格式化JSON）
+            String jsonContent = JsonUtil.toPrettyJson(defaultEntries);
             FileUtil.createDirectories(new File(manualWorldBookPath).getParent());
             FileUtil.writeString(manualWorldBookPath, jsonContent);
             
@@ -440,7 +440,7 @@ public class WorldBookService {
     private void saveExtractedWorldBook() {
         try {
             List<WorldBookEntry> allExtracted = new ArrayList<>(extractedEntries.values());
-            String jsonContent = JsonUtil.toJson(allExtracted);
+            String jsonContent = JsonUtil.toPrettyJson(allExtracted);
             
             FileUtil.createDirectories(new File(extractedWorldBookPath).getParent());
             FileUtil.writeString(extractedWorldBookPath, jsonContent);

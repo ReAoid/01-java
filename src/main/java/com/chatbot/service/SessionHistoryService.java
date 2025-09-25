@@ -148,7 +148,7 @@ public class SessionHistoryService {
                 }
             }
             
-            String jsonContent = JsonUtil.toJson(simpleMessages);
+            String jsonContent = JsonUtil.toPrettyJson(simpleMessages);
             FileUtil.writeString(filePath, jsonContent);
             
             logger.info("保存会话历史成功，sessionId: {}, 文件路径: {}, 消息数量: {}", 

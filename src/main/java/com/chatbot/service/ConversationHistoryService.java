@@ -130,8 +130,8 @@ public class ConversationHistoryService {
             Files.createDirectories(dirPath);
         }
         
-        // 将记录转换为JSON并保存
-        String jsonContent = JsonUtil.toJson(record);
+        // 将记录转换为格式化JSON并保存
+        String jsonContent = JsonUtil.toPrettyJson(record);
         FileUtil.writeString(fullPath, jsonContent);
         
         return fullPath;
