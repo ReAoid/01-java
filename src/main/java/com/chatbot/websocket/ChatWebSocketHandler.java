@@ -96,6 +96,10 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                         // 处理思考显示切换
                         handleThinkingToggle(session, sessionId, chatMessage);
                         return;
+                    } else if ("toggle_web_search".equals(action)) {
+                        // 处理联网搜索切换
+                        handleWebSearchToggle(session, sessionId, chatMessage);
+                        return;
                     }
                 }
                 
@@ -297,6 +301,49 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                 ChatMessage errorMessage = new ChatMessage();
                 errorMessage.setType("system");
                 errorMessage.setContent("切换思考显示状态失败");
+                errorMessage.setSessionId(sessionId);
+                
+                sendMessage(session, errorMessage);
+            } catch (IOException ex) {
+                logger.error("发送错误消息失败", ex);
+            }
+        }
+    }
+    
+    /**
+     * 处理联网搜索切换
+     */
+    private void handleWebSearchToggle(WebSocketSession session, String sessionId, ChatMessage message) {
+        try {
+            Boolean useWebSearch = (Boolean) message.getMetadata().get("useWebSearch");
+            if (useWebSearch == null) {
+                useWebSearch = false;
+            }
+            
+            // 设置用户偏好
+            chatService.setUserWebSearchPreference(sessionId, useWebSearch);
+            
+            // 发送确认消息
+            ChatMessage confirmMessage = new ChatMessage();
+            confirmMessage.setType("system");
+            confirmMessage.setContent(useWebSearch ? "已开启联网搜索功能" : "已关闭联网搜索功能");
+            confirmMessage.setSessionId(sessionId);
+            confirmMessage.setMetadata(Map.of(
+                "web_search_toggle", "confirmed",
+                "useWebSearch", useWebSearch
+            ));
+            
+            sendMessage(session, confirmMessage);
+            
+            logger.info("用户切换联网搜索状态 - sessionId: {}, useWebSearch: {}", sessionId, useWebSearch);
+            
+        } catch (Exception e) {
+            logger.error("处理联网搜索切换时发生错误，会话 ID: {}", sessionId, e);
+            
+            try {
+                ChatMessage errorMessage = new ChatMessage();
+                errorMessage.setType("system");
+                errorMessage.setContent("切换联网搜索状态失败");
                 errorMessage.setSessionId(sessionId);
                 
                 sendMessage(session, errorMessage);

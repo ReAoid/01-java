@@ -31,6 +31,9 @@ public class AppConfig {
     // ========== 资源配置 ==========
     private ResourceConfig resource = new ResourceConfig();
     
+    // ========== 联网搜索配置 ==========
+    private WebSearchConfig webSearch = new WebSearchConfig();
+    
     /**
      * Jackson配置 - 配置ObjectMapper支持Java 21时间类型
      */
@@ -284,4 +287,44 @@ public class AppConfig {
     
     public ResourceConfig getResource() { return resource; }
     public void setResource(ResourceConfig resource) { this.resource = resource; }
+    
+    public WebSearchConfig getWebSearch() { return webSearch; }
+    public void setWebSearch(WebSearchConfig webSearch) { this.webSearch = webSearch; }
+    
+    /**
+     * 联网搜索配置
+     */
+    public static class WebSearchConfig {
+        private boolean enabled = false; // 默认关闭
+        private int maxResults = 5;
+        private int timeoutSeconds = 10;
+        private String defaultEngine = "duckduckgo";
+        private boolean enableFallback = true;
+        
+        // API Keys (如果需要)
+        private String serpApiKey = "";
+        private String bingApiKey = "";
+        
+        // Getters and Setters
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        
+        public int getMaxResults() { return maxResults; }
+        public void setMaxResults(int maxResults) { this.maxResults = maxResults; }
+        
+        public int getTimeoutSeconds() { return timeoutSeconds; }
+        public void setTimeoutSeconds(int timeoutSeconds) { this.timeoutSeconds = timeoutSeconds; }
+        
+        public String getDefaultEngine() { return defaultEngine; }
+        public void setDefaultEngine(String defaultEngine) { this.defaultEngine = defaultEngine; }
+        
+        public boolean isEnableFallback() { return enableFallback; }
+        public void setEnableFallback(boolean enableFallback) { this.enableFallback = enableFallback; }
+        
+        public String getSerpApiKey() { return serpApiKey; }
+        public void setSerpApiKey(String serpApiKey) { this.serpApiKey = serpApiKey; }
+        
+        public String getBingApiKey() { return bingApiKey; }
+        public void setBingApiKey(String bingApiKey) { this.bingApiKey = bingApiKey; }
+    }
 }

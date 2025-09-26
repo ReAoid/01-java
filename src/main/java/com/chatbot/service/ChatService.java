@@ -32,6 +32,7 @@ public class ChatService {
     private final OllamaService ollamaService;
     private final ConversationHistoryService conversationHistoryService;
     private final SessionHistoryService sessionHistoryService;
+    private final WebSearchService webSearchService;
     
     public ChatService(SessionService sessionService, 
                       PersonaService personaService,
@@ -41,7 +42,8 @@ public class ChatService {
                       AppConfig appConfig,
                       OllamaService ollamaService,
                       ConversationHistoryService conversationHistoryService,
-                      SessionHistoryService sessionHistoryService) {
+                      SessionHistoryService sessionHistoryService,
+                      WebSearchService webSearchService) {
         logger.info("初始化ChatService");
         this.sessionService = sessionService;
         this.personaService = personaService;
@@ -52,6 +54,7 @@ public class ChatService {
         this.ollamaService = ollamaService;
         this.conversationHistoryService = conversationHistoryService;
         this.sessionHistoryService = sessionHistoryService;
+        this.webSearchService = webSearchService;
         logger.debug("ChatService初始化完成，已注入所有依赖服务");
     }
     
@@ -105,20 +108,42 @@ public class ChatService {
                 long step5Time = System.currentTimeMillis() - step5Start;
                 logger.debug("世界书设定获取完成，耗时: {}ms，是否有设定: {}", step5Time, worldBookSetting != null);
                 
-                // 6. 准备用户消息（不提前保存，等AI回答完成后一起保存）
-                logger.debug("步骤6：准备用户消息");
+                // 6. 智能判断是否需要联网搜索并准备用户消息
+                logger.debug("步骤6：智能判断联网搜索需求并准备用户消息");
                 long step6Start = System.currentTimeMillis();
+                
+                // 检查用户是否启用了联网搜索
+                boolean userEnabledWebSearch = getUserWebSearchPreference(sessionId);
+                ChatMessage webSearchMessage = null;
+                
+                if (userEnabledWebSearch) {
+                    logger.info("用户启用了联网搜索功能，开始智能判断搜索需求");
+                    
+                    // 使用AI判断是否需要联网搜索并提取搜索关键词
+                    WebSearchDecision searchDecision = intelligentWebSearchDecision(
+                        processedInput, dialogueHistory, worldBookSetting, sessionId);
+                    
+                    if (searchDecision.needsWebSearch()) {
+                        logger.info("AI判断需要联网搜索，提取的关键词: '{}'", searchDecision.getSearchQuery());
+                        webSearchMessage = performWebSearch(searchDecision.getSearchQuery(), sessionId);
+                    } else {
+                        logger.info("AI判断无需联网搜索，原因: {}", searchDecision.getReason());
+                    }
+                } else {
+                    logger.debug("用户未启用联网搜索功能");
+                }
+                
                 userMessage.setRole("user");
                 userMessage.setContent(processedInput); // 使用预处理后的输入
                 
                 long step6Time = System.currentTimeMillis() - step6Start;
-                logger.debug("用户消息准备完成，耗时: {}ms", step6Time);
+                logger.debug("用户消息准备完成（含智能联网搜索），耗时: {}ms", step6Time);
                 
                 // 7. 构建完整的消息列表（带 token 限制）
                 logger.debug("步骤7：构建完整的消息列表");
                 long step7Start = System.currentTimeMillis();
                 List<OllamaMessage> messages = buildMessagesListWithTokenLimit(
-                    systemPrompts, dialogueHistory, worldBookSetting, userMessage);
+                    systemPrompts, dialogueHistory, worldBookSetting, webSearchMessage, userMessage);
                 long step7Time = System.currentTimeMillis() - step7Start;
                 logger.debug("消息列表构建完成，耗时: {}ms，消息数量: {}", step7Time, messages.size());
                 
@@ -481,6 +506,372 @@ public class ChatService {
             logger.error("设置用户思考显示偏好失败", e);
         }
     }
+    
+    /**
+     * 获取用户的联网搜索偏好（默认关闭）
+     */
+    private boolean getUserWebSearchPreference(String sessionId) {
+        try {
+            ChatSession session = sessionService.getSession(sessionId);
+            if (session != null && session.getMetadata() != null) {
+                Object useWebSearch = session.getMetadata().get("useWebSearch");
+                if (useWebSearch instanceof Boolean) {
+                    return (Boolean) useWebSearch;
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("获取用户联网搜索偏好失败", e);
+        }
+        return false; // 默认关闭联网搜索
+    }
+    
+    /**
+     * 设置用户的联网搜索偏好
+     */
+    public void setUserWebSearchPreference(String sessionId, boolean useWebSearch) {
+        try {
+            ChatSession session = sessionService.getOrCreateSession(sessionId);
+            if (session.getMetadata() == null) {
+                session.setMetadata(new java.util.HashMap<>());
+            }
+            session.getMetadata().put("useWebSearch", useWebSearch);
+            logger.info("设置用户联网搜索偏好 - sessionId: {}, useWebSearch: {}", sessionId, useWebSearch);
+        } catch (Exception e) {
+            logger.error("设置用户联网搜索偏好失败", e);
+        }
+    }
+    
+    /**
+     * 联网搜索决策结果类
+     */
+    private static class WebSearchDecision {
+        private final boolean needsWebSearch;
+        private final String searchQuery;
+        private final String reason;
+        
+        public WebSearchDecision(boolean needsWebSearch, String searchQuery, String reason) {
+            this.needsWebSearch = needsWebSearch;
+            this.searchQuery = searchQuery;
+            this.reason = reason;
+        }
+        
+        public boolean needsWebSearch() { return needsWebSearch; }
+        public String getSearchQuery() { return searchQuery; }
+        public String getReason() { return reason; }
+    }
+    
+    /**
+     * 智能判断是否需要联网搜索并提取搜索关键词
+     */
+    private WebSearchDecision intelligentWebSearchDecision(
+            String userInput, 
+            List<ChatMessage> dialogueHistory, 
+            ChatMessage worldBookSetting, 
+            String sessionId) {
+        
+        try {
+            logger.debug("开始AI智能判断联网搜索需求");
+            
+            // 构建判断提示词
+            String decisionPrompt = buildWebSearchDecisionPrompt(userInput, dialogueHistory, worldBookSetting);
+            
+            // 调用AI进行判断
+            List<OllamaMessage> decisionMessages = List.of(
+                new OllamaMessage("system", decisionPrompt),
+                new OllamaMessage("user", userInput)
+            );
+            
+            // 使用同步方式获取AI判断结果
+            String aiDecision = getAIDecisionSync(decisionMessages, sessionId);
+            
+            // 解析AI的判断结果
+            return parseWebSearchDecision(aiDecision, userInput);
+            
+        } catch (Exception e) {
+            logger.error("AI智能判断联网搜索需求失败", e);
+            // 发生异常时，采用保守策略：不搜索
+            return new WebSearchDecision(false, "", "AI判断过程发生异常");
+        }
+    }
+    
+    /**
+     * 构建联网搜索判断的提示词
+     */
+    private String buildWebSearchDecisionPrompt(
+            String userInput, 
+            List<ChatMessage> dialogueHistory, 
+            ChatMessage worldBookSetting) {
+        
+        StringBuilder prompt = new StringBuilder();
+        
+        prompt.append("你是一个智能搜索决策助手。请根据用户的问题和现有信息，判断是否需要进行联网搜索来获取更多信息。\n\n");
+        
+        prompt.append("判断标准：\n");
+        prompt.append("1. 需要联网搜索的情况：\n");
+        prompt.append("   - 询问具体的概念、术语、人物、事件、地点等百科知识\n");
+        prompt.append("   - 需要权威、准确的定义或解释\n");
+        prompt.append("   - 询问历史事件、科学原理、技术概念等\n");
+        prompt.append("   - 现有对话历史和世界书中没有相关信息\n\n");
+        
+        prompt.append("2. 不需要联网搜索的情况：\n");
+        prompt.append("   - 纯聊天、问候、情感交流\n");
+        prompt.append("   - 询问个人观点、建议、推荐\n");
+        prompt.append("   - 数学计算、逻辑推理等可以直接回答的问题\n");
+        prompt.append("   - 现有信息已经足够回答的问题\n");
+        prompt.append("   - 询问操作方法、使用技巧等实用性问题\n\n");
+        
+        // 添加现有信息上下文
+        if (dialogueHistory != null && !dialogueHistory.isEmpty()) {
+            prompt.append("对话历史摘要：\n");
+            int historyCount = Math.min(3, dialogueHistory.size());
+            for (int i = dialogueHistory.size() - historyCount; i < dialogueHistory.size(); i++) {
+                ChatMessage msg = dialogueHistory.get(i);
+                prompt.append("- ").append(msg.getRole()).append(": ").append(
+                    msg.getContent().length() > 100 ? msg.getContent().substring(0, 100) + "..." : msg.getContent()
+                ).append("\n");
+            }
+            prompt.append("\n");
+        }
+        
+        if (worldBookSetting != null && worldBookSetting.getContent() != null && !worldBookSetting.getContent().trim().isEmpty()) {
+            prompt.append("世界书相关信息：\n");
+            String worldBookContent = worldBookSetting.getContent();
+            prompt.append(worldBookContent.length() > 200 ? worldBookContent.substring(0, 200) + "..." : worldBookContent);
+            prompt.append("\n\n");
+        }
+        
+        prompt.append("请按照以下格式回复：\n");
+        prompt.append("判断：需要搜索 / 不需要搜索\n");
+        prompt.append("关键词：[如果需要搜索，提取1-3个最核心的搜索关键词，用逗号分隔]\n");
+        prompt.append("原因：[简要说明判断理由]\n\n");
+        
+        prompt.append("注意：\n");
+        prompt.append("- 搜索关键词应该是名词或名词短语，适合在维基百科中查找\n");
+        prompt.append("- 移除疑问词、语气词，只保留核心概念\n");
+        prompt.append("- 优先选择更通用、更可能有百科条目的词汇\n");
+        
+        return prompt.toString();
+    }
+    
+    /**
+     * 同步获取AI判断结果
+     */
+    private String getAIDecisionSync(List<OllamaMessage> messages, String sessionId) {
+        StringBuilder result = new StringBuilder();
+        
+        try {
+            // 使用一个简单的同步机制来获取AI响应
+            final Object lock = new Object();
+            final boolean[] completed = {false};
+            
+            ollamaService.generateStreamingResponse(
+                messages,
+                // 成功处理每个chunk
+                chunk -> {
+                    result.append(chunk);
+                },
+                // 错误处理
+                error -> {
+                    logger.error("AI判断请求失败", error);
+                    synchronized (lock) {
+                        completed[0] = true;
+                        lock.notify();
+                    }
+                },
+                // 完成处理
+                () -> {
+                    synchronized (lock) {
+                        completed[0] = true;
+                        lock.notify();
+                    }
+                }
+            );
+            
+            // 等待响应完成，最多等待10秒
+            synchronized (lock) {
+                if (!completed[0]) {
+                    lock.wait(10000);
+                }
+            }
+            
+            return result.toString();
+            
+        } catch (Exception e) {
+            logger.error("同步获取AI判断结果失败", e);
+            return "";
+        }
+    }
+    
+    /**
+     * 解析AI的联网搜索判断结果
+     */
+    private WebSearchDecision parseWebSearchDecision(String aiResponse, String originalQuery) {
+        if (aiResponse == null || aiResponse.trim().isEmpty()) {
+            return new WebSearchDecision(false, "", "AI响应为空");
+        }
+        
+        try {
+            String response = aiResponse.toLowerCase();
+            boolean needsSearch = response.contains("需要搜索") && !response.contains("不需要搜索");
+            
+            String searchQuery = "";
+            String reason = "基于AI判断";
+            
+            // 提取关键词
+            if (needsSearch) {
+                searchQuery = extractSearchKeywords(aiResponse, originalQuery);
+            }
+            
+            // 提取原因
+            if (aiResponse.contains("原因：")) {
+                int reasonStart = aiResponse.indexOf("原因：") + 3;
+                int reasonEnd = aiResponse.indexOf("\n", reasonStart);
+                if (reasonEnd == -1) reasonEnd = aiResponse.length();
+                if (reasonStart < aiResponse.length()) {
+                    reason = aiResponse.substring(reasonStart, reasonEnd).trim();
+                }
+            }
+            
+            logger.debug("AI判断结果解析：需要搜索={}, 关键词='{}', 原因='{}'", needsSearch, searchQuery, reason);
+            return new WebSearchDecision(needsSearch, searchQuery, reason);
+            
+        } catch (Exception e) {
+            logger.error("解析AI判断结果失败", e);
+            return new WebSearchDecision(false, "", "解析AI判断结果失败");
+        }
+    }
+    
+    /**
+     * 从AI响应中提取搜索关键词
+     */
+    private String extractSearchKeywords(String aiResponse, String originalQuery) {
+        // 尝试从AI响应中提取关键词
+        if (aiResponse.contains("关键词：")) {
+            int keywordStart = aiResponse.indexOf("关键词：") + 4;
+            int keywordEnd = aiResponse.indexOf("\n", keywordStart);
+            if (keywordEnd == -1) keywordEnd = aiResponse.length();
+            
+            if (keywordStart < aiResponse.length()) {
+                String keywords = aiResponse.substring(keywordStart, keywordEnd).trim();
+                // 移除方括号
+                keywords = keywords.replaceAll("[\\[\\]]", "").trim();
+                if (!keywords.isEmpty() && !keywords.equals("无")) {
+                    return keywords;
+                }
+            }
+        }
+        
+        // 如果AI没有提供关键词，使用原始查询的简化版本
+        return simplifyQuery(originalQuery);
+    }
+    
+    /**
+     * 简化查询，提取核心关键词
+     */
+    private String simplifyQuery(String query) {
+        if (query == null || query.trim().isEmpty()) {
+            return query;
+        }
+        
+        String processed = query.trim();
+        
+        // 移除常见的疑问词和语气词
+        String[] questionWords = {
+            "你知道", "你了解", "什么是", "是什么", "吗？", "呢？", "吗", "呢", "？", "?",
+            "请问", "能告诉我", "我想知道", "帮我查一下", "搜索一下", "查找",
+            "的信息", "相关信息", "的内容", "有关", "关于", "怎么", "如何", "为什么"
+        };
+        
+        for (String word : questionWords) {
+            processed = processed.replace(word, "");
+        }
+        
+        // 移除多余的空格
+        processed = processed.replaceAll("\\s+", " ").trim();
+        
+        // 如果处理后为空，返回原查询
+        if (processed.isEmpty()) {
+            return query;
+        }
+        
+        return processed;
+    }
+    
+    /**
+     * 执行联网搜索
+     */
+    private ChatMessage performWebSearch(String query, String sessionId) {
+        try {
+            logger.info("开始执行联网搜索 - sessionId: {}, query: '{}'", sessionId, query);
+            
+            // 检查搜索服务是否可用
+            if (!webSearchService.isSearchAvailable()) {
+                logger.warn("联网搜索服务不可用 - sessionId: {}", sessionId);
+                return createWebSearchUnavailableMessage(sessionId);
+            }
+            
+            // 执行搜索
+            var searchResults = webSearchService.search(query);
+            
+            if (searchResults.isEmpty()) {
+                logger.info("联网搜索无结果 - sessionId: {}, query: '{}'", sessionId, query);
+                return createNoSearchResultsMessage(sessionId, query);
+            }
+            
+            // 格式化搜索结果
+            String formattedResults = webSearchService.formatSearchResults(searchResults);
+            
+            // 创建搜索结果消息
+            ChatMessage webSearchMessage = new ChatMessage();
+            webSearchMessage.setRole("system");
+            webSearchMessage.setContent(formattedResults);
+            webSearchMessage.setSessionId(sessionId);
+            webSearchMessage.setType("text");
+            
+            logger.info("联网搜索完成 - sessionId: {}, 找到{}个结果", sessionId, searchResults.size());
+            return webSearchMessage;
+            
+        } catch (Exception e) {
+            logger.error("执行联网搜索时发生错误 - sessionId: {}, query: '{}'", sessionId, query, e);
+            return createWebSearchErrorMessage(sessionId, e.getMessage());
+        }
+    }
+    
+    /**
+     * 创建搜索服务不可用消息
+     */
+    private ChatMessage createWebSearchUnavailableMessage(String sessionId) {
+        ChatMessage message = new ChatMessage();
+        message.setRole("system");
+        message.setContent("联网搜索服务暂时不可用，请基于已有知识回答用户问题。");
+        message.setSessionId(sessionId);
+        message.setType("text");
+        return message;
+    }
+    
+    /**
+     * 创建无搜索结果消息
+     */
+    private ChatMessage createNoSearchResultsMessage(String sessionId, String query) {
+        ChatMessage message = new ChatMessage();
+        message.setRole("system");
+        message.setContent("联网搜索未找到相关结果（搜索关键词：" + query + "），请基于已有知识回答用户问题。");
+        message.setSessionId(sessionId);
+        message.setType("text");
+        return message;
+    }
+    
+    /**
+     * 创建搜索错误消息
+     */
+    private ChatMessage createWebSearchErrorMessage(String sessionId, String errorMessage) {
+        ChatMessage message = new ChatMessage();
+        message.setRole("system");
+        message.setContent("联网搜索时发生错误（" + errorMessage + "），请基于已有知识回答用户问题。");
+        message.setSessionId(sessionId);
+        message.setType("text");
+        return message;
+    }
 
     /**
      * 处理流式错误
@@ -711,6 +1102,7 @@ public class ChatService {
             List<ChatMessage> systemPrompts,
             List<ChatMessage> dialogueHistory, 
             ChatMessage worldBookSetting,
+            ChatMessage webSearchMessage,
             ChatMessage userMessage) {
         
         List<OllamaMessage> messages = new ArrayList<>();
@@ -731,7 +1123,21 @@ public class ChatService {
             }
         }
         
-        // 2. 添加世界书设定（如果有的话）
+        // 2. 添加联网搜索结果（如果有的话）
+        if (webSearchMessage != null && webSearchMessage.getContent() != null && !webSearchMessage.getContent().trim().isEmpty()) {
+            String role = mapSenderToRole(webSearchMessage.getRole());
+            int webSearchTokens = estimateTokens(webSearchMessage.getContent(), ESTIMATED_TOKENS_PER_CHAR);
+            
+            if (currentTokens + webSearchTokens <= MAX_TOKENS) {
+                messages.add(new OllamaMessage(role, webSearchMessage.getContent()));
+                currentTokens += webSearchTokens;
+                logger.debug("添加联网搜索结果: tokens={}", webSearchTokens);
+            } else {
+                logger.warn("联网搜索结果超过 token 限制，跳过添加");
+            }
+        }
+        
+        // 3. 添加世界书设定（如果有的话）
         if (worldBookSetting != null && worldBookSetting.getContent() != null && !worldBookSetting.getContent().trim().isEmpty()) {
             String role = mapSenderToRole(worldBookSetting.getRole());
             int worldBookTokens = estimateTokens(worldBookSetting.getContent(), ESTIMATED_TOKENS_PER_CHAR);
@@ -745,7 +1151,7 @@ public class ChatService {
             }
         }
         
-        // 3. 添加当前用户消息（这个必须包含）
+        // 4. 添加当前用户消息（这个必须包含）
         if (userMessage != null && userMessage.getContent() != null && !userMessage.getContent().trim().isEmpty()) {
             String role = mapSenderToRole(userMessage.getRole());
             int userTokens = estimateTokens(userMessage.getContent(), ESTIMATED_TOKENS_PER_CHAR);
@@ -754,12 +1160,15 @@ public class ChatService {
             logger.debug("添加用户消息: tokens={}", userTokens);
         }
         
-        // 4. 智能添加对话历史（从最新的开始，向前添加，直到达到 token 限制）
+        // 5. 智能添加对话历史（从最新的开始，向前添加，直到达到 token 限制）
         List<ChatMessage> filteredHistory = filterDialogueHistoryByTokens(
             dialogueHistory, MAX_TOKENS - currentTokens, ESTIMATED_TOKENS_PER_CHAR);
         
         // 将过滤后的历史消息插入到系统消息之后、用户消息之前
         int insertIndex = systemPrompts.size();
+        if (webSearchMessage != null) {
+            insertIndex++;
+        }
         if (worldBookSetting != null) {
             insertIndex++;
         }
@@ -777,9 +1186,9 @@ public class ChatService {
             .mapToInt(msg -> estimateTokens(msg.getContent(), ESTIMATED_TOKENS_PER_CHAR))
             .sum();
             
-        logger.info("消息列表构建完成 - 总消息数: {}, 估算 tokens: {}/{}, 系统消息: {}, 历史消息: {}, 世界书: {}, 用户消息: 1", 
+        logger.info("消息列表构建完成 - 总消息数: {}, 估算 tokens: {}/{}, 系统消息: {}, 历史消息: {}, 联网搜索: {}, 世界书: {}, 用户消息: 1", 
                    messages.size(), finalTokens, MAX_TOKENS, systemPrompts.size(), 
-                   filteredHistory.size(), worldBookSetting != null ? 1 : 0);
+                   filteredHistory.size(), webSearchMessage != null ? 1 : 0, worldBookSetting != null ? 1 : 0);
         
         return messages;
     }

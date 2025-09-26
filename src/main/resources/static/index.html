@@ -172,12 +172,12 @@
             border-radius: 5px;
             background: white;
         }
-        .thinking-toggle {
+        .thinking-toggle, .web-search-toggle {
             display: flex;
             align-items: center;
             gap: 8px;
         }
-        .thinking-toggle label {
+        .thinking-toggle label, .web-search-toggle label {
             font-size: 14px;
             color: #666;
             margin: 0;
@@ -250,6 +250,10 @@
                 <label for="thinkingToggle">显示思考过程:</label>
                 <div class="toggle-switch" id="thinkingToggle" title="切换是否显示AI的思考过程"></div>
             </div>
+            <div class="web-search-toggle">
+                <label for="webSearchToggle">联网搜索:</label>
+                <div class="toggle-switch" id="webSearchToggle" title="切换是否启用联网搜索功能"></div>
+            </div>
         </div>
         
         <div class="chat-container" id="chatContainer">
@@ -271,6 +275,7 @@
         let reconnectAttempts = 0;
         const maxReconnectAttempts = 5;
         let showThinking = true; // 思考显示状态
+        let useWebSearch = false; // 联网搜索状态
 
         const statusDiv = document.getElementById('status');
         const ollamaStatusDiv = document.getElementById('ollamaStatus');
@@ -279,6 +284,7 @@
         const sendBtn = document.getElementById('sendBtn');
         const personaSelect = document.getElementById('personaSelect');
         const thinkingToggle = document.getElementById('thinkingToggle');
+        const webSearchToggle = document.getElementById('webSearchToggle');
 
         // 连接WebSocket
         function connect() {
@@ -367,6 +373,9 @@
                 } else if (message.metadata && message.metadata.thinking_toggle) {
                     // 处理思考切换确认
                     handleThinkingToggleConfirmation(message);
+                } else if (message.metadata && message.metadata.web_search_toggle) {
+                    // 处理联网搜索切换确认
+                    handleWebSearchToggleConfirmation(message);
                 } else {
                     addMessage('system', message.content);
                 }
@@ -622,6 +631,9 @@
         
         // 思考切换事件监听
         thinkingToggle.addEventListener('click', toggleThinkingDisplay);
+        
+        // 联网搜索切换事件监听
+        webSearchToggle.addEventListener('click', toggleWebSearchDisplay);
 
         // 启用/禁用发送按钮的工具函数
         function enableSendButton() {
@@ -681,8 +693,51 @@
         }
         
         
+        // 处理联网搜索切换确认
+        function handleWebSearchToggleConfirmation(message) {
+            if (message.metadata.web_search_toggle === 'confirmed') {
+                const newState = message.metadata.useWebSearch;
+                useWebSearch = newState;
+                updateWebSearchToggleUI(newState);
+                addMessage('system', message.content);
+            }
+        }
+        
+        // 更新联网搜索切换UI
+        function updateWebSearchToggleUI(state) {
+            if (state) {
+                webSearchToggle.classList.add('active');
+            } else {
+                webSearchToggle.classList.remove('active');
+            }
+        }
+        
+        // 发送联网搜索切换请求
+        function toggleWebSearchDisplay() {
+            if (!ws || !isConnected) {
+                addMessage('system', '请先连接到服务器');
+                return;
+            }
+            
+            const newState = !useWebSearch;
+            
+            const toggleMessage = {
+                type: 'system',
+                content: 'toggle_web_search',
+                metadata: {
+                    action: 'toggle_web_search',
+                    useWebSearch: newState
+                }
+            };
+            
+            ws.send(JSON.stringify(toggleMessage));
+        }
+        
         // 初始化思考切换UI
         updateThinkingToggleUI(showThinking);
+        
+        // 初始化联网搜索切换UI
+        updateWebSearchToggleUI(useWebSearch);
         
         // 页面加载时连接
         window.addEventListener('load', connect);
