@@ -449,7 +449,7 @@ public class ChatService {
     }
     
     /**
-     * 获取用户的思考显示偏好（默认不显示）
+     * 获取用户的思考显示偏好（默认显示）
      */
     private boolean getUserThinkingPreference(String sessionId) {
         try {
@@ -463,7 +463,7 @@ public class ChatService {
         } catch (Exception e) {
             logger.debug("获取用户思考显示偏好失败", e);
         }
-        return false; // 默认不显示思考过程
+        return true; // 默认显示思考过程
     }
     
     /**
