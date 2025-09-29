@@ -49,17 +49,6 @@ public class WorldBookEntry {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
     
-    /**
-     * 最后更新时间
-     */
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime updatedAt;
-    
-    /**
-     * 最后使用时间
-     */
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime lastUsedAt;
     
     /**
      * 使用次数
@@ -83,7 +72,6 @@ public class WorldBookEntry {
     
     public WorldBookEntry() {
         this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
         this.usageCount = 0;
         this.active = true;
         this.importance = 5;
@@ -102,9 +90,7 @@ public class WorldBookEntry {
      * 更新使用信息
      */
     public void updateUsage() {
-        this.lastUsedAt = LocalDateTime.now();
         this.usageCount++;
-        this.updatedAt = LocalDateTime.now();
     }
     
     /**
@@ -137,7 +123,6 @@ public class WorldBookEntry {
     
     public void setContent(String content) {
         this.content = content;
-        this.updatedAt = LocalDateTime.now();
     }
     
     public String getType() {
@@ -162,7 +147,6 @@ public class WorldBookEntry {
     
     public void setImportance(int importance) {
         this.importance = Math.max(1, Math.min(10, importance));
-        this.updatedAt = LocalDateTime.now();
     }
     
     public LocalDateTime getCreatedAt() {
@@ -173,21 +157,6 @@ public class WorldBookEntry {
         this.createdAt = createdAt;
     }
     
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-    
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-    
-    public LocalDateTime getLastUsedAt() {
-        return lastUsedAt;
-    }
-    
-    public void setLastUsedAt(LocalDateTime lastUsedAt) {
-        this.lastUsedAt = lastUsedAt;
-    }
     
     public int getUsageCount() {
         return usageCount;
@@ -203,7 +172,6 @@ public class WorldBookEntry {
     
     public void setActive(boolean active) {
         this.active = active;
-        this.updatedAt = LocalDateTime.now();
     }
     
     public double getRelevanceThreshold() {
@@ -212,7 +180,6 @@ public class WorldBookEntry {
     
     public void setRelevanceThreshold(double relevanceThreshold) {
         this.relevanceThreshold = relevanceThreshold;
-        this.updatedAt = LocalDateTime.now();
     }
     
     public String getSessionId() {
