@@ -193,15 +193,16 @@ public class ChatWebSocketHandler implements WebSocketHandler {
             // 对于流式消息，优化JSON序列化
             String messageJson;
             if (message.isStreaming() && message.getContent() != null) {
-                // 使用简化的JSON结构减少序列化开销
+                // 使用简化的JSON结构减少序列化开销，包含thinking字段
                 messageJson = String.format(
-                    "{\"type\":\"%s\",\"content\":\"%s\",\"role\":\"%s\",\"sessionId\":\"%s\",\"streaming\":%s,\"streamComplete\":%s}",
+                    "{\"type\":\"%s\",\"content\":\"%s\",\"role\":\"%s\",\"sessionId\":\"%s\",\"streaming\":%s,\"streamComplete\":%s,\"thinking\":%s}",
                     message.getType(),
                     escapeJson(message.getContent()),
                     message.getRole(),
                     message.getSessionId(),
                     message.isStreaming(),
-                    message.isStreamComplete()
+                    message.isStreamComplete(),
+                    message.isThinking()
                 );
             } else {
                 // 非流式消息使用正常序列化

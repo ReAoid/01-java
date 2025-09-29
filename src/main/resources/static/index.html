@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI聊天机器人系统</title>
+    <!-- 引入marked.js用于markdown解析 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -111,6 +113,126 @@
         .message.assistant.stream-complete:after {
             display: none;
         }
+        /* 混合内容消息不显示光标 */
+        .message.mixed-content:after {
+            display: none !important;
+        }
+        /* 混合内容消息样式 */
+        .message.mixed-content {
+            background: #f1f3f4;
+            color: #333;
+            padding: 0;
+        }
+        
+        /* 思考部分样式 - 灰色背景，灰白色字体 */
+        .thinking-section {
+            background: #6c757d;
+            padding: 12px 15px;
+            margin: 0;
+            border-radius: 15px 15px 0 0;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #e9ecef;
+            position: relative;
+        }
+        
+        .thinking-section::before {
+            content: '🧠 AI思考过程';
+            display: block;
+            font-weight: bold;
+            color: #f8f9fa;
+            margin-bottom: 8px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 12px;
+        }
+        
+        /* 普通内容部分样式 - 正常背景和字体 */
+        .normal-section {
+            background: #f1f3f4;
+            padding: 12px 15px;
+            margin: 0;
+            border-radius: 0 0 15px 15px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+            border-top: 1px solid #dee2e6;
+        }
+        
+        /* 只有思考内容时的样式 */
+        .thinking-only {
+            border-radius: 15px;
+        }
+        
+        /* 只有普通内容时的样式 */
+        .normal-only {
+            border-radius: 15px;
+        }
+        
+        /* 思考部分markdown样式 - 适配灰色背景 */
+        .thinking-section h1, .thinking-section h2, .thinking-section h3 {
+            margin: 10px 0 5px 0;
+            color: #f8f9fa;
+            font-weight: bold;
+        }
+        
+        .thinking-section h1 { font-size: 16px; }
+        .thinking-section h2 { font-size: 15px; }
+        .thinking-section h3 { font-size: 14px; }
+        
+        .thinking-section code {
+            background: rgba(0, 0, 0, 0.2);
+            color: #ffc107;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: inherit;
+        }
+        
+        .thinking-section pre {
+            background: rgba(0, 0, 0, 0.2);
+            color: #e9ecef;
+            padding: 8px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 8px 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .thinking-section ul, .thinking-section ol {
+            margin: 8px 0;
+            padding-left: 20px;
+            color: #e9ecef;
+        }
+        
+        .thinking-section li {
+            margin: 4px 0;
+        }
+        
+        .thinking-section blockquote {
+            border-left: 3px solid #17a2b8;
+            padding-left: 10px;
+            margin: 8px 0;
+            font-style: italic;
+            color: #ced4da;
+        }
+        
+        .thinking-section p {
+            margin: 8px 0;
+            color: #e9ecef;
+        }
+        
+        .thinking-section strong {
+            color: #f8f9fa;
+            font-weight: bold;
+        }
+        
+        .thinking-section em {
+            color: #ced4da;
+            font-style: italic;
+        }
+        
+        /* 保留原有的独立思考消息样式，用于兼容 */
         .message.thinking {
             background: #fff8dc;
             border-left: 4px solid #ffa500;
@@ -397,8 +519,12 @@
         
         // 处理流式消息
         function handleStreamingMessage(message) {
+            console.log('🔄 处理流式消息:', message);
+            console.log('🔧 当前思考显示状态:', showThinking);
+            
             if (!message.content && message.streamComplete) {
                 // 流式响应结束
+                console.log('✅ 流式响应结束');
                 if (currentAssistantMessage) {
                     currentAssistantMessage.dataset.streamable = 'false';
                     currentAssistantMessage.classList.add('stream-complete');
@@ -407,13 +533,35 @@
                 // 重新启用发送按钮
                 enableSendButton();
             } else if (message.content) {
+                console.log('📝 收到内容:', {
+                    content: message.content,
+                    thinking: message.thinking,
+                    hasCurrentMessage: !!currentAssistantMessage,
+                    isMixedContent: currentAssistantMessage?.classList.contains('mixed-content')
+                });
+                
+                // 确保有一个混合内容消息来接收内容
+                if (!currentAssistantMessage || !currentAssistantMessage.classList.contains('mixed-content')) {
+                    console.log('🆕 创建新的混合内容消息');
+                    currentAssistantMessage = addMixedContentMessage('', '');
+                }
+                
                 // 有内容的流式消息
                 if (message.thinking) {
-                    // 思考内容
-                    appendToLastThinkingMessage(message.content, message.streamComplete);
+                    console.log('🧠 处理思考内容:', message.content);
+                    appendToMixedContentMessage(message.content, '', true);
                 } else {
-                    // 普通内容
-                    appendToLastMessage(message.content, message.streamComplete);
+                    console.log('💬 处理普通内容:', message.content);
+                    appendToMixedContentMessage('', message.content, false);
+                }
+                
+                // 如果流式消息完成，标记完成状态
+                if (message.streamComplete && currentAssistantMessage) {
+                    console.log('✅ 单个消息流完成');
+                    currentAssistantMessage.dataset.streamable = 'false';
+                    currentAssistantMessage.classList.add('stream-complete');
+                    currentAssistantMessage = null;
+                    enableSendButton();
                 }
             }
         }
@@ -443,6 +591,73 @@
                 messageDiv.dataset.streamable = 'true';
                 currentAssistantMessage = messageDiv;
             }
+        }
+        
+        // 添加混合内容消息到聊天容器
+        function addMixedContentMessage(thinkingContent = '', normalContent = '') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message assistant mixed-content';
+            messageDiv.dataset.streamable = 'true';
+            messageDiv.dataset.hasThinking = thinkingContent ? 'true' : 'false';
+            messageDiv.dataset.hasNormal = normalContent ? 'true' : 'false';
+            messageDiv.dataset.thinkingContent = thinkingContent;
+            messageDiv.dataset.normalContent = normalContent;
+            
+            updateMixedContentMessage(messageDiv, thinkingContent, normalContent);
+            
+            chatContainer.appendChild(messageDiv);
+            scrollToBottom();
+            
+            currentAssistantMessage = messageDiv;
+            return messageDiv;
+        }
+        
+        // 更新混合内容消息
+        function updateMixedContentMessage(messageDiv, thinkingContent, normalContent) {
+            console.log('🔄 更新混合内容消息:', {
+                thinkingLength: thinkingContent?.length || 0,
+                normalLength: normalContent?.length || 0,
+                thinkingPreview: thinkingContent?.substring(0, 50) + '...',
+                normalPreview: normalContent?.substring(0, 50) + '...'
+            });
+            
+            let html = '';
+            
+            // 处理思考内容
+            if (thinkingContent && thinkingContent.trim()) {
+                // 移除<think>和</think>标签
+                let cleanThinking = thinkingContent.replace(/<\/?think>/g, '').trim();
+                console.log('🧠 清理后的思考内容:', cleanThinking.substring(0, 100) + '...');
+                
+                if (cleanThinking) {
+                    // 使用marked解析markdown
+                    let thinkingHtml = '';
+                    try {
+                        thinkingHtml = marked.parse(cleanThinking);
+                        console.log('✅ Markdown解析成功');
+                    } catch (e) {
+                        console.warn('⚠️ Markdown解析失败，使用原始文本:', e);
+                        // 如果markdown解析失败，使用原始文本
+                        thinkingHtml = cleanThinking.replace(/\n/g, '<br>');
+                    }
+                    
+                    const sectionClass = normalContent && normalContent.trim() ? 'thinking-section' : 'thinking-section thinking-only';
+                    html += `<div class="${sectionClass}">${thinkingHtml}</div>`;
+                    messageDiv.dataset.hasThinking = 'true';
+                    console.log('🧠 添加思考部分，样式类:', sectionClass);
+                }
+            }
+            
+            // 处理普通内容
+            if (normalContent && normalContent.trim()) {
+                const sectionClass = (thinkingContent && thinkingContent.trim()) ? 'normal-section' : 'normal-section normal-only';
+                html += `<div class="${sectionClass}">${normalContent.replace(/\n/g, '<br>')}</div>`;
+                messageDiv.dataset.hasNormal = 'true';
+                console.log('💬 添加普通部分，样式类:', sectionClass);
+            }
+            
+            console.log('📝 最终HTML长度:', html.length);
+            messageDiv.innerHTML = html;
         }
         
         // 添加思考消息到聊天容器
@@ -486,11 +701,47 @@
             }
         }
 
-        // 追加内容到最后一条助手消息 - 优化版
+        // 追加内容到混合内容消息
+        function appendToMixedContentMessage(thinkingContent, normalContent, isThinking) {
+            // 现在我们确保在调用此函数之前已经有了混合内容消息
+            if (!currentAssistantMessage || !currentAssistantMessage.classList.contains('mixed-content')) {
+                console.error('appendToMixedContentMessage called without mixed-content message');
+                return;
+            }
+            
+            // 获取现有内容
+            let existingThinking = currentAssistantMessage.dataset.thinkingContent || '';
+            let existingNormal = currentAssistantMessage.dataset.normalContent || '';
+            
+            // 追加新内容
+            if (isThinking) {
+                existingThinking += thinkingContent;
+            } else {
+                existingNormal += normalContent;
+            }
+            
+            // 保存到dataset
+            currentAssistantMessage.dataset.thinkingContent = existingThinking;
+            currentAssistantMessage.dataset.normalContent = existingNormal;
+            
+            // 更新显示
+            updateMixedContentMessage(currentAssistantMessage, existingThinking, existingNormal);
+            
+            // 使用节流滚动以提高性能
+            throttledScrollToBottom();
+        }
+        
+        // 追加内容到最后一条助手消息 - 优化版（保留用于兼容）
         function appendToLastMessage(content, isComplete) {
             if (!currentAssistantMessage) {
                 // 如果没有当前消息，创建新消息
                 addMessage('assistant', content);
+                return;
+            }
+            
+            // 检查是否是混合内容消息
+            if (currentAssistantMessage.classList.contains('mixed-content')) {
+                appendToMixedContentMessage('', content, false);
                 return;
             }
             
@@ -586,6 +837,7 @@
             
             // 显示AI正在思考的指示器
             showTypingIndicator();
+            
             
             // 发送到服务器
             ws.send(JSON.stringify(message));
