@@ -91,11 +91,15 @@ public class AppConfig {
      */
     public static class AIConfig {
         private SystemPromptConfig systemPrompt = new SystemPromptConfig();
+        private WebSearchDecisionConfig webSearchDecision = new WebSearchDecisionConfig();
         private StreamingConfig streaming = new StreamingConfig();
         private VoiceConfig voice = new VoiceConfig();
         
         public SystemPromptConfig getSystemPrompt() { return systemPrompt; }
         public void setSystemPrompt(SystemPromptConfig systemPrompt) { this.systemPrompt = systemPrompt; }
+        
+        public WebSearchDecisionConfig getWebSearchDecision() { return webSearchDecision; }
+        public void setWebSearchDecision(WebSearchDecisionConfig webSearchDecision) { this.webSearchDecision = webSearchDecision; }
         
         public StreamingConfig getStreaming() { return streaming; }
         public void setStreaming(StreamingConfig streaming) { this.streaming = streaming; }
@@ -119,6 +123,23 @@ public class AppConfig {
             
             public boolean isEnablePersona() { return enablePersona; }
             public void setEnablePersona(boolean enablePersona) { this.enablePersona = enablePersona; }
+        }
+        
+        /**
+         * 联网搜索判断配置
+         */
+        public static class WebSearchDecisionConfig {
+            private int timeoutSeconds = 5; // AI判断超时时间（秒）
+            private boolean enableTimeoutFallback = true; // 超时时是否采用保守策略
+            
+            public int getTimeoutSeconds() { return timeoutSeconds; }
+            public void setTimeoutSeconds(int timeoutSeconds) { this.timeoutSeconds = timeoutSeconds; }
+            
+            public boolean isEnableTimeoutFallback() { return enableTimeoutFallback; }
+            public void setEnableTimeoutFallback(boolean enableTimeoutFallback) { this.enableTimeoutFallback = enableTimeoutFallback; }
+            
+            // 辅助方法：获取毫秒超时时间
+            public long getTimeoutMillis() { return timeoutSeconds * 1000L; }
         }
         
         public static class StreamingConfig {

@@ -124,10 +124,15 @@ public class ChatService {
                         processedInput, dialogueHistory, worldBookSetting, sessionId);
                     
                     if (searchDecision.needsWebSearch()) {
-                        logger.info("AI判断需要联网搜索，提取的关键词: '{}'", searchDecision.getSearchQuery());
+                        logger.info("联网搜索决策: 需要搜索 | 来源: {} | 关键词: '{}' | 原因: {}", 
+                                  searchDecision.getSource(), 
+                                  searchDecision.getSearchQuery(), 
+                                  searchDecision.getReason());
                         webSearchMessage = performWebSearch(searchDecision.getSearchQuery(), sessionId);
                     } else {
-                        logger.info("AI判断无需联网搜索，原因: {}", searchDecision.getReason());
+                        logger.info("联网搜索决策: 无需搜索 | 来源: {} | 原因: {}", 
+                                  searchDecision.getSource(), 
+                                  searchDecision.getReason());
                     }
                 } else {
                     logger.debug("用户未启用联网搜索功能");
@@ -548,16 +553,61 @@ public class ChatService {
         private final boolean needsWebSearch;
         private final String searchQuery;
         private final String reason;
+        private final boolean isTimeout; // 标记是否由于超时导致的判断
+        private final DecisionSource source; // 判断来源
+        
+        // 判断来源枚举
+        public enum DecisionSource {
+            AI_DECISION,    // AI正常返回的判断
+            TIMEOUT_FALLBACK, // 超时后的备选策略
+            ERROR_FALLBACK   // 错误后的备选策略
+        }
         
         public WebSearchDecision(boolean needsWebSearch, String searchQuery, String reason) {
+            this(needsWebSearch, searchQuery, reason, false, DecisionSource.AI_DECISION);
+        }
+        
+        public WebSearchDecision(boolean needsWebSearch, String searchQuery, String reason, 
+                               boolean isTimeout, DecisionSource source) {
             this.needsWebSearch = needsWebSearch;
             this.searchQuery = searchQuery;
             this.reason = reason;
+            this.isTimeout = isTimeout;
+            this.source = source;
+        }
+        
+        // 创建超时备选决策的静态方法
+        public static WebSearchDecision createTimeoutFallback(boolean enableTimeoutFallback) {
+            return new WebSearchDecision(
+                !enableTimeoutFallback, // 如果启用超时备选，则不搜索；否则搜索
+                "",
+                "AI判断超时，采用" + (enableTimeoutFallback ? "保守策略（不搜索）" : "积极策略（搜索）"),
+                true,
+                DecisionSource.TIMEOUT_FALLBACK
+            );
+        }
+        
+        // 创建错误备选决策的静态方法
+        public static WebSearchDecision createErrorFallback() {
+            return new WebSearchDecision(
+                false,
+                "",
+                "AI判断过程发生异常，采用保守策略（不搜索）",
+                false,
+                DecisionSource.ERROR_FALLBACK
+            );
         }
         
         public boolean needsWebSearch() { return needsWebSearch; }
         public String getSearchQuery() { return searchQuery; }
         public String getReason() { return reason; }
+        public boolean isTimeout() { return isTimeout; }
+        public DecisionSource getSource() { return source; }
+        
+        // 判断是否为正常AI决策
+        public boolean isNormalAIDecision() {
+            return source == DecisionSource.AI_DECISION;
+        }
     }
     
     /**
@@ -582,15 +632,25 @@ public class ChatService {
             );
             
             // 使用同步方式获取AI判断结果
-            String aiDecision = getAIDecisionSync(decisionMessages, sessionId);
+            AIDecisionResult aiResult = getAIDecisionSync(decisionMessages, sessionId);
             
-            // 解析AI的判断结果
-            return parseWebSearchDecision(aiDecision, userInput);
+            // 处理不同的结果情况
+            if (aiResult.hasError()) {
+                logger.error("AI判断过程发生错误");
+                return WebSearchDecision.createErrorFallback();
+            } else if (aiResult.isTimeout()) {
+                logger.warn("AI判断超时，采用备选策略");
+                boolean enableTimeoutFallback = aiConfig.getWebSearchDecision().isEnableTimeoutFallback();
+                return WebSearchDecision.createTimeoutFallback(enableTimeoutFallback);
+            } else {
+                // 解析AI的正常判断结果
+                return parseWebSearchDecision(aiResult.getResponse(), userInput);
+            }
             
         } catch (Exception e) {
             logger.error("AI智能判断联网搜索需求失败", e);
             // 发生异常时，采用保守策略：不搜索
-            return new WebSearchDecision(false, "", "AI判断过程发生异常");
+            return WebSearchDecision.createErrorFallback();
         }
     }
     
@@ -655,14 +715,39 @@ public class ChatService {
     
     /**
      * 同步获取AI判断结果
+     * 返回结果包装类，包含响应内容和是否超时信息
      */
-    private String getAIDecisionSync(List<OllamaMessage> messages, String sessionId) {
+    private static class AIDecisionResult {
+        private final String response;
+        private final boolean isTimeout;
+        private final boolean hasError;
+        
+        public AIDecisionResult(String response, boolean isTimeout, boolean hasError) {
+            this.response = response;
+            this.isTimeout = isTimeout;
+            this.hasError = hasError;
+        }
+        
+        public String getResponse() { return response; }
+        public boolean isTimeout() { return isTimeout; }
+        public boolean hasError() { return hasError; }
+    }
+    
+    /**
+     * 同步获取AI判断结果
+     */
+    private AIDecisionResult getAIDecisionSync(List<OllamaMessage> messages, String sessionId) {
         StringBuilder result = new StringBuilder();
         
         try {
+            // 获取配置的超时时间
+            long timeoutMillis = aiConfig.getWebSearchDecision().getTimeoutMillis();
+            logger.debug("AI判断超时设置: {}毫秒", timeoutMillis);
+            
             // 使用一个简单的同步机制来获取AI响应
             final Object lock = new Object();
             final boolean[] completed = {false};
+            final boolean[] hasError = {false};
             
             ollamaService.generateStreamingResponse(
                 messages,
@@ -674,6 +759,7 @@ public class ChatService {
                 error -> {
                     logger.error("AI判断请求失败", error);
                     synchronized (lock) {
+                        hasError[0] = true;
                         completed[0] = true;
                         lock.notify();
                     }
@@ -687,18 +773,23 @@ public class ChatService {
                 }
             );
             
-            // 等待响应完成，最多等待10秒
+            // 等待响应完成，使用配置的超时时间
             synchronized (lock) {
                 if (!completed[0]) {
-                    lock.wait(10000);
+                    lock.wait(timeoutMillis);
                 }
             }
             
-            return result.toString();
+            boolean isTimeout = !completed[0];
+            if (isTimeout) {
+                logger.warn("AI判断请求超时，超时时间: {}毫秒", timeoutMillis);
+            }
+            
+            return new AIDecisionResult(result.toString(), isTimeout, hasError[0]);
             
         } catch (Exception e) {
             logger.error("同步获取AI判断结果失败", e);
-            return "";
+            return new AIDecisionResult("", false, true);
         }
     }
     
