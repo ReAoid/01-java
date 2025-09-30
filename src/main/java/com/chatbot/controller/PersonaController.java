@@ -22,9 +22,7 @@ public class PersonaController {
     private final PersonaService personaService;
     
     public PersonaController(PersonaService personaService) {
-        logger.info("初始化PersonaController");
         this.personaService = personaService;
-        logger.debug("PersonaController初始化完成");
     }
     
     /**

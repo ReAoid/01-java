@@ -42,8 +42,6 @@ public class WebSearchService {
         this.httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS))
             .build();
-        
-        logger.info("WebSearchService初始化完成");
     }
     
     /**

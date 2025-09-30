@@ -54,7 +54,6 @@ public class WorldBookService {
      */
     @PostConstruct
     public void initialize() {
-        logger.info("🌍 初始化世界书服务...");
         loadManualWorldBook();
         loadExtractedWorldBook();
         logger.info("🌍 世界书服务初始化完成 - 手动条目: {}, 自动提取条目: {}", 
@@ -87,7 +86,6 @@ public class WorldBookService {
                         manualEntries.put(entry.getEntryId(), entry);
                     }
                 }
-                logger.info("成功加载手动世界书条目: {} 个", manualEntries.size());
             }
             
         } catch (Exception e) {
@@ -129,9 +127,7 @@ public class WorldBookService {
                         }
                     }
                 }
-                logger.info("成功加载自动提取世界书条目: {} 个", extractedEntries.size());
             }
-            
         } catch (Exception e) {
             logger.error("加载自动提取世界书失败: {}", extractedWorldBookPath, e);
         }

@@ -38,11 +38,9 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     private final AtomicLong sessionIdGenerator = new AtomicLong(0);
 
     public ChatWebSocketHandler(ChatService chatService, OllamaService ollamaService, ObjectMapper objectMapper) {
-        logger.info("初始化ChatWebSocketHandler");
         this.chatService = chatService;
         this.ollamaService = ollamaService;
         this.objectMapper = objectMapper;
-        logger.debug("ChatWebSocketHandler初始化完成");
     }
 
     @Override

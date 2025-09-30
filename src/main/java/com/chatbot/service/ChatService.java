@@ -45,7 +45,6 @@ public class ChatService {
                       SessionHistoryService sessionHistoryService,
                       WebSearchService webSearchService,
                       TaskManager taskManager) {
-        logger.info("初始化ChatService");
         this.sessionService = sessionService;
         this.personaService = personaService;
         this.memoryService = memoryService;
@@ -57,7 +56,6 @@ public class ChatService {
         this.sessionHistoryService = sessionHistoryService;
         this.webSearchService = webSearchService;
         this.taskManager = taskManager;
-        logger.debug("ChatService初始化完成，已注入所有依赖服务");
     }
     
     /**

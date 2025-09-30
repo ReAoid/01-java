@@ -33,12 +33,10 @@ public class SystemController {
                            MemoryService memoryService,
                            PersonaService personaService,
                            ChatWebSocketHandler webSocketHandler) {
-        logger.info("初始化SystemController");
         this.sessionService = sessionService;
         this.memoryService = memoryService;
         this.personaService = personaService;
         this.webSocketHandler = webSocketHandler;
-        logger.debug("SystemController初始化完成");
     }
     
     /**

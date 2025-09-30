@@ -25,7 +25,6 @@ public class SessionService {
     private final ScheduledExecutorService scheduler;
     
     public SessionService(AppConfig appConfig) {
-        logger.info("初始化SessionService");
         this.systemConfig = appConfig.getSystem();
         this.activeSessions = new ConcurrentHashMap<>();
         this.scheduler = Executors.newSingleThreadScheduledExecutor();
