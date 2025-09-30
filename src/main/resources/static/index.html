@@ -257,6 +257,7 @@
             padding: 20px;
             display: flex;
             gap: 10px;
+            align-items: center;
         }
         .message-input {
             flex: 1;
@@ -277,6 +278,33 @@
         }
         .send-btn:hover {
             background: #0056b3;
+        }
+        .interrupt-btn {
+            padding: 12px 20px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            display: none; /* 默认隐藏 */
+            transition: all 0.3s ease;
+        }
+        .interrupt-btn:hover {
+            background: #c82333;
+            transform: scale(1.05);
+        }
+        .interrupt-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .interrupt-btn.visible {
+            display: block;
+        }
+        .interrupt-icon {
+            font-size: 16px;
+            margin-right: 5px;
         }
         .persona-selector {
             padding: 10px 20px;
@@ -385,6 +413,9 @@
         <div class="input-container">
             <input type="text" id="messageInput" class="message-input" 
                    placeholder="输入您的消息..." disabled>
+            <button id="interruptBtn" class="interrupt-btn" title="停止AI回复">
+                <span class="interrupt-icon">⏹</span>停止
+            </button>
             <button id="sendBtn" class="send-btn" disabled>发送</button>
         </div>
     </div>
@@ -398,12 +429,15 @@
         const maxReconnectAttempts = 5;
         let showThinking = true; // 思考显示状态
         let useWebSearch = false; // 联网搜索状态
+        let isAIResponding = false; // AI是否正在回复
+        let currentStreamingMessage = null; // 当前流式消息元素
 
         const statusDiv = document.getElementById('status');
         const ollamaStatusDiv = document.getElementById('ollamaStatus');
         const chatContainer = document.getElementById('chatContainer');
         const messageInput = document.getElementById('messageInput');
         const sendBtn = document.getElementById('sendBtn');
+        const interruptBtn = document.getElementById('interruptBtn');
         const personaSelect = document.getElementById('personaSelect');
         const thinkingToggle = document.getElementById('thinkingToggle');
         const webSearchToggle = document.getElementById('webSearchToggle');
@@ -498,6 +532,9 @@
                 } else if (message.metadata && message.metadata.web_search_toggle) {
                     // 处理联网搜索切换确认
                     handleWebSearchToggleConfirmation(message);
+                } else if (message.metadata && message.metadata.interrupt_confirmed) {
+                    // 处理打断确认
+                    handleInterruptConfirmation(message);
                 } else {
                     addMessage('system', message.content);
                 }
@@ -505,6 +542,10 @@
                 removeTypingIndicator();
                 if (message.streaming) {
                     // 流式消息处理
+                    if (!isAIResponding) {
+                        isAIResponding = true;
+                        showInterruptButton();
+                    }
                     handleStreamingMessage(message);
                 } else {
                     addMessage('assistant', message.content);
@@ -532,6 +573,9 @@
                 }
                 // 重新启用发送按钮
                 enableSendButton();
+                // 隐藏打断按钮
+                isAIResponding = false;
+                hideInterruptButton();
             } else if (message.content) {
                 console.log('📝 收到内容:', {
                     content: message.content,
@@ -562,6 +606,9 @@
                     currentAssistantMessage.classList.add('stream-complete');
                     currentAssistantMessage = null;
                     enableSendButton();
+                    // 隐藏打断按钮
+                    isAIResponding = false;
+                    hideInterruptButton();
                 }
             }
         }
@@ -825,6 +872,11 @@
             const content = messageInput.value.trim();
             if (!content || !isConnected) return;
 
+            // 如果AI正在回复，先发送打断信号
+            if (isAIResponding) {
+                sendInterruptSignal('NEW_MESSAGE', '用户发送了新消息');
+            }
+
             const message = {
                 type: 'text',
                 content: content,
@@ -837,7 +889,6 @@
             
             // 显示AI正在思考的指示器
             showTypingIndicator();
-            
             
             // 发送到服务器
             ws.send(JSON.stringify(message));
@@ -858,6 +909,10 @@
 
         // 事件监听
         sendBtn.addEventListener('click', sendMessage);
+        
+        interruptBtn.addEventListener('click', function() {
+            sendInterruptSignal('USER_STOP', '用户点击停止按钮');
+        });
         
         messageInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
@@ -990,6 +1045,73 @@
         
         // 初始化联网搜索切换UI
         updateWebSearchToggleUI(useWebSearch);
+        
+        // 发送打断信号
+        function sendInterruptSignal(interruptType, reason) {
+            if (!ws || !isConnected || !currentSessionId) {
+                console.warn('无法发送打断信号：WebSocket未连接或无会话ID');
+                return;
+            }
+            
+            const interruptMessage = {
+                type: 'system',
+                content: 'interrupt',
+                metadata: {
+                    action: 'interrupt',
+                    interruptType: interruptType,
+                    reason: reason
+                },
+                sessionId: currentSessionId
+            };
+            
+            ws.send(JSON.stringify(interruptMessage));
+            console.log('发送打断信号:', interruptMessage);
+            
+            // 立即进行视觉反馈
+            if (currentStreamingMessage) {
+                // 在当前流式消息末尾添加中断提示
+                const interruptNotice = document.createElement('span');
+                interruptNotice.className = 'interrupt-notice';
+                interruptNotice.textContent = ' ...（已中断）';
+                interruptNotice.style.color = '#dc3545';
+                interruptNotice.style.fontStyle = 'italic';
+                currentStreamingMessage.appendChild(interruptNotice);
+            }
+            
+            // 立即隐藏打断按钮
+            isAIResponding = false;
+            hideInterruptButton();
+        }
+        
+        // 显示打断按钮
+        function showInterruptButton() {
+            interruptBtn.classList.add('visible');
+            interruptBtn.disabled = false;
+        }
+        
+        // 隐藏打断按钮
+        function hideInterruptButton() {
+            interruptBtn.classList.remove('visible');
+            interruptBtn.disabled = true;
+        }
+        
+        // 处理打断确认
+        function handleInterruptConfirmation(message) {
+            console.log('收到打断确认:', message);
+            
+            // 确保打断按钮被隐藏
+            isAIResponding = false;
+            hideInterruptButton();
+            
+            // 移除正在输入指示器
+            removeTypingIndicator();
+            
+            // 重新启用发送按钮
+            enableSendButton();
+            
+            // 显示打断确认消息
+            addMessage('system', message.content + ` (中断了 ${message.metadata.interrupted_tasks} 个任务)`);
+        }
         
         // 页面加载时连接
         window.addEventListener('load', connect);

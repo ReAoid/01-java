@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
@@ -33,6 +32,7 @@ public class ChatService {
     private final ConversationHistoryService conversationHistoryService;
     private final SessionHistoryService sessionHistoryService;
     private final WebSearchService webSearchService;
+    private final TaskManager taskManager;
     
     public ChatService(SessionService sessionService, 
                       PersonaService personaService,
@@ -43,7 +43,8 @@ public class ChatService {
                       OllamaService ollamaService,
                       ConversationHistoryService conversationHistoryService,
                       SessionHistoryService sessionHistoryService,
-                      WebSearchService webSearchService) {
+                      WebSearchService webSearchService,
+                      TaskManager taskManager) {
         logger.info("初始化ChatService");
         this.sessionService = sessionService;
         this.personaService = personaService;
@@ -55,17 +56,29 @@ public class ChatService {
         this.conversationHistoryService = conversationHistoryService;
         this.sessionHistoryService = sessionHistoryService;
         this.webSearchService = webSearchService;
+        this.taskManager = taskManager;
         logger.debug("ChatService初始化完成，已注入所有依赖服务");
     }
     
     /**
      * 处理用户消息并生成AI回复（流式处理）
      */
-    public void processMessage(ChatMessage userMessage, Consumer<ChatMessage> responseCallback) {
+    public String processMessage(ChatMessage userMessage, Consumer<ChatMessage> responseCallback) {
         long messageStartTime = System.currentTimeMillis();
         String sessionId = userMessage.getSessionId();
         
-        CompletableFuture.runAsync(() -> {
+        // 生成任务ID
+        String taskId = taskManager.generateTaskId(sessionId);
+        logger.info("开始处理消息，sessionId: {}, taskId: {}", sessionId, taskId);
+        
+        // 取消该会话的所有之前的任务（实现打断功能）
+        int cancelledTasks = taskManager.cancelSessionTasks(sessionId);
+        if (cancelledTasks > 0) {
+            logger.info("打断了 {} 个之前的任务，sessionId: {}", cancelledTasks, sessionId);
+        }
+        
+        // 提交新任务
+        taskManager.submitTask(taskId, () -> {
             
             try {
                 // 1. 获取或创建会话
@@ -160,7 +173,9 @@ public class ChatService {
                 // 8. 调用AI模型生成回复（流式）
                 logger.debug("步骤8：调用AI模型生成回复");
                 long aiCallStartTime = System.currentTimeMillis();
-                generateStreamingResponse(messages, sessionId, responseCallback, messageStartTime, aiCallStartTime, userMessage);
+                
+                // 在任务内部调用流式响应，这样可以立即注册HTTP调用
+                generateStreamingResponseInTask(messages, sessionId, taskId, responseCallback, messageStartTime, aiCallStartTime, userMessage);
                 
                 long totalProcessingTime = System.currentTimeMillis() - messageStartTime;
                 logger.info("消息处理启动完成，sessionId: {}, 总启动时间: {}ms", sessionId, totalProcessingTime);
@@ -178,6 +193,24 @@ public class ChatService {
                 responseCallback.accept(errorResponse);
             }
         });
+        
+        return taskId;
+    }
+    
+    /**
+     * 中断指定任务
+     */
+    public boolean interruptTask(String taskId) {
+        logger.info("收到中断任务请求，taskId: {}", taskId);
+        return taskManager.cancelTask(taskId);
+    }
+    
+    /**
+     * 中断会话的所有任务
+     */
+    public int interruptSessionTasks(String sessionId) {
+        logger.info("收到中断会话任务请求，sessionId: {}", sessionId);
+        return taskManager.cancelSessionTasks(sessionId);
     }
     
     /**
@@ -278,7 +311,7 @@ public class ChatService {
     /**
      * 生成流式回复（使用Ollama）- 优化版
      */
-    private void generateStreamingResponse(List<OllamaMessage> messages, String sessionId, Consumer<ChatMessage> callback, 
+    private void generateStreamingResponse(List<OllamaMessage> messages, String sessionId, String taskId, Consumer<ChatMessage> callback, 
                                          long messageStartTime, long aiCallStartTime, ChatMessage userMessage) {
         
         // 检查Ollama服务是否可用
@@ -299,11 +332,16 @@ public class ChatService {
         StreamingState state = new StreamingState();
         
         // 使用Ollama服务生成流式响应
-        ollamaService.generateStreamingResponse(
+        okhttp3.Call ollamaCall = ollamaService.generateStreamingResponseWithInterruptCheck(
             messages,
             // 成功处理每个chunk
             chunk -> {
-                handleStreamChunk(chunk, sessionId, callback, state, messageStartTime, aiCallStartTime);
+                // 检查任务是否被取消
+                if (taskManager.isTaskCancelled(taskId)) {
+                    logger.info("任务已被取消，停止处理流式响应，taskId: {}", taskId);
+                    return;
+                }
+                handleStreamChunk(chunk, sessionId, taskId, callback, state, messageStartTime, aiCallStartTime);
             },
             // 错误处理
             error -> {
@@ -311,6 +349,12 @@ public class ChatService {
             },
             // 完成处理回调 - 在流式响应真正完成时调用
             () -> {
+                // 检查任务是否被取消
+                if (taskManager.isTaskCancelled(taskId)) {
+                    logger.info("任务已被取消，跳过完成处理，taskId: {}", taskId);
+                    return;
+                }
+                
                 logger.debug("收到流式响应完成通知，sessionId: {}", sessionId);
                 
                 // 发送流完成信号
@@ -332,8 +376,99 @@ public class ChatService {
                 } else {
                     logger.warn("⚠️ 没有AI回答内容需要保存 - sessionId: {}", sessionId);
                 }
-            }
+            },
+            // 中断检查器
+            () -> taskManager.isTaskCancelled(taskId)
         );
+        
+        // 注册HTTP调用以便可以取消
+        if (ollamaCall != null) {
+            taskManager.registerHttpCall(taskId, ollamaCall);
+        } else {
+            logger.warn("OllamaCall为null，无法注册HTTP调用，taskId: {}", taskId);
+        }
+    }
+    
+    /**
+     * 在任务内部生成流式回复，确保HTTP调用被正确注册
+     */
+    private void generateStreamingResponseInTask(List<OllamaMessage> messages, String sessionId, String taskId, Consumer<ChatMessage> callback, 
+                                               long messageStartTime, long aiCallStartTime, ChatMessage userMessage) {
+        
+        // 检查Ollama服务是否可用
+        if (!ollamaService.isServiceAvailable()) {
+            logger.error("Ollama服务不可用，无法生成响应，sessionId: {}", sessionId);
+            
+            ChatMessage errorMessage = new ChatMessage();
+            errorMessage.setType("error");
+            errorMessage.setContent("抱歉，AI服务当前不可用，请稍后重试。");
+            errorMessage.setRole("assistant");
+            errorMessage.setSessionId(sessionId);
+            
+            callback.accept(errorMessage);
+            return;
+        }
+        
+        // 流式处理状态管理
+        StreamingState state = new StreamingState();
+        
+        // 使用Ollama服务生成流式响应
+        okhttp3.Call ollamaCall = ollamaService.generateStreamingResponseWithInterruptCheck(
+            messages,
+            // 成功处理每个chunk
+            chunk -> {
+                // 检查任务是否被取消
+                if (taskManager.isTaskCancelled(taskId)) {
+                    logger.info("任务已被取消，停止处理流式响应，taskId: {}", taskId);
+                    return;
+                }
+                handleStreamChunk(chunk, sessionId, taskId, callback, state, messageStartTime, aiCallStartTime);
+            },
+            // 错误处理
+            error -> {
+                handleStreamError(error, sessionId, callback, state, userMessage);
+            },
+            // 完成处理回调 - 在流式响应真正完成时调用
+            () -> {
+                // 检查任务是否被取消
+                if (taskManager.isTaskCancelled(taskId)) {
+                    logger.info("任务已被取消，跳过完成处理，taskId: {}", taskId);
+                    return;
+                }
+                
+                logger.debug("收到流式响应完成通知，sessionId: {}", sessionId);
+                
+                // 发送流完成信号
+                ChatMessage finalMessage = new ChatMessage();
+                finalMessage.setType("text");
+                finalMessage.setContent("");
+                finalMessage.setRole("assistant");
+                finalMessage.setSessionId(sessionId);
+                finalMessage.setStreaming(true);
+                finalMessage.setStreamComplete(true);
+                
+                callback.accept(finalMessage);
+                
+                // 保存完整响应（同时保存用户消息和AI回答）
+                if (state.completeResponse.length() > 0) {
+//                    logger.info("💾 触发对话保存 - sessionId: {}, AI响应长度: {}",
+//                               sessionId, state.completeResponse.length());
+                    saveCompleteConversation(sessionId, userMessage, state.completeResponse.toString());
+                } else {
+                    logger.warn("⚠️ 没有AI回答内容需要保存 - sessionId: {}", sessionId);
+                }
+            },
+            // 中断检查器
+            () -> taskManager.isTaskCancelled(taskId)
+        );
+        
+        // 立即注册HTTP调用以便可以取消
+        if (ollamaCall != null) {
+            taskManager.registerHttpCall(taskId, ollamaCall);
+            logger.info("✅ 在任务内部注册HTTP调用: {}", taskId);
+        } else {
+            logger.warn("❌ OllamaCall为null，无法注册HTTP调用，taskId: {}", taskId);
+        }
     }
     
     /**
@@ -351,7 +486,7 @@ public class ChatService {
     /**
      * 处理流式数据块
      */
-    private void handleStreamChunk(String chunk, String sessionId, Consumer<ChatMessage> callback, 
+    private void handleStreamChunk(String chunk, String sessionId, String taskId, Consumer<ChatMessage> callback, 
                                  StreamingState state, long messageStartTime, long aiCallStartTime) {
         state.chunkCounter++;
         state.completeResponse.append(chunk);

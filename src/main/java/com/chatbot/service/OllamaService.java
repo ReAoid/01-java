@@ -111,9 +111,17 @@ public class OllamaService {
     }
     
     /**
-     * 流式生成响应（支持完整消息列表）
+     * 流式生成响应（支持完整消息列表和中断检查）
      */
     public void generateStreamingResponse(List<OllamaMessage> messages, Consumer<String> onChunk, Consumer<Throwable> onError, Runnable onComplete) {
+        generateStreamingResponseWithInterruptCheck(messages, onChunk, onError, onComplete, null);
+    }
+    
+    /**
+     * 流式生成响应（支持完整消息列表和中断检查）
+     * @return Call对象，可用于取消请求
+     */
+    public okhttp3.Call generateStreamingResponseWithInterruptCheck(List<OllamaMessage> messages, Consumer<String> onChunk, Consumer<Throwable> onError, Runnable onComplete, java.util.function.Supplier<Boolean> interruptChecker) {
         logger.debug("消息数量: {}", messages.size());
         
         try {
@@ -132,7 +140,8 @@ public class OllamaService {
                         request.url(), request.method());
             
             // 异步执行请求
-            httpClient.newCall(request).enqueue(new Callback() {
+            okhttp3.Call call = httpClient.newCall(request);
+            call.enqueue(new Callback() {
                 @Override
                 public void onFailure(Call call, IOException e) {
                     logger.error("Ollama API调用失败", e);
@@ -156,14 +165,17 @@ public class OllamaService {
                         }
                         
                         // 处理流式响应
-                        processStreamingResponse(responseBody, onChunk, onError, onComplete);
+                        processStreamingResponseWithInterruptCheck(responseBody, onChunk, onError, onComplete, interruptChecker);
                     }
                 }
             });
             
+            return call;
+            
         } catch (Exception e) {
             logger.error("构建Ollama请求时发生错误", e);
             onError.accept(e);
+            return null;
         }
     }
     
@@ -300,6 +312,13 @@ public class OllamaService {
      * 处理流式响应 - 优化版，支持真正的实时流式处理
      */
     private void processStreamingResponse(ResponseBody responseBody, Consumer<String> onChunk, Consumer<Throwable> onError, Runnable onComplete) {
+        processStreamingResponseWithInterruptCheck(responseBody, onChunk, onError, onComplete, null);
+    }
+    
+    /**
+     * 处理流式响应 - 支持中断检查的版本
+     */
+    private void processStreamingResponseWithInterruptCheck(ResponseBody responseBody, Consumer<String> onChunk, Consumer<Throwable> onError, Runnable onComplete, java.util.function.Supplier<Boolean> interruptChecker) {
         StringBuilder totalResponse = new StringBuilder();
         int chunkCount = 0;
         boolean hasError = false;
@@ -310,6 +329,12 @@ public class OllamaService {
             try (var source = responseBody.source()) {
                 String line;
                 while ((line = source.readUtf8Line()) != null) {
+                    // 检查是否需要中断
+                    if (interruptChecker != null && interruptChecker.get()) {
+                        logger.info("检测到中断信号，停止处理Ollama流式响应");
+                        return;
+                    }
+                    
                     if (line.trim().isEmpty()) {
                         continue;
                     }

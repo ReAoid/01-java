@@ -29,6 +29,9 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
     // 存储活跃的WebSocket会话
     private final ConcurrentHashMap<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
+    
+    // 存储会话的当前任务ID
+    private final ConcurrentHashMap<String, String> sessionTasks = new ConcurrentHashMap<>();
 
     // 生成唯一会话ID (备用，当前使用IdUtil工具类)
     @SuppressWarnings("unused")
@@ -100,13 +103,18 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                         // 处理联网搜索切换
                         handleWebSearchToggle(session, sessionId, chatMessage);
                         return;
+                    } else if ("interrupt".equals(action)) {
+                        // 处理打断信号
+                        handleInterruptSignal(session, sessionId, chatMessage);
+                        return;
                     }
                 }
                 
                 // 用于跟踪是否是第一次响应
                 final boolean[] isFirstResponse = {true};
                 
-                chatService.processMessage(chatMessage, response -> {
+                // 处理消息并获取任务ID
+                String taskId = chatService.processMessage(chatMessage, response -> {
                     try {
                         // 记录第一次响应时间
                         if (isFirstResponse[0] && response.getContent() != null && !response.getContent().isEmpty()) {
@@ -126,6 +134,9 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                         logger.error("发送消息失败，sessionId: {}", sessionId, e);
                     }
                 });
+                
+                // 存储当前任务ID
+                sessionTasks.put(sessionId, taskId);
 
             } catch (Exception e) {
                 long processingTime = System.currentTimeMillis() - startTime;
@@ -161,6 +172,9 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
         // 清理会话相关资源
         chatService.cleanupSession(sessionId);
+        
+        // 清理任务ID映射
+        sessionTasks.remove(sessionId);
     }
 
     @Override
@@ -354,6 +368,50 @@ public class ChatWebSocketHandler implements WebSocketHandler {
         }
     }
     
+    
+    /**
+     * 处理打断信号
+     */
+    private void handleInterruptSignal(WebSocketSession session, String sessionId, ChatMessage message) {
+        try {
+            String interruptType = (String) message.getMetadata().get("interruptType");
+            String reason = (String) message.getMetadata().get("reason");
+            
+            logger.info("收到打断信号 - sessionId: {}, type: {}, reason: {}", sessionId, interruptType, reason);
+            
+            // 中断当前会话的所有任务
+            int interruptedTasks = chatService.interruptSessionTasks(sessionId);
+            
+            // 发送打断确认消息
+            ChatMessage confirmMessage = new ChatMessage();
+            confirmMessage.setType("system");
+            confirmMessage.setContent("AI回复已被中断");
+            confirmMessage.setSessionId(sessionId);
+            confirmMessage.setMetadata(Map.of(
+                "interrupt_confirmed", true,
+                "interrupted_tasks", interruptedTasks,
+                "interrupt_type", interruptType != null ? interruptType : "user_stop"
+            ));
+            
+            sendMessage(session, confirmMessage);
+            
+            logger.info("打断处理完成 - sessionId: {}, 中断了 {} 个任务", sessionId, interruptedTasks);
+            
+        } catch (Exception e) {
+            logger.error("处理打断信号时发生错误，会话ID: {}", sessionId, e);
+            
+            try {
+                ChatMessage errorMessage = new ChatMessage();
+                errorMessage.setType("system");
+                errorMessage.setContent("处理打断信号时发生错误");
+                errorMessage.setSessionId(sessionId);
+                
+                sendMessage(session, errorMessage);
+            } catch (IOException ex) {
+                logger.error("发送错误消息失败", ex);
+            }
+        }
+    }
     
     /**
      * 获取活跃会话数量
