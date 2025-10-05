@@ -28,6 +28,7 @@ public class PersonaService {
     private final AppConfig appConfig;
     private static final String DEFAULT_PERSONA_ID = "default";
     private static final String PERSONAS_FILE = "personas.json";
+    private boolean isLoadedFromExternalFile = false;  // 标记是否从外部文件成功加载
     
     public PersonaService(AppConfig appConfig) {
         this.appConfig = appConfig;
@@ -42,10 +43,13 @@ public class PersonaService {
         try {
             // 先尝试从外部文件读取
             loadPersonasFromFile();
+            isLoadedFromExternalFile = true;  // 标记成功从外部文件加载
+            logger.info("成功从外部文件加载人设配置");
         } catch (Exception e) {
             logger.warn("从外部文件加载人设失败，使用内置默认人设: {}", e.getMessage());
             // 如果文件读取失败，使用内置默认人设
             initializeBuiltinPersonas();
+            isLoadedFromExternalFile = false;  // 标记使用内置人设
         }
         
         logger.info("初始化了 {} 个人设", personas.size());
@@ -244,11 +248,19 @@ public class PersonaService {
     }
     
     /**
+     * 检查人设是否从外部文件成功加载
+     */
+    public boolean isLoadedFromExternalFile() {
+        return isLoadedFromExternalFile;
+    }
+    
+    /**
      * 重新加载人设配置
      */
     public boolean reloadPersonas() {
         try {
             personas.clear();
+            isLoadedFromExternalFile = false;  // 重置标记
             initializePersonas();
             logger.info("人设配置重新加载成功，共 {} 个人设", personas.size());
             return true;
