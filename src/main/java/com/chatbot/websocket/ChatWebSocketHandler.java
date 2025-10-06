@@ -108,7 +108,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                     }
                 }
                 
-                // 用于跟踪是否是第一次响应
+                // 用于跟踪是否是第一次响应，isFirstResponse 设计成 boolean[] 是为了绕过 Java Lambda 表达式的变量捕获限制。
                 final boolean[] isFirstResponse = {true};
                 
                 // 处理消息并获取任务ID
