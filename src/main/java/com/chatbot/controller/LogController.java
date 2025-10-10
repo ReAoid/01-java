@@ -45,7 +45,8 @@ public class LogController {
                                       @RequestParam(name = "startTime", required = false) String startTime,
                                       @RequestParam(name = "endTime", required = false) String endTime) {
         
-        logger.info("LogController.getLogs 被调用，limit: {}, level: {}", limit, level);
+        // 移除频繁的API调用日志，避免日志污染
+        logger.debug("获取日志请求: limit={}, level={}", limit, level);
         
         Map<String, Object> response = new HashMap<>();
         List<Map<String, Object>> logs = new ArrayList<>();
@@ -116,7 +117,7 @@ public class LogController {
         }
         
         long responseTime = System.currentTimeMillis() - startTime;
-        logger.info("日志统计获取完成，响应时间: {}ms", responseTime);
+        logger.debug("日志统计响应时间: {}ms", responseTime);
         
         return stats;
     }
@@ -137,7 +138,8 @@ public class LogController {
             }
         }
         
-        logger.info("读取到 {} 行日志，文件路径: {}", lines.size(), logFile.getAbsolutePath());
+        // 仅在DEBUG级别记录详细读取信息
+        logger.debug("读取到 {} 行日志，文件: {}", lines.size(), logFile.getName());
         
         // 计算时间筛选范围
         LocalDateTime filterStartTime = calculateFilterStartTime(timeRange, startTime);

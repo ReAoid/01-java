@@ -2,8 +2,8 @@
 <configuration debug="false">
 
     <!-- 定义日志输出格式 -->
-    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} [%method:%line] - %msg%n" />
-    <property name="CONSOLE_PATTERN" value="%green(%d{yyyy-MM-dd HH:mm:ss.SSS}) [%blue(%thread)] %highlight(%-5level) %cyan(%logger{36}) [%yellow(%method:%line)] - %msg%n" />
+    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{40} - %msg%n" />
+    <property name="CONSOLE_PATTERN" value="%green(%d{yyyy-MM-dd HH:mm:ss.SSS}) [%blue(%thread)] %highlight(%-5level) %cyan(%logger{30}) - %msg%n" />
 
     <!-- 控制台输出 -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
@@ -11,15 +11,21 @@
             <pattern>${CONSOLE_PATTERN}</pattern>
             <charset>UTF-8</charset>
         </encoder>
+        <!-- 控制台只显示INFO及以上级别 -->
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO</level>
+        </filter>
     </appender>
 
     <!-- 文件输出（按天滚动） -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>src/main/resources/logs/app.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- 每天生成一个新文件，保留7天 -->
+            <!-- 每天生成一个新文件，保留15天 -->
             <fileNamePattern>src/main/resources/logs/app.%d{yyyy-MM-dd}.log</fileNamePattern>
-            <maxHistory>7</maxHistory>
+            <maxHistory>15</maxHistory>
+            <!-- 限制总日志文件大小 -->
+            <totalSizeCap>1GB</totalSizeCap>
         </rollingPolicy>
         <encoder>
             <pattern>${LOG_PATTERN}</pattern>
@@ -27,29 +33,63 @@
         </encoder>
     </appender>
 
+    <!-- 错误日志单独输出 -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>src/main/resources/logs/error.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>src/main/resources/logs/error.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        <!-- 只记录ERROR级别 -->
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+    </appender>
+
     <!-- 设置根日志级别和输出目标 -->
     <root level="INFO">
         <appender-ref ref="CONSOLE" />
         <appender-ref ref="FILE" />
+        <appender-ref ref="ERROR_FILE" />
     </root>
 
-    <!-- 项目包的日志级别 -->
-    <logger name="com.chatbot" level="DEBUG" />
+    <!-- 项目包的日志级别 - 生产环境优化 -->
+    <logger name="com.chatbot" level="INFO" />
     
-    <!-- 具体组件的日志级别控制 -->
-    <logger name="com.chatbot.controller" level="DEBUG" />
-    <logger name="com.chatbot.service" level="DEBUG" />
-    <logger name="com.chatbot.websocket" level="DEBUG" />
-    <logger name="com.chatbot.util" level="DEBUG" />
+    <!-- 核心业务组件 - 适度详细 -->
+    <logger name="com.chatbot.service.ChatService" level="INFO" />
+    <logger name="com.chatbot.service.OllamaService" level="INFO" />
+    <logger name="com.chatbot.websocket.ChatWebSocketHandler" level="INFO" />
+    
+    <!-- 工具类和辅助组件 - 只记录重要信息 -->
+    <logger name="com.chatbot.controller.LogController" level="WARN" />
+    <logger name="com.chatbot.service.TaskManager" level="INFO" />
+    <logger name="com.chatbot.service.SessionService" level="INFO" />
+    <logger name="com.chatbot.service.SessionHistoryService" level="INFO" />
+    <logger name="com.chatbot.util" level="WARN" />
+    
+    <!-- 开发调试时可临时启用DEBUG -->
+    <!-- <logger name="com.chatbot.service.ChatService" level="DEBUG" /> -->
     
     <!-- Spring框架日志级别 -->
-    <logger name="org.springframework" level="INFO" />
-    <logger name="org.springframework.web.socket" level="DEBUG" />
+    <logger name="org.springframework" level="WARN" />
+    <logger name="org.springframework.web.socket" level="INFO" />
+    <logger name="org.springframework.boot" level="INFO" />
     
     <!-- HTTP客户端日志 -->
-    <logger name="okhttp3" level="INFO" />
+    <logger name="okhttp3" level="WARN" />
     
     <!-- JSON处理日志 -->
     <logger name="com.fasterxml.jackson" level="WARN" />
+    
+    <!-- Tomcat日志 -->
+    <logger name="org.apache.tomcat" level="WARN" />
+    <logger name="org.apache.catalina" level="WARN" />
 
 </configuration>

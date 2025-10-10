@@ -122,14 +122,17 @@ public class OllamaService {
      * @return Call对象，可用于取消请求
      */
     public okhttp3.Call generateStreamingResponseWithInterruptCheck(List<OllamaMessage> messages, Consumer<String> onChunk, Consumer<Throwable> onError, Runnable onComplete, java.util.function.Supplier<Boolean> interruptChecker) {
+        // 记录LLM请求基本信息
+        logger.info("🤖 发送LLM流式请求 - 消息数: {}, 模型: {}", messages.size(), extractModelFromRequest(messages));
         logger.debug("消息数量: {}", messages.size());
         
         try {
+            String url = ollamaConfig.getChatUrl();
+            
             // 构建请求体
             String requestBody = buildChatRequestFromMessages(messages, true);
-            logger.debug("完整请求体:\n{}", requestBody);
-            
-            String url = ollamaConfig.getChatUrl();
+            logger.info("📤 LLM请求详情 - URL: {}, 请求体长度: {}字符", url, requestBody.length());
+            logger.info("📋 LLM请求内容:\n{}", requestBody);
             
             Request request = new Request.Builder()
                     .url(url)
@@ -144,18 +147,20 @@ public class OllamaService {
             call.enqueue(new Callback() {
                 @Override
                 public void onFailure(Call call, IOException e) {
-                    logger.error("Ollama API调用失败", e);
+                    logger.error("❌ LLM API调用失败: {}", e.getMessage());
                     onError.accept(e);
                 }
                 
                 @Override
                 public void onResponse(Call call, Response response) throws IOException {
                     if (!response.isSuccessful()) {
-                        String errorMsg = "Ollama API返回错误: " + response.code() + " " + response.message();
-                        logger.error(errorMsg);
+                        String errorMsg = "LLM API返回错误: " + response.code() + " " + response.message();
+                        logger.error("❌ {}", errorMsg);
                         onError.accept(new RuntimeException(errorMsg));
                         return;
                     }
+                    
+                    logger.info("✅ LLM响应开始 - 状态码: {}", response.code());
                     
                     try (ResponseBody responseBody = response.body()) {
                         if (responseBody == null) {
@@ -198,8 +203,8 @@ public class OllamaService {
         
         // 构建请求体
         String requestBody = buildChatRequest(systemPrompt, userPrompt, false);
-        logger.info("Ollama非流式请求体构建完成，长度: {}", requestBody.length());
-        logger.debug("Ollama完整请求体:\n{}", requestBody);
+        logger.info("🤖 非流式请求体构建完成，长度: {}", requestBody.length());
+        logger.info("📋 非流式请求内容:\n{}", requestBody);
         
             String url = ollamaConfig.getChatUrl();
         logger.info("发送Ollama非流式请求到: {}", url);
@@ -228,11 +233,11 @@ public class OllamaService {
             }
             
             String responseText = responseBody.string();
-            logger.debug("Ollama原始响应 (长度: {}):\n{}", responseText.length(), responseText);
+            logger.info("📥 LLM原始响应 (长度: {}):\n{}", responseText.length(), responseText);
             
             String extractedText = extractResponseText(responseText);
-            logger.info("Ollama响应文本提取完成，最终长度: {}", extractedText.length());
-            logger.debug("提取的响应文本: '{}'", extractedText.replace("\n", "\\n"));
+            logger.info("✅ LLM响应文本提取完成，最终长度: {}", extractedText.length());
+            logger.info("📄 提取的响应文本: '{}'", extractedText.replace("\n", "\\n"));
             
             return extractedText;
         }
@@ -385,8 +390,13 @@ public class OllamaService {
                 }
             }
             
-            logger.info("Ollama流式响应处理完成，共处理{}个数据块，总响应长度: {}, 有错误: {}, 有内容: {}, 完整内容为: {}",
-                       chunkCount, totalResponse.length(), hasError, hasContent, totalResponse.toString());
+            logger.info("📊 LLM流式响应完成 - 数据块: {}, 响应长度: {}字符, 有错误: {}", 
+                       chunkCount, totalResponse.length(), hasError);
+            
+            // 如果有内容，也记录完整的响应内容
+            if (hasContent && totalResponse.length() > 0) {
+                logger.info("📄 LLM流式响应完整内容:\n{}", totalResponse.toString());
+            }
             
             // 如果没有收到任何内容，触发错误回调
             if (!hasContent && !hasError) {
@@ -441,6 +451,18 @@ public class OllamaService {
         } catch (Exception e) {
             logger.error("解析响应JSON失败", e);
             return "抱歉，处理AI响应时出现错误。";
+        }
+    }
+    
+    /**
+     * 从请求消息中提取模型名称
+     */
+    private String extractModelFromRequest(List<OllamaMessage> messages) {
+        try {
+            // 尝试从配置中获取模型名称
+            return ollamaConfig.getModel();
+        } catch (Exception e) {
+            return "未知模型";
         }
     }
     

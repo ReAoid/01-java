@@ -50,7 +50,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
         session.getAttributes().put("sessionId", sessionId);
         sessions.put(sessionId, session);
 
-        logger.info("WebSocket连接建立，会话ID: {}, 当前活跃连接数: {}", sessionId, sessions.size());
+        logger.debug("WebSocket连接建立，sessionId: {}, 连接数: {}", sessionId, sessions.size());
         logger.debug("WebSocket连接详情 - RemoteAddress: {}, Uri: {}",
                 session.getRemoteAddress(), session.getUri());
 

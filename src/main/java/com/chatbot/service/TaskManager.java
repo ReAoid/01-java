@@ -100,7 +100,7 @@ public class TaskManager {
     public void registerHttpCall(String taskId, okhttp3.Call call) {
         if (call != null) {
             activeHttpCalls.put(taskId, call);
-            logger.info("✅ 注册HTTP调用: {}, 当前HTTP调用数: {}", taskId, activeHttpCalls.size());
+            logger.debug("注册HTTP调用: {}", taskId);
         } else {
             logger.warn("❌ 尝试注册null的HTTP调用: {}", taskId);
         }
@@ -118,12 +118,12 @@ public class TaskManager {
         okhttp3.Call httpCall = activeHttpCalls.remove(taskId);
         if (httpCall != null && !httpCall.isCanceled()) {
             httpCall.cancel();
-            logger.info("🛑 取消HTTP调用: {}, 剩余HTTP调用数: {}", taskId, activeHttpCalls.size());
+            logger.debug("取消HTTP调用: {}", taskId);
             cancelled = true;
         } else if (httpCall != null) {
-            logger.info("⚠️ HTTP调用已被取消: {}", taskId);
+            logger.debug("HTTP调用已被取消: {}", taskId);
         } else {
-            logger.info("❌ 未找到HTTP调用: {}, 当前HTTP调用数: {}", taskId, activeHttpCalls.size());
+            logger.debug("未找到HTTP调用: {}", taskId);
         }
         
         // 取消CompletableFuture任务
@@ -152,8 +152,7 @@ public class TaskManager {
      * @return 取消的任务数量
      */
     public int cancelSessionTasks(String sessionId) {
-        logger.info("🔍 取消会话的所有任务: {}", sessionId);
-        logger.info("📊 当前活跃任务数: {}, HTTP调用数: {}", activeTasks.size(), activeHttpCalls.size());
+        logger.debug("取消会话任务: {}", sessionId);
         
         int cancelledCount = 0;
         
@@ -165,7 +164,7 @@ public class TaskManager {
             logger.debug("检查activeTasks中的任务: {}", taskId);
             if (taskId.startsWith(sessionId + "_task_")) {
                 sessionTaskIds.add(taskId);
-                logger.info("🎯 找到匹配的activeTasks任务: {}", taskId);
+                logger.debug("找到匹配的activeTasks任务: {}", taskId);
             }
         }
         
@@ -174,7 +173,7 @@ public class TaskManager {
             logger.debug("检查activeHttpCalls中的任务: {}", taskId);
             if (taskId.startsWith(sessionId + "_task_")) {
                 sessionTaskIds.add(taskId);
-                logger.info("🎯 找到匹配的HTTP调用任务: {}", taskId);
+                logger.debug("找到匹配的HTTP调用任务: {}", taskId);
             }
         }
         

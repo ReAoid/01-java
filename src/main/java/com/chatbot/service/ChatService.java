@@ -80,47 +80,22 @@ public class ChatService {
             
             try {
                 // 1. 获取或创建会话
-                logger.debug("步骤1：获取或创建会话，sessionId: {}", sessionId);
-                long step1Start = System.currentTimeMillis();
                 ChatSession session = sessionService.getOrCreateSession(sessionId);
-                long step1Time = System.currentTimeMillis() - step1Start;
-                logger.debug("会话获取成功，耗时: {}ms，sessionId: {}，当前会话消息数: {}", step1Time, session.getSessionId(), session.getMessageHistory().size());
+                logger.debug("会话准备完成，sessionId: {}，消息数: {}", session.getSessionId(), session.getMessageHistory().size());
                 
                 // 2. 获取系统提示词和人设提示词
-                logger.debug("步骤2：获取系统提示词和人设提示词");
-                long step2Start = System.currentTimeMillis();
                 List<ChatMessage> systemPrompts = getSystemPrompts(session);
-                long step2Time = System.currentTimeMillis() - step2Start;
-                logger.debug("系统提示词获取完成，耗时: {}ms，提示词数量: {}", step2Time, systemPrompts.size());
                 
-                // 3. 获取历史对话记录（去掉系统提示词部分，只保留AI和用户对话历史）
-                logger.debug("步骤3：获取历史对话记录");
-                long step3Start = System.currentTimeMillis();
+                // 3. 获取历史对话记录
                 List<ChatMessage> dialogueHistory = getDialogueHistory(session);
-                long step3Time = System.currentTimeMillis() - step3Start;
-                logger.debug("历史对话记录获取完成，耗时: {}ms，对话消息数: {}", step3Time, dialogueHistory.size());
                 
                 // 4. 预处理用户输入
-                logger.debug("步骤4：预处理用户输入");
-                long step4Start = System.currentTimeMillis();
                 String processedInput = preprocessInput(userMessage.getContent());
-                long step4Time = System.currentTimeMillis() - step4Start;
-                logger.debug("用户输入预处理完成，耗时: {}ms，原始长度: {}, 处理后长度: {}, 原始: '{}', 处理后: '{}'",
-                           step4Time,
-                           userMessage.getContent() != null ? userMessage.getContent().length() : 0,
-                           processedInput.length(),
-                           userMessage.getContent(),
-                           processedInput);
                 
                 // 5. 获取世界书设定（长期记忆）
-                logger.debug("步骤5：获取世界书设定");
-                long step5Start = System.currentTimeMillis();
                 ChatMessage worldBookSetting = getWorldBookSetting(session, processedInput);
-                long step5Time = System.currentTimeMillis() - step5Start;
-                logger.debug("世界书设定获取完成，耗时: {}ms，是否有设定: {}", step5Time, worldBookSetting != null);
                 
                 // 6. 智能判断是否需要联网搜索并准备用户消息
-                logger.debug("步骤6：智能判断联网搜索需求并准备用户消息");
                 long step6Start = System.currentTimeMillis();
                 
                 // 检查用户是否启用了联网搜索
@@ -165,18 +140,16 @@ public class ChatService {
                 
                 // 记录预处理完成时间
                 long preprocessingTime = System.currentTimeMillis() - messageStartTime;
-                logger.info("📊 预处理阶段完成，sessionId: {}, 总预处理时间: {}ms (步骤1: {}ms, 步骤2: {}ms, 步骤3: {}ms, 步骤4: {}ms, 步骤5: {}ms, 步骤6: {}ms, 步骤7: {}ms)", 
-                           sessionId, preprocessingTime, step1Time, step2Time, step3Time, step4Time, step5Time, step6Time, step7Time);
+                logger.debug("预处理完成，sessionId: {}, 耗时: {}ms", sessionId, preprocessingTime);
                 
                 // 8. 调用AI模型生成回复（流式）
-                logger.debug("步骤8：调用AI模型生成回复");
                 long aiCallStartTime = System.currentTimeMillis();
                 
                 // 在任务内部调用流式响应，这样可以立即注册HTTP调用
                 generateStreamingResponseInTask(messages, sessionId, taskId, responseCallback, messageStartTime, aiCallStartTime, userMessage);
                 
                 long totalProcessingTime = System.currentTimeMillis() - messageStartTime;
-                logger.info("消息处理启动完成，sessionId: {}, 总启动时间: {}ms", sessionId, totalProcessingTime);
+                logger.debug("消息处理启动完成，sessionId: {}, 耗时: {}ms", sessionId, totalProcessingTime);
                 
             } catch (Exception e) {
                 long processingTime = System.currentTimeMillis() - messageStartTime;
