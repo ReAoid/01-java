@@ -113,6 +113,22 @@
             flex-direction: column;
         }
         
+        /* 日志Tab - 适应70%窗口 */
+        .tab-content#logs-tab {
+            height: 100vh;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+        
+        .tab-content#logs-tab.active {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
         /* 聊天界面样式 - 70%大小居中 */
         .chat-container {
             flex: 1;
@@ -223,6 +239,224 @@
         .setting-section p {
             margin: 0 0 15px 0;
             color: #666;
+        }
+        
+        /* 日志界面样式 - 70%大小居中 */
+        .logs-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            width: 70%;
+            height: 80vh;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .logs-container .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            border-radius: 12px;
+            box-shadow: none;
+            background: white;
+        }
+        
+        .logs-container .header {
+            flex-shrink: 0;
+            border-radius: 12px 12px 0 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .logs-content {
+            flex: 1;
+            padding: 20px;
+            overflow: visible;
+            min-height: 0;
+        }
+        
+        .log-controls {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .log-controls button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .log-controls select {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .log-controls label {
+            font-size: 14px;
+            color: #333;
+            margin-right: 8px;
+        }
+        
+        .custom-time-range {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .custom-time-range div {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .custom-time-range input[type="datetime-local"] {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .refresh-btn {
+            background: #007bff;
+            color: white;
+        }
+        
+        .refresh-btn:hover {
+            background: #0056b3;
+        }
+        
+        .clear-btn {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .clear-btn:hover {
+            background: #c82333;
+        }
+        
+        .auto-refresh-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .log-viewer {
+            background: #1e1e1e;
+            border-radius: 10px;
+            padding: 20px;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #d4d4d4;
+            overflow-y: auto;
+            height: 300px;
+            border: 1px solid #333;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 4px 0;
+            border-bottom: 1px solid #333;
+        }
+        
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        
+        .log-timestamp {
+            color: #569cd6;
+            font-weight: bold;
+        }
+        
+        .log-level {
+            font-weight: bold;
+            margin: 0 8px;
+        }
+        
+        .log-level.INFO {
+            color: #4ec9b0;
+        }
+        
+        .log-level.WARN {
+            color: #dcdcaa;
+        }
+        
+        .log-level.ERROR {
+            color: #f44747;
+        }
+        
+        .log-level.DEBUG {
+            color: #9cdcfe;
+        }
+        
+        .log-message {
+            color: #d4d4d4;
+        }
+        
+        .log-stats {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .log-stats h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .stat-label {
+            font-weight: 500;
+            color: #666;
+        }
+        
+        .stat-value {
+            font-weight: bold;
+            color: #333;
         }
         
         .setting-item {
@@ -343,6 +577,71 @@
         
         body.dark-mode .info-value {
             color: #ecf0f1;
+        }
+        
+        /* 深色模式下的日志界面样式 - 保持白色背景 */
+        body.dark-mode .logs-container,
+        body.dark-mode .logs-container .container,
+        body.dark-mode .logs-content {
+            background: white !important;
+            color: #333 !important;
+        }
+        
+        /* 日志界面头部在深色模式下保持渐变 */
+        body.dark-mode .logs-container .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+            color: white !important;
+        }
+        
+        body.dark-mode .log-controls {
+            background: white !important;
+            color: #333 !important;
+        }
+        
+        body.dark-mode .log-stats {
+            background: white !important;
+            color: #333 !important;
+        }
+        
+        body.dark-mode .log-stats h4 {
+            color: #333 !important;
+        }
+        
+        body.dark-mode .stat-item {
+            background: #f8f9fa !important;
+        }
+        
+        body.dark-mode .stat-label {
+            color: #666 !important;
+        }
+        
+        body.dark-mode .stat-value {
+            color: #333 !important;
+        }
+        
+        body.dark-mode .log-controls select {
+            background: white !important;
+            border-color: #ddd !important;
+            color: #333 !important;
+        }
+        
+        body.dark-mode .log-controls label {
+            color: #333 !important;
+        }
+        
+        body.dark-mode .custom-time-range {
+            background: white !important;
+            color: #333 !important;
+        }
+        
+        body.dark-mode .custom-time-range label {
+            color: #333 !important;
+        }
+        
+        body.dark-mode .custom-time-range input[type="datetime-local"] {
+            background: white !important;
+            border-color: #ddd !important;
+            color: #333 !important;
         }
         
         /* 无动画模式 */
@@ -719,6 +1018,9 @@
         <button class="tab-button" data-tab="settings" title="设置">
             ⚙️
         </button>
+        <button class="tab-button" data-tab="logs" title="日志">
+            📋
+        </button>
     </div>
 
     <!-- 主内容区域 -->
@@ -830,6 +1132,102 @@
                 </div>
             </div>
         </div>
+
+        <!-- 日志Tab内容 -->
+        <div class="tab-content" id="logs-tab">
+            <div class="logs-container">
+                <div class="container">
+                    <div class="header">
+                        <h1>📋 系统日志</h1>
+                        <p>实时查看系统运行日志和状态信息</p>
+                    </div>
+                    
+                    <div class="logs-content">
+                        <div class="log-controls">
+                            <div>
+                                <button id="refreshLogsBtn" class="refresh-btn">🔄 刷新日志</button>
+                                <button id="clearLogsBtn" class="clear-btn">🗑️ 清空显示</button>
+                            </div>
+                            <div>
+                                <label for="logLevelSelect">日志级别:</label>
+                                <select id="logLevelSelect">
+                                    <option value="ALL">全部</option>
+                                    <option value="ERROR">ERROR</option>
+                                    <option value="WARN">WARN</option>
+                                    <option value="INFO" selected>INFO</option>
+                                    <option value="DEBUG">DEBUG</option>
+                                    <option value="TRACE">TRACE</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="timeRangeSelect">时间范围:</label>
+                                <select id="timeRangeSelect">
+                                    <option value="30m" selected>最近30分钟</option>
+                                    <option value="1h">最近1小时</option>
+                                    <option value="3h">最近3小时</option>
+                                    <option value="12h">最近半天</option>
+                                    <option value="1d">最近1天</option>
+                                    <option value="custom">自定义时间段</option>
+                                    <option value="all">全部时间</option>
+                                </select>
+                            </div>
+                            <div class="auto-refresh-toggle">
+                                <label for="autoRefreshToggle">自动刷新:</label>
+                                <div class="toggle-switch active" id="autoRefreshToggle" title="切换是否自动刷新日志"></div>
+                                <select id="refreshIntervalSelect">
+                                    <option value="5">5秒</option>
+                                    <option value="10" selected>10秒</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="custom-time-range" id="customTimeRange" style="display: none;">
+                            <div>
+                                <label for="startTimeInput">开始时间:</label>
+                                <input type="datetime-local" id="startTimeInput">
+                            </div>
+                            <div>
+                                <label for="endTimeInput">结束时间:</label>
+                                <input type="datetime-local" id="endTimeInput">
+                            </div>
+                            <button id="applyCustomTimeBtn" class="refresh-btn">应用时间段</button>
+                        </div>
+                        
+                        <div class="log-viewer" id="logViewer">
+                            <div class="log-entry">
+                                <span class="log-message">正在加载日志...</span>
+                            </div>
+                        </div>
+                        
+                        <div class="log-stats">
+                            <h4>📊 日志统计</h4>
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <span class="stat-label">总条数:</span>
+                                    <span class="stat-value" id="totalLogs">0</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">错误:</span>
+                                    <span class="stat-value" id="errorLogs">0</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">警告:</span>
+                                    <span class="stat-value" id="warnLogs">0</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">信息:</span>
+                                    <span class="stat-value" id="infoLogs">0</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">最后更新:</span>
+                                    <span class="stat-value" id="lastUpdate">--</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -843,6 +1241,19 @@
         let useWebSearch = false; // 联网搜索状态
         let isAIResponding = false; // AI是否正在回复
         let currentStreamingMessage = null; // 当前流式消息元素
+        
+        // 日志相关变量
+        let autoRefreshLogs = true; // 自动刷新日志状态 - 默认开启
+        let logRefreshInterval = null; // 日志刷新定时器
+        let refreshIntervalSeconds = 10; // 默认刷新间隔10秒
+        let isLogsTabActive = false; // 日志tab是否激活
+        let logStats = {
+            total: 0,
+            error: 0,
+            warn: 0,
+            info: 0,
+            debug: 0
+        };
 
         const statusDiv = document.getElementById('status');
         const ollamaStatusDiv = document.getElementById('ollamaStatus');
@@ -853,6 +1264,24 @@
         const personaSelect = document.getElementById('personaSelect');
         const thinkingToggle = document.getElementById('thinkingToggle');
         const webSearchToggle = document.getElementById('webSearchToggle');
+        
+        // 日志相关DOM元素
+        const logViewer = document.getElementById('logViewer');
+        const refreshLogsBtn = document.getElementById('refreshLogsBtn');
+        const clearLogsBtn = document.getElementById('clearLogsBtn');
+        const autoRefreshToggle = document.getElementById('autoRefreshToggle');
+        const logLevelSelect = document.getElementById('logLevelSelect');
+        const refreshIntervalSelect = document.getElementById('refreshIntervalSelect');
+        const timeRangeSelect = document.getElementById('timeRangeSelect');
+        const customTimeRange = document.getElementById('customTimeRange');
+        const startTimeInput = document.getElementById('startTimeInput');
+        const endTimeInput = document.getElementById('endTimeInput');
+        const applyCustomTimeBtn = document.getElementById('applyCustomTimeBtn');
+        const totalLogsSpan = document.getElementById('totalLogs');
+        const errorLogsSpan = document.getElementById('errorLogs');
+        const warnLogsSpan = document.getElementById('warnLogs');
+        const infoLogsSpan = document.getElementById('infoLogs');
+        const lastUpdateSpan = document.getElementById('lastUpdate');
 
         // 连接WebSocket
         function connect() {
@@ -1616,6 +2045,31 @@
                             }
                         }
                         
+                        // 处理日志页面切换
+                        if (targetTab === 'logs') {
+                            try {
+                                // 如果是第一次切换到日志页面，初始化日志功能
+                                if (!window.logsInitialized) {
+                                    initLogsPage();
+                                    window.logsInitialized = true;
+                                } else {
+                                    // 已经初始化过，只需要激活自动刷新
+                                    isLogsTabActive = true;
+                                    if (autoRefreshLogs) {
+                                        startAutoRefresh();
+                                    }
+                                }
+                            } catch (error) {
+                                console.error('❌ Error initializing logs page:', error);
+                            }
+                        } else {
+                            // 切换到其他tab时，停止日志自动刷新
+                            if (window.logsInitialized) {
+                                isLogsTabActive = false;
+                                stopAutoRefresh();
+                            }
+                        }
+                        
                         // 如果切换到聊天页面，触发布局更新
                         if (targetTab === 'chat') {
                             setTimeout(() => {
@@ -1648,6 +2102,253 @@
                     connectionStatus.textContent = '未连接';
                     connectionStatus.className = 'info-value disconnected';
                 }
+            }
+        }
+        
+        // 日志功能
+        function fetchLogs() {
+            const level = logLevelSelect ? logLevelSelect.value : 'INFO';
+            const limit = 100; // 默认获取最近100条日志
+            const timeRange = timeRangeSelect ? timeRangeSelect.value : '30m';
+            
+            let url = `/api/logs?level=${level}&limit=${limit}&timeRange=${timeRange}`;
+            
+            // 如果是自定义时间段，添加开始和结束时间参数
+            if (timeRange === 'custom' && startTimeInput && endTimeInput) {
+                const startTime = formatDateTimeForAPI(startTimeInput.value);
+                const endTime = formatDateTimeForAPI(endTimeInput.value);
+                if (startTime && endTime) {
+                    url += `&startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`;
+                }
+            }
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayLogs(data.logs);
+                        updateLogStats();
+                        // 显示获取信息
+                        if (data.message) {
+                            console.log('日志获取信息:', data.message);
+                        }
+                    } else {
+                        console.error('获取日志失败:', data.message);
+                        displayLogs([]);
+                        logViewer.innerHTML = '<div class="log-entry"><span class="log-message">获取日志失败: ' + data.message + '</span></div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('获取日志请求失败:', error);
+                    displayLogs([]);
+                    logViewer.innerHTML = '<div class="log-entry"><span class="log-message">获取日志请求失败: ' + error.message + '</span></div>';
+                });
+        }
+        
+        // 格式化日期时间为API所需格式
+        function formatDateTimeForAPI(datetimeLocal) {
+            if (!datetimeLocal) return '';
+            // 将 "2024-10-10T17:30" 格式转换为 "2024-10-10 17:30:00"
+            return datetimeLocal.replace('T', ' ') + ':00';
+        }
+        
+        // 设置默认自定义时间
+        function setDefaultCustomTime() {
+            const now = new Date();
+            const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+            
+            // 格式化为 datetime-local 输入所需的格式
+            const formatForInput = (date) => {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+            };
+            
+            if (startTimeInput) {
+                startTimeInput.value = formatForInput(oneHourAgo);
+            }
+            if (endTimeInput) {
+                endTimeInput.value = formatForInput(now);
+            }
+        }
+        
+        function displayLogs(logs) {
+            if (!logs || logs.length === 0) {
+                logViewer.innerHTML = '<div class="log-entry"><span class="log-message">暂无日志数据</span></div>';
+                return;
+            }
+            
+            logViewer.innerHTML = '';
+            logs.forEach(log => {
+                addLogEntry(log.level, log.message, log.timestamp, false);
+            });
+            
+            // 滚动到底部
+            logViewer.scrollTop = logViewer.scrollHeight;
+        }
+        
+        function addLogEntry(level, message, timestamp = null, updateStats = true) {
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            
+            const time = timestamp || new Date().toLocaleString('zh-CN');
+            
+            logEntry.innerHTML = `
+                <span class="log-timestamp">${time}</span>
+                <span class="log-level ${level}">${level}</span>
+                <span class="log-message">${message}</span>
+            `;
+            
+            logViewer.appendChild(logEntry);
+            
+            if (updateStats) {
+                // 更新统计
+                logStats.total++;
+                switch(level.toUpperCase()) {
+                    case 'ERROR':
+                        logStats.error++;
+                        break;
+                    case 'WARN':
+                        logStats.warn++;
+                        break;
+                    case 'INFO':
+                        logStats.info++;
+                        break;
+                    case 'DEBUG':
+                        logStats.debug++;
+                        break;
+                }
+                updateLogStats();
+            }
+            
+            // 自动滚动到底部
+            logViewer.scrollTop = logViewer.scrollHeight;
+        }
+        
+        function updateLogStats() {
+            if (totalLogsSpan) totalLogsSpan.textContent = logStats.total;
+            if (errorLogsSpan) errorLogsSpan.textContent = logStats.error;
+            if (warnLogsSpan) warnLogsSpan.textContent = logStats.warn;
+            if (infoLogsSpan) infoLogsSpan.textContent = logStats.info;
+            if (lastUpdateSpan) lastUpdateSpan.textContent = new Date().toLocaleString('zh-CN');
+        }
+        
+        function clearLogDisplay() {
+            logViewer.innerHTML = '<div class="log-entry"><span class="log-message">日志显示已清空</span></div>';
+            logStats = {
+                total: 0,
+                error: 0,
+                warn: 0,
+                info: 0,
+                debug: 0
+            };
+            updateLogStats();
+        }
+        
+        function toggleAutoRefresh() {
+            autoRefreshLogs = !autoRefreshLogs;
+            
+            if (autoRefreshLogs) {
+                autoRefreshToggle.classList.add('active');
+                startAutoRefresh();
+            } else {
+                autoRefreshToggle.classList.remove('active');
+                stopAutoRefresh();
+            }
+        }
+        
+        function startAutoRefresh() {
+            if (autoRefreshLogs && isLogsTabActive) {
+                stopAutoRefresh(); // 先停止现有的定时器
+                const intervalMs = refreshIntervalSeconds * 1000;
+                logRefreshInterval = setInterval(fetchLogs, intervalMs);
+                console.log(`自动刷新已启动，间隔: ${refreshIntervalSeconds}秒`);
+            }
+        }
+        
+        function stopAutoRefresh() {
+            if (logRefreshInterval) {
+                clearInterval(logRefreshInterval);
+                logRefreshInterval = null;
+                console.log('自动刷新已停止');
+            }
+        }
+        
+        function initLogsPage() {
+            // 刷新日志按钮
+            if (refreshLogsBtn) {
+                refreshLogsBtn.addEventListener('click', () => {
+                    fetchLogs();
+                });
+            }
+            
+            // 清空日志按钮
+            if (clearLogsBtn) {
+                clearLogsBtn.addEventListener('click', clearLogDisplay);
+            }
+            
+            // 自动刷新切换
+            if (autoRefreshToggle) {
+                autoRefreshToggle.addEventListener('click', toggleAutoRefresh);
+            }
+            
+            // 日志级别选择器
+            if (logLevelSelect) {
+                logLevelSelect.addEventListener('change', () => {
+                    fetchLogs(); // 级别改变时重新获取日志
+                });
+            }
+            
+            // 刷新间隔选择器
+            if (refreshIntervalSelect) {
+                refreshIntervalSelect.addEventListener('change', () => {
+                    refreshIntervalSeconds = parseInt(refreshIntervalSelect.value);
+                    // 如果自动刷新正在运行，重新启动以应用新间隔
+                    if (autoRefreshLogs && isLogsTabActive) {
+                        startAutoRefresh();
+                    }
+                });
+            }
+            
+            // 时间范围选择器
+            if (timeRangeSelect) {
+                timeRangeSelect.addEventListener('change', () => {
+                    const selectedRange = timeRangeSelect.value;
+                    
+                    // 显示或隐藏自定义时间段输入
+                    if (customTimeRange) {
+                        if (selectedRange === 'custom') {
+                            customTimeRange.style.display = 'flex';
+                            // 设置默认时间值
+                            setDefaultCustomTime();
+                        } else {
+                            customTimeRange.style.display = 'none';
+                            // 立即获取日志
+                            fetchLogs();
+                        }
+                    }
+                });
+            }
+            
+            // 自定义时间段应用按钮
+            if (applyCustomTimeBtn) {
+                applyCustomTimeBtn.addEventListener('click', () => {
+                    fetchLogs();
+                });
+            }
+            
+            // 设置日志tab为激活状态
+            isLogsTabActive = true;
+            
+            // 初始化时加载一次日志
+            fetchLogs();
+            
+            // 启动自动刷新（如果开启的话）
+            if (autoRefreshLogs) {
+                startAutoRefresh();
             }
         }
         

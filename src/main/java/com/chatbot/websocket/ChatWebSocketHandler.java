@@ -129,7 +129,15 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                         sendStreamingMessage(session, response, sessionId);
                         
                     } catch (IOException e) {
-                        logger.error("发送消息失败，sessionId: {}", sessionId, e);
+                        // 检查是否是连接关闭相关的错误
+                        if (e.getMessage() != null && 
+                            (e.getMessage().contains("ClosedChannelException") ||
+                             e.getMessage().contains("Connection reset") ||
+                             e.getMessage().contains("Broken pipe"))) {
+                            logger.debug("WebSocket连接已关闭，停止发送消息，sessionId: {}", sessionId);
+                        } else {
+                            logger.error("发送消息失败，sessionId: {}", sessionId, e);
+                        }
                     }
                 });
                 
@@ -158,7 +166,20 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
         String sessionId = (String) session.getAttributes().get("sessionId");
-        logger.error("WebSocket传输错误，会话ID: {}", sessionId, exception);
+        
+        // 检查是否是应用关闭时的正常错误
+        if (exception instanceof IOException && 
+            (exception.getMessage() != null && 
+             (exception.getMessage().contains("ClosedChannelException") ||
+              exception.getMessage().contains("Connection reset") ||
+              exception.getMessage().contains("Broken pipe")))) {
+            // 这些是应用关闭时的正常错误，使用DEBUG级别记录
+            logger.debug("WebSocket连接在应用关闭时断开，会话ID: {}, 错误: {}", 
+                        sessionId, exception.getMessage());
+        } else {
+            // 其他错误使用ERROR级别记录
+            logger.error("WebSocket传输错误，会话ID: {}", sessionId, exception);
+        }
     }
 
     @Override
@@ -184,11 +205,24 @@ public class ChatWebSocketHandler implements WebSocketHandler {
      * 发送消息到客户端
      */
     private void sendMessage(WebSocketSession session, ChatMessage message) throws IOException {
-        if (session.isOpen()) {
-            String messageJson = objectMapper.writeValueAsString(message);
-            session.sendMessage(new TextMessage(messageJson));
+        if (session != null && session.isOpen()) {
+            try {
+                String messageJson = objectMapper.writeValueAsString(message);
+                session.sendMessage(new TextMessage(messageJson));
+            } catch (IOException e) {
+                // 检查是否是连接关闭相关的错误
+                if (e.getMessage() != null && 
+                    (e.getMessage().contains("ClosedChannelException") ||
+                     e.getMessage().contains("Connection reset") ||
+                     e.getMessage().contains("Broken pipe"))) {
+                    logger.debug("WebSocket连接已关闭，无法发送消息，sessionId: {}", message.getSessionId());
+                } else {
+                    logger.error("发送WebSocket消息失败，sessionId: {}", message.getSessionId(), e);
+                    throw e;
+                }
+            }
         } else {
-            logger.warn("WebSocket会话已关闭，无法发送消息，sessionId: {}", message.getSessionId());
+            logger.debug("WebSocket会话已关闭或为空，无法发送消息，sessionId: {}", message.getSessionId());
         }
     }
     
