@@ -28,11 +28,8 @@ public class UserPreferences {
     private boolean soundNotification = false;
     
     // ========== 聊天设置 ==========
-    private boolean showThinking = false;
-    private boolean useWebSearch = false;
-    private String defaultPersona = "default";
-    private int maxContextTokens = 8192;
-    private double temperature = 0.7;
+    // 注意：显示思考过程和联网搜索功能已移至聊天界面直接控制
+    // 这里保留一些基础的聊天配置
     
     // ========== Ollama设置 ==========
     private String ollamaBaseUrl = "http://localhost:11434";
@@ -50,6 +47,10 @@ public class UserPreferences {
     // ========== 流式输出设置 ==========
     private int streamingChunkSize = 16;
     private int streamingDelayMs = 50;
+    
+    // ========== 多通道TTS设置 ==========
+    private ChatOutputConfig chatOutput = new ChatOutputConfig();
+    private Live2DOutputConfig live2dOutput = new Live2DOutputConfig();
     
     // ========== 扩展配置 ==========
     private Map<String, Object> customSettings = new HashMap<>();
@@ -205,51 +206,6 @@ public class UserPreferences {
         updateLastModified();
     }
     
-    public boolean isShowThinking() {
-        return showThinking;
-    }
-    
-    public void setShowThinking(boolean showThinking) {
-        this.showThinking = showThinking;
-        updateLastModified();
-    }
-    
-    public boolean isUseWebSearch() {
-        return useWebSearch;
-    }
-    
-    public void setUseWebSearch(boolean useWebSearch) {
-        this.useWebSearch = useWebSearch;
-        updateLastModified();
-    }
-    
-    public String getDefaultPersona() {
-        return defaultPersona;
-    }
-    
-    public void setDefaultPersona(String defaultPersona) {
-        this.defaultPersona = defaultPersona;
-        updateLastModified();
-    }
-    
-    public int getMaxContextTokens() {
-        return maxContextTokens;
-    }
-    
-    public void setMaxContextTokens(int maxContextTokens) {
-        this.maxContextTokens = maxContextTokens;
-        updateLastModified();
-    }
-    
-    public double getTemperature() {
-        return temperature;
-    }
-    
-    public void setTemperature(double temperature) {
-        this.temperature = temperature;
-        updateLastModified();
-    }
-    
     public String getOllamaBaseUrl() {
         return ollamaBaseUrl;
     }
@@ -356,5 +312,116 @@ public class UserPreferences {
     public void setCustomSettings(Map<String, Object> customSettings) {
         this.customSettings = customSettings;
         updateLastModified();
+    }
+    
+    public ChatOutputConfig getChatOutput() {
+        return chatOutput;
+    }
+    
+    public void setChatOutput(ChatOutputConfig chatOutput) {
+        this.chatOutput = chatOutput;
+        updateLastModified();
+    }
+    
+    public Live2DOutputConfig getLive2dOutput() {
+        return live2dOutput;
+    }
+    
+    public void setLive2dOutput(Live2DOutputConfig live2dOutput) {
+        this.live2dOutput = live2dOutput;
+        updateLastModified();
+    }
+    
+    /**
+     * 聊天窗口输出配置
+     */
+    public static class ChatOutputConfig {
+        private boolean enabled = true;
+        private String mode = "text_only";  // "text_only", "char_stream_tts"
+        private boolean autoTTS = false;    // 是否自动启用TTS
+        
+        public boolean isEnabled() {
+            return enabled;
+        }
+        
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+        
+        public String getMode() {
+            return mode;
+        }
+        
+        public void setMode(String mode) {
+            this.mode = mode;
+        }
+        
+        public boolean isAutoTTS() {
+            return autoTTS;
+        }
+        
+        public void setAutoTTS(boolean autoTTS) {
+            this.autoTTS = autoTTS;
+        }
+    }
+    
+    /**
+     * Live2D输出配置
+     */
+    public static class Live2DOutputConfig {
+        private boolean enabled = false;
+        private String mode = "sentence_sync";  // 固定为句级同步
+        private String voice = "zh-CN-XiaoxiaoNeural";
+        private double speed = 1.0;
+        private boolean showBubble = true;      // 是否显示气泡
+        private int bubbleTimeout = 5000;       // 气泡显示超时(毫秒)
+        
+        public boolean isEnabled() {
+            return enabled;
+        }
+        
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+        
+        public String getMode() {
+            return mode;
+        }
+        
+        public void setMode(String mode) {
+            this.mode = mode;
+        }
+        
+        public String getVoice() {
+            return voice;
+        }
+        
+        public void setVoice(String voice) {
+            this.voice = voice;
+        }
+        
+        public double getSpeed() {
+            return speed;
+        }
+        
+        public void setSpeed(double speed) {
+            this.speed = speed;
+        }
+        
+        public boolean isShowBubble() {
+            return showBubble;
+        }
+        
+        public void setShowBubble(boolean showBubble) {
+            this.showBubble = showBubble;
+        }
+        
+        public int getBubbleTimeout() {
+            return bubbleTimeout;
+        }
+        
+        public void setBubbleTimeout(int bubbleTimeout) {
+            this.bubbleTimeout = bubbleTimeout;
+        }
     }
 }

@@ -239,7 +239,6 @@ public class UserPreferencesService {
         preferences.setOllamaModel(ollamaConfig.getModel());
         preferences.setOllamaTimeout(ollamaConfig.getTimeout());
         preferences.setOllamaMaxTokens(ollamaConfig.getMaxTokens());
-        preferences.setTemperature(ollamaConfig.getTemperature());
         preferences.setOllamaStream(ollamaConfig.isStream());
         
         AppConfig.AIConfig.StreamingConfig streamingConfig = appConfig.getAi().getStreaming();
@@ -256,8 +255,7 @@ public class UserPreferencesService {
         preferences.setWebSearchTimeout(webSearchConfig.getTimeoutSeconds());
         preferences.setWebSearchEngine(webSearchConfig.getDefaultEngine());
         
-        AppConfig.SystemConfig systemConfig = appConfig.getSystem();
-        preferences.setMaxContextTokens(systemConfig.getMaxContextTokens());
+        // 注意：聊天相关的配置已移至聊天界面直接控制，此处不再设置
         
         logger.info("创建默认用户配置 - userId: {}", userId);
         return preferences;
@@ -302,22 +300,8 @@ public class UserPreferencesService {
                     preferences.setSoundNotification((Boolean) value);
                     return true;
                     
-                // 聊天设置
-                case "showThinking":
-                    preferences.setShowThinking((Boolean) value);
-                    return true;
-                case "useWebSearch":
-                    preferences.setUseWebSearch((Boolean) value);
-                    return true;
-                case "defaultPersona":
-                    preferences.setDefaultPersona((String) value);
-                    return true;
-                case "maxContextTokens":
-                    preferences.setMaxContextTokens(((Number) value).intValue());
-                    return true;
-                case "temperature":
-                    preferences.setTemperature(((Number) value).doubleValue());
-                    return true;
+                // 聊天设置 - 这些设置已移至聊天界面直接控制
+                // 此处不再处理 showThinking, useWebSearch, defaultPersona, maxContextTokens, temperature
                     
                 // Ollama设置
                 case "ollamaBaseUrl":
@@ -391,12 +375,8 @@ public class UserPreferencesService {
             case "autoScroll": return preferences.isAutoScroll();
             case "soundNotification": return preferences.isSoundNotification();
             
-            // 聊天设置
-            case "showThinking": return preferences.isShowThinking();
-            case "useWebSearch": return preferences.isUseWebSearch();
-            case "defaultPersona": return preferences.getDefaultPersona();
-            case "maxContextTokens": return preferences.getMaxContextTokens();
-            case "temperature": return preferences.getTemperature();
+            // 聊天设置 - 这些设置已移至聊天界面直接控制
+            // 此处不再处理相关字段
             
             // Ollama设置
             case "ollamaBaseUrl": return preferences.getOllamaBaseUrl();

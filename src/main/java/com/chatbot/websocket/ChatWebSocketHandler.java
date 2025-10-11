@@ -2,7 +2,9 @@ package com.chatbot.websocket;
 
 import com.chatbot.model.ChatMessage;
 import com.chatbot.service.ChatService;
+import com.chatbot.service.MultiChannelDispatcher;
 import com.chatbot.service.OllamaService;
+import com.chatbot.service.channel.Live2DChannel;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +26,8 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     private static final Logger logger = LoggerFactory.getLogger(ChatWebSocketHandler.class);
 
     private final ChatService chatService;
+    private final MultiChannelDispatcher multiChannelDispatcher;
+    private final Live2DChannel live2dChannel;
     private final OllamaService ollamaService;
     private final ObjectMapper objectMapper;
 
@@ -37,8 +41,14 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     @SuppressWarnings("unused")
     private final AtomicLong sessionIdGenerator = new AtomicLong(0);
 
-    public ChatWebSocketHandler(ChatService chatService, OllamaService ollamaService, ObjectMapper objectMapper) {
+    public ChatWebSocketHandler(ChatService chatService, 
+                               MultiChannelDispatcher multiChannelDispatcher,
+                               Live2DChannel live2dChannel,
+                               OllamaService ollamaService, 
+                               ObjectMapper objectMapper) {
         this.chatService = chatService;
+        this.multiChannelDispatcher = multiChannelDispatcher;
+        this.live2dChannel = live2dChannel;
         this.ollamaService = ollamaService;
         this.objectMapper = objectMapper;
     }
@@ -85,6 +95,12 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                 // 记录用户消息接收时间戳
                 long userMessageTimestamp = System.currentTimeMillis();
 
+                // 检查是否是前端反馈消息
+                if ("audio_playback_completed".equals(chatMessage.getType())) {
+                    handleAudioPlaybackCompleted(chatMessage, sessionId);
+                    return;
+                }
+                
                 // 检查是否是系统命令
                 if ("system".equals(chatMessage.getType()) && chatMessage.getMetadata() != null) {
                     String action = (String) chatMessage.getMetadata().get("action");
@@ -111,8 +127,8 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                 // 用于跟踪是否是第一次响应，isFirstResponse 设计成 boolean[] 是为了绕过 Java Lambda 表达式的变量捕获限制。
                 final boolean[] isFirstResponse = {true};
                 
-                // 处理消息并获取任务ID
-                String taskId = chatService.processMessage(chatMessage, response -> {
+                // 使用多通道分发器处理消息
+                String taskId = multiChannelDispatcher.processMessage(chatMessage, response -> {
                     try {
                         // 记录第一次响应时间
                         if (isFirstResponse[0] && response.getContent() != null && !response.getContent().isEmpty()) {
@@ -191,6 +207,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
         // 清理会话相关资源
         chatService.cleanupSession(sessionId);
+        multiChannelDispatcher.cleanupSession(sessionId);
         
         // 清理任务ID映射
         sessionTasks.remove(sessionId);
@@ -442,6 +459,27 @@ public class ChatWebSocketHandler implements WebSocketHandler {
             } catch (IOException ex) {
                 logger.error("发送错误消息失败", ex);
             }
+        }
+    }
+    
+    /**
+     * 处理音频播放完成通知
+     */
+    private void handleAudioPlaybackCompleted(ChatMessage message, String sessionId) {
+        try {
+            String sentenceId = message.getSentenceId();
+            
+            if (sentenceId != null) {
+                logger.debug("收到音频播放完成通知: sentenceId={}, sessionId={}", sentenceId, sessionId);
+                
+                // 通知Live2D通道处理下一句
+                live2dChannel.onAudioCompleted(sessionId, sentenceId);
+            } else {
+                logger.warn("音频播放完成通知缺少sentenceId: sessionId={}", sessionId);
+            }
+            
+        } catch (Exception e) {
+            logger.error("处理音频播放完成通知失败: sessionId={}", sessionId, e);
         }
     }
     

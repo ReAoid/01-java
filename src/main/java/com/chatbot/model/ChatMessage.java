@@ -71,6 +71,56 @@ public class ChatMessage {
     private Boolean showThinking;
     
     /**
+     * TTS模式：none, char_stream, sentence_sync
+     */
+    private String ttsMode;
+    
+    /**
+     * 输出通道类型：chat_window, live2d
+     */
+    private String channelType;
+    
+    /**
+     * 句子唯一标识
+     */
+    private String sentenceId;
+    
+    /**
+     * 句子在会话中的顺序
+     */
+    private Integer sentenceOrder;
+    
+    /**
+     * 是否为句子结束
+     */
+    private Boolean sentenceComplete;
+    
+    /**
+     * 音频数据（Base64编码或二进制）
+     */
+    private byte[] audioData;
+    
+    /**
+     * 音频URL（可选，用于大文件）
+     */
+    private String audioUrl;
+    
+    /**
+     * 文本是否准备就绪
+     */
+    private Boolean textReady;
+    
+    /**
+     * 音频是否准备就绪
+     */
+    private Boolean audioReady;
+    
+    /**
+     * 文本和音频是否都准备就绪
+     */
+    private Boolean bothReady;
+    
+    /**
      * 额外元数据
      */
     private Map<String, Object> metadata;
@@ -175,6 +225,86 @@ public class ChatMessage {
     
     public void setShowThinking(Boolean showThinking) {
         this.showThinking = showThinking;
+    }
+    
+    public String getTtsMode() {
+        return ttsMode;
+    }
+    
+    public void setTtsMode(String ttsMode) {
+        this.ttsMode = ttsMode;
+    }
+    
+    public String getChannelType() {
+        return channelType;
+    }
+    
+    public void setChannelType(String channelType) {
+        this.channelType = channelType;
+    }
+    
+    public String getSentenceId() {
+        return sentenceId;
+    }
+    
+    public void setSentenceId(String sentenceId) {
+        this.sentenceId = sentenceId;
+    }
+    
+    public Integer getSentenceOrder() {
+        return sentenceOrder;
+    }
+    
+    public void setSentenceOrder(Integer sentenceOrder) {
+        this.sentenceOrder = sentenceOrder;
+    }
+    
+    public Boolean getSentenceComplete() {
+        return sentenceComplete;
+    }
+    
+    public void setSentenceComplete(Boolean sentenceComplete) {
+        this.sentenceComplete = sentenceComplete;
+    }
+    
+    public byte[] getAudioData() {
+        return audioData;
+    }
+    
+    public void setAudioData(byte[] audioData) {
+        this.audioData = audioData;
+    }
+    
+    public String getAudioUrl() {
+        return audioUrl;
+    }
+    
+    public void setAudioUrl(String audioUrl) {
+        this.audioUrl = audioUrl;
+    }
+    
+    public Boolean getTextReady() {
+        return textReady;
+    }
+    
+    public void setTextReady(Boolean textReady) {
+        this.textReady = textReady;
+    }
+    
+    public Boolean getAudioReady() {
+        return audioReady;
+    }
+    
+    public void setAudioReady(Boolean audioReady) {
+        this.audioReady = audioReady;
+    }
+    
+    public Boolean getBothReady() {
+        return bothReady;
+    }
+    
+    public void setBothReady(Boolean bothReady) {
+        this.bothReady = bothReady;
     }
     
     /**

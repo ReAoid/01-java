@@ -1190,6 +1190,302 @@
             border-bottom-color: #f5c6cb;
             color: #721c24;
         }
+        
+        /* ========== 多通道TTS样式 ========== */
+        
+        /* Live2D气泡样式 */
+        .live2d-bubble {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 20px 20px 5px 20px;
+            margin: 10px 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            position: relative;
+            max-width: 250px;
+            word-wrap: break-word;
+            font-size: 14px;
+            line-height: 1.4;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.4s ease;
+        }
+        
+        .live2d-bubble.waiting-for-audio {
+            border-left: 4px solid #ff9800;
+            background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+            color: #e65100;
+            box-shadow: 0 2px 8px rgba(255, 152, 0, 0.2);
+        }
+        
+        .live2d-bubble.playing-audio {
+            border-left: 4px solid #4caf50;
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            color: #2e7d32;
+            box-shadow: 0 2px 12px rgba(76, 175, 80, 0.3);
+            transform: scale(1.02);
+        }
+        
+        .live2d-bubble.sentence-completed {
+            border-left: 4px solid #2196f3;
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            color: #1565c0;
+            opacity: 0.8;
+        }
+        
+        .live2d-bubble.audio-failed {
+            border-left: 4px solid #f44336;
+            background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+            color: #c62828;
+        }
+        
+        .live2d-bubble::before {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            right: 15px;
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 10px solid #764ba2;
+        }
+        
+        .live2d-bubble.waiting-for-audio::before {
+            border-top-color: #ffe0b2;
+        }
+        
+        .live2d-bubble.playing-audio::before {
+            border-top-color: #c8e6c9;
+        }
+        
+        .live2d-bubble.sentence-completed::before {
+            border-top-color: #bbdefb;
+        }
+        
+        .live2d-bubble.audio-failed::before {
+            border-top-color: #ffcdd2;
+        }
+        
+        /* Live2D容器 */
+        .live2d-container {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 300px;
+            z-index: 1000;
+            pointer-events: none;
+        }
+        
+        /* 音频状态指示器 */
+        .audio-waiting-indicator,
+        .audio-playing-indicator {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 12px;
+            font-weight: 500;
+            padding: 2px 6px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.9);
+        }
+        
+        .audio-waiting-indicator {
+            color: #ff9800;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .audio-playing-indicator {
+            color: #4caf50;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .audio-error-icon {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0.7;
+            font-size: 16px;
+        }
+        
+        /* TTS错误通知 */
+        .tts-error-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ffebee;
+            color: #c62828;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 1000;
+            opacity: 0.9;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            animation: slideInRight 0.3s ease;
+        }
+        
+        /* 全局音频指示器 */
+        .global-audio-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #4CAF50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.3s ease;
+            z-index: 1001;
+        }
+        
+        .global-audio-indicator.active {
+            opacity: 1;
+            transform: scale(1);
+        }
+        
+        .global-audio-indicator::before {
+            content: '🔊';
+            font-size: 18px;
+            animation: pulse 1.5s infinite;
+        }
+        
+        /* 多通道配置界面 */
+        .output-channels-settings {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .channel-config {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+            background: #fafafa;
+        }
+        
+        .channel-config h4 {
+            margin: 0 0 12px 0;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .sub-options {
+            margin-left: 20px;
+            margin-top: 8px;
+        }
+        
+        .sub-options label {
+            display: block;
+            margin: 6px 0;
+            font-size: 14px;
+        }
+        
+        .preset-configs {
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .preset-configs button {
+            margin: 4px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            background: #f0f0f0;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 13px;
+        }
+        
+        .preset-configs button:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-1px);
+        }
+        
+        /* 动画效果 */
+        @keyframes pulse {
+            0%, 100% { 
+                opacity: 1; 
+                transform: scale(1); 
+            }
+            50% { 
+                opacity: 0.6; 
+                transform: scale(1.05); 
+            }
+        }
+        
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 0.9;
+            }
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* 聊天窗口TTS状态 */
+        .message.assistant.tts-enabled {
+            border-left: 3px solid #4caf50;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e8f5e9 100%);
+        }
+        
+        .message.assistant.tts-playing {
+            animation: pulse 2s infinite;
+            border-left-color: #ff9800;
+        }
+        
+        .message.assistant.tts-completed {
+            border-left-color: #2196f3;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .live2d-container {
+                right: 10px;
+                width: 250px;
+            }
+            
+            .live2d-bubble {
+                max-width: 200px;
+                font-size: 13px;
+                padding: 10px 14px;
+            }
+            
+            .tts-error-notification {
+                right: 10px;
+                font-size: 11px;
+                padding: 6px 10px;
+            }
+            
+            .preset-configs button {
+                font-size: 12px;
+                padding: 6px 12px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1315,43 +1611,6 @@
                                     <option value="ja-JP">日本語</option>
                                 </select>
                                 <span class="setting-description">选择界面显示语言</span>
-                            </div>
-                        </div>
-                        
-                        <!-- 聊天设置 -->
-                        <div class="setting-section">
-                            <h3>💬 聊天设置</h3>
-                            <div class="setting-item">
-                                <label>
-                                    <input type="checkbox" id="showThinkingToggle"> 显示思考过程
-                                </label>
-                                <span class="setting-description">显示AI的思考和推理过程</span>
-                            </div>
-                            <div class="setting-item">
-                                <label>
-                                    <input type="checkbox" id="useWebSearchToggle"> 启用联网搜索
-                                </label>
-                                <span class="setting-description">允许AI进行联网搜索获取最新信息</span>
-                            </div>
-                            <div class="setting-item">
-                                <label for="defaultPersonaSelect">默认人设:</label>
-                                <select id="defaultPersonaSelect">
-                                    <option value="default">智能助手</option>
-                                    <option value="advisor">专业顾问</option>
-                                    <option value="creative">创意助手</option>
-                                </select>
-                                <span class="setting-description">选择默认使用的AI人设</span>
-                            </div>
-                            <div class="setting-item">
-                                <label for="maxContextTokensInput">最大上下文长度:</label>
-                                <input type="number" id="maxContextTokensInput" min="1024" max="32768" step="512" value="8192">
-                                <span class="setting-description">控制AI记忆的对话长度 (1024-32768)</span>
-                            </div>
-                            <div class="setting-item">
-                                <label for="temperatureInput">创造性程度:</label>
-                                <input type="range" id="temperatureInput" min="0" max="2" step="0.1" value="0.7">
-                                <span id="temperatureValue">0.7</span>
-                                <span class="setting-description">控制AI回复的创造性和随机性 (0-2)</span>
                             </div>
                         </div>
                         
@@ -1720,8 +1979,582 @@
             }
         }
 
-        // 处理收到的消息 - 优化版
+        // 多通道消息路由器
+        class MultiChannelRouter {
+            constructor() {
+                this.channels = new Map();
+                this.registerChannels();
+            }
+            
+            registerChannels() {
+                this.channels.set('chat_window', new ChatWindowHandler());
+                this.channels.set('live2d', new Live2DHandler());
+            }
+            
+            routeMessage(message) {
+                const channelType = message.channelType || 'chat_window';
+                const handler = this.channels.get(channelType);
+                
+                if (handler) {
+                    handler.handleMessage(message);
+                } else {
+                    console.warn('未知的通道类型:', channelType, message);
+                    // 降级到默认处理
+                    this.handleLegacyMessage(message);
+                }
+            }
+            
+            // 兼容旧版本消息处理
+            handleLegacyMessage(message) {
+                const chatHandler = this.channels.get('chat_window');
+                if (chatHandler) {
+                    chatHandler.handleMessage(message);
+                }
+            }
+            
+            getChannel(channelType) {
+                return this.channels.get(channelType);
+            }
+        }
+        
+        // 聊天窗口处理器
+        class ChatWindowHandler {
+            constructor() {
+                this.audioManager = new CharStreamAudioManager();
+                this.currentAssistantMessage = null;
+            }
+            
+            handleMessage(message) {
+                console.log('🏠 聊天窗口处理消息:', message);
+                
+                switch(message.type) {
+                    case 'text':
+                        this.handleTextMessage(message);
+                        break;
+                    case 'audio':
+                        this.handleAudioMessage(message);
+                        break;
+                    case 'tts_error':
+                        this.handleTTSError(message);
+                        break;
+                    default:
+                        console.log('聊天窗口未处理的消息类型:', message.type);
+                }
+            }
+            
+            handleTextMessage(message) {
+                removeTypingIndicator();
+                
+                // 如果是思考内容，使用传统的流式消息处理（不触发TTS）
+                if (message.thinking) {
+                    console.log('🧠 处理思考内容，跳过TTS:', message);
+                    if (message.streaming) {
+                        if (!isAIResponding) {
+                            isAIResponding = true;
+                            showInterruptButton();
+                        }
+                        handleStreamingMessage(message);
+                    } else {
+                        addMessage('assistant', message.content);
+                    }
+                    return;
+                }
+                
+                if (message.ttsMode === 'char_stream') {
+                    // 模式2：字符流+TTS
+                    this.handleCharStreamText(message);
+                } else if (message.streaming) {
+                    // 传统流式消息
+                    if (!isAIResponding) {
+                        isAIResponding = true;
+                        showInterruptButton();
+                    }
+                    handleStreamingMessage(message);
+                } else {
+                    // 普通文本消息
+                    addMessage('assistant', message.content);
+                }
+            }
+            
+            handleCharStreamText(message) {
+                if (!this.currentAssistantMessage) {
+                    this.currentAssistantMessage = this.createMessage('assistant');
+                }
+                
+                // 立即显示文本
+                this.appendText(this.currentAssistantMessage, message.content);
+                
+                if (message.streamComplete) {
+                    this.currentAssistantMessage = null;
+                    enableSendButton();
+                    isAIResponding = false;
+                    hideInterruptButton();
+                }
+            }
+            
+            handleAudioMessage(message) {
+                if (message.ttsMode === 'char_stream') {
+                    // 模式2：异步音频播放
+                    this.audioManager.addAudio(
+                        message.audioData, 
+                        message.sentenceId || this.generateId(), 
+                        message.content
+                    );
+                }
+            }
+            
+            handleTTSError(message) {
+                console.warn('TTS错误:', message.content);
+                // 可以显示一个小的错误提示
+                this.showTTSError(message.content);
+            }
+            
+            createMessage(sender) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${sender}`;
+                chatContainer.appendChild(messageDiv);
+                scrollToBottom();
+                return messageDiv;
+            }
+            
+            appendText(element, text) {
+                element.textContent += text;
+                scrollToBottom();
+            }
+            
+            showTTSError(errorText) {
+                // 显示一个临时的错误提示
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'tts-error-notification';
+                errorDiv.textContent = '🔇 ' + errorText;
+                errorDiv.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #ffebee;
+                    color: #c62828;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    z-index: 1000;
+                    opacity: 0.9;
+                `;
+                
+                document.body.appendChild(errorDiv);
+                
+                // 3秒后自动移除
+                setTimeout(() => {
+                    if (errorDiv.parentNode) {
+                        errorDiv.parentNode.removeChild(errorDiv);
+                    }
+                }, 3000);
+            }
+            
+            generateId() {
+                return 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            }
+        }
+        
+        // Live2D处理器
+        class Live2DHandler {
+            constructor() {
+                this.sentenceSyncManager = new StrictSentenceSyncManager();
+                this.live2dController = null; // 将来连接Live2D
+            }
+            
+            handleMessage(message) {
+                console.log('🎨 Live2D处理消息:', message);
+                
+                switch(message.type) {
+                    case 'live2d_sentence_display':
+                        this.sentenceSyncManager.handleSentenceDisplay(message);
+                        this.showLive2DBubble(message);
+                        break;
+                    case 'live2d_sentence_audio':
+                        this.sentenceSyncManager.handleSentenceAudio(message);
+                        break;
+                    case 'live2d_audio_failed':
+                        this.sentenceSyncManager.handleAudioFailed(message);
+                        break;
+                    case 'live2d_all_complete':
+                        this.handleAllComplete(message);
+                        break;
+                    default:
+                        console.log('Live2D未处理的消息类型:', message.type);
+                }
+            }
+            
+            showLive2DBubble(message) {
+                // 显示Live2D气泡
+                if (this.live2dController) {
+                    this.live2dController.showBubble(message.content, message.sentenceId);
+                } else {
+                    // 降级显示：在页面上显示Live2D气泡
+                    this.showFallbackBubble(message.content, message.sentenceId);
+                }
+            }
+            
+            showFallbackBubble(text, sentenceId) {
+                // 在页面右侧显示Live2D风格的气泡
+                const bubble = document.createElement('div');
+                bubble.className = 'live2d-bubble';
+                bubble.dataset.sentenceId = sentenceId;
+                bubble.textContent = text;
+                
+                const live2dContainer = document.querySelector('.live2d-container') || 
+                                       this.createLive2DContainer();
+                live2dContainer.appendChild(bubble);
+                
+                // 添加动画
+                bubble.style.opacity = '0';
+                bubble.style.transform = 'scale(0.8) translateY(20px)';
+                
+                requestAnimationFrame(() => {
+                    bubble.style.transition = 'all 0.3s ease';
+                    bubble.style.opacity = '1';
+                    bubble.style.transform = 'scale(1) translateY(0)';
+                });
+            }
+            
+            createLive2DContainer() {
+                const container = document.createElement('div');
+                container.className = 'live2d-container';
+                container.style.cssText = `
+                    position: fixed;
+                    right: 20px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    width: 300px;
+                    z-index: 1000;
+                    pointer-events: none;
+                `;
+                document.body.appendChild(container);
+                return container;
+            }
+            
+            handleAllComplete(message) {
+                console.log('Live2D所有句子处理完成');
+                // 可以在这里做一些清理工作
+            }
+        }
+        
+        // 字符流音频管理器
+        class CharStreamAudioManager {
+            constructor() {
+                this.audioQueue = [];
+                this.isPlaying = false;
+                this.currentAudio = null;
+            }
+            
+            addAudio(audioData, sentenceId, text) {
+                if (!audioData) {
+                    console.warn('音频数据为空，跳过播放');
+                    return;
+                }
+                
+                try {
+                    // 将Base64音频数据转换为Blob
+                    const binaryString = atob(audioData);
+                    const bytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    
+                    const audioBlob = new Blob([bytes], {type: 'audio/mp3'});
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    
+                    const audioItem = {
+                        id: sentenceId,
+                        text: text,
+                        audio: new Audio(audioUrl),
+                        timestamp: Date.now()
+                    };
+                    
+                    this.audioQueue.push(audioItem);
+                    
+                    // 如果当前没有播放，立即开始播放
+                    if (!this.isPlaying) {
+                        this.playNext();
+                    }
+                } catch (error) {
+                    console.error('处理音频数据失败:', error);
+                }
+            }
+            
+            async playNext() {
+                if (this.audioQueue.length === 0) {
+                    this.isPlaying = false;
+                    return;
+                }
+                
+                this.isPlaying = true;
+                const audioItem = this.audioQueue.shift();
+                this.currentAudio = audioItem.audio;
+                
+                try {
+                    await this.playAudio(audioItem.audio);
+                } catch (error) {
+                    console.error('音频播放失败:', error);
+                } finally {
+                    // 播放下一个
+                    setTimeout(() => this.playNext(), 100); // 句子间100ms间隔
+                }
+            }
+            
+            playAudio(audio) {
+                return new Promise((resolve, reject) => {
+                    audio.onended = resolve;
+                    audio.onerror = reject;
+                    audio.play().catch(reject);
+                });
+            }
+            
+            skipCurrent() {
+                if (this.currentAudio) {
+                    this.currentAudio.pause();
+                    this.currentAudio.currentTime = 0;
+                    this.playNext();
+                }
+            }
+            
+            clearQueue() {
+                this.audioQueue = [];
+                if (this.currentAudio) {
+                    this.currentAudio.pause();
+                }
+                this.isPlaying = false;
+            }
+        }
+        
+        // 严格句子同步管理器
+        class StrictSentenceSyncManager {
+            constructor() {
+                this.currentSentence = null;
+                this.isWaitingForAudio = false;
+                this.isPlayingAudio = false;
+            }
+            
+            handleSentenceDisplay(message) {
+                // 只有在没有当前句子时才显示新句子
+                if (this.currentSentence === null) {
+                    this.displaySentence(message);
+                } else {
+                    console.error('收到新句子但当前句子未完成:', message);
+                }
+            }
+            
+            handleSentenceAudio(message) {
+                if (this.currentSentence && 
+                    this.currentSentence.sentenceId === message.sentenceId) {
+                    
+                    if (message.audioData) {
+                        this.playAudio(message.audioData);
+                    } else {
+                        // TTS失败，跳过音频直接完成
+                        this.completeSentence();
+                    }
+                }
+            }
+            
+            handleAudioFailed(message) {
+                if (this.currentSentence && 
+                    this.currentSentence.sentenceId === message.sentenceId) {
+                    
+                    this.markAudioFailed();
+                    this.completeSentence();
+                }
+            }
+            
+            displaySentence(message) {
+                // 创建句子气泡
+                const bubble = this.createSentenceBubble(message.content, message.sentenceId);
+                
+                this.currentSentence = {
+                    sentenceId: message.sentenceId,
+                    order: message.sentenceOrder,
+                    text: message.content,
+                    element: bubble,
+                    audio: null
+                };
+                
+                this.isWaitingForAudio = true;
+                
+                // 显示等待音频的状态
+                bubble.classList.add('waiting-for-audio');
+                this.showWaitingIndicator(bubble);
+            }
+            
+            async playAudio(audioData) {
+                if (!this.currentSentence) return;
+                
+                this.isWaitingForAudio = false;
+                this.isPlayingAudio = true;
+                
+                try {
+                    // 将Base64音频数据转换为Audio对象
+                    const binaryString = atob(audioData);
+                    const bytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    
+                    const audioBlob = new Blob([bytes], {type: 'audio/mp3'});
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audio = new Audio(audioUrl);
+                    
+                    this.currentSentence.audio = audio;
+                    this.currentSentence.element.classList.remove('waiting-for-audio');
+                    this.currentSentence.element.classList.add('playing-audio');
+                    
+                    this.hideWaitingIndicator();
+                    this.showPlayingIndicator(this.currentSentence.element);
+                    
+                    await this.playAudioWithPromise(audio);
+                    this.completeSentence();
+                } catch (error) {
+                    console.error('音频播放失败:', error);
+                    this.markAudioFailed();
+                    this.completeSentence();
+                }
+            }
+            
+            playAudioWithPromise(audio) {
+                return new Promise((resolve, reject) => {
+                    audio.onended = resolve;
+                    audio.onerror = reject;
+                    audio.play().catch(reject);
+                });
+            }
+            
+            completeSentence() {
+                if (!this.currentSentence) return;
+                
+                this.isWaitingForAudio = false;
+                this.isPlayingAudio = false;
+                
+                // 标记句子完成
+                this.currentSentence.element.classList.remove('waiting-for-audio', 'playing-audio');
+                this.currentSentence.element.classList.add('sentence-completed');
+                
+                this.hideAllIndicators();
+                
+                // 通知后端音频播放完成，可以发送下一句
+                this.notifyAudioCompleted(this.currentSentence.sentenceId);
+                
+                // 清空当前句子
+                this.currentSentence = null;
+            }
+            
+            notifyAudioCompleted(sentenceId) {
+                const completionMessage = {
+                    type: 'audio_playback_completed',
+                    sentenceId: sentenceId,
+                    timestamp: Date.now()
+                };
+                
+                // 通过WebSocket发送给后端
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify(completionMessage));
+                    console.log('通知后端音频播放完成:', sentenceId);
+                }
+            }
+            
+            createSentenceBubble(text, sentenceId) {
+                const bubble = document.createElement('div');
+                bubble.className = 'live2d-bubble';
+                bubble.dataset.sentenceId = sentenceId;
+                bubble.textContent = text;
+                
+                // 添加到Live2D容器
+                const container = document.querySelector('.live2d-container') || 
+                                 this.createLive2DContainer();
+                container.appendChild(bubble);
+                
+                // 添加出现动画
+                bubble.style.opacity = '0';
+                bubble.style.transform = 'translateY(20px)';
+                bubble.style.transition = 'all 0.4s ease';
+                
+                requestAnimationFrame(() => {
+                    bubble.style.opacity = '1';
+                    bubble.style.transform = 'translateY(0)';
+                });
+                
+                return bubble;
+            }
+            
+            createLive2DContainer() {
+                const container = document.createElement('div');
+                container.className = 'live2d-container';
+                container.style.cssText = `
+                    position: fixed;
+                    right: 20px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    width: 300px;
+                    z-index: 1000;
+                `;
+                document.body.appendChild(container);
+                return container;
+            }
+            
+            showWaitingIndicator(bubble) {
+                const indicator = document.createElement('div');
+                indicator.className = 'audio-waiting-indicator';
+                indicator.innerHTML = '⏳ 正在生成语音...';
+                bubble.appendChild(indicator);
+            }
+            
+            hideWaitingIndicator() {
+                if (this.currentSentence) {
+                    const indicator = this.currentSentence.element.querySelector('.audio-waiting-indicator');
+                    if (indicator) {
+                        indicator.remove();
+                    }
+                }
+            }
+            
+            showPlayingIndicator(bubble) {
+                const indicator = document.createElement('div');
+                indicator.className = 'audio-playing-indicator';
+                indicator.innerHTML = '🔊 正在播放...';
+                bubble.appendChild(indicator);
+            }
+            
+            hideAllIndicators() {
+                if (this.currentSentence) {
+                    const indicators = this.currentSentence.element.querySelectorAll('.audio-waiting-indicator, .audio-playing-indicator');
+                    indicators.forEach(indicator => indicator.remove());
+                }
+            }
+            
+            markAudioFailed() {
+                if (this.currentSentence) {
+                    this.currentSentence.element.classList.add('audio-failed');
+                    const errorIcon = document.createElement('span');
+                    errorIcon.className = 'audio-error-icon';
+                    errorIcon.textContent = '🔇';
+                    errorIcon.title = '语音生成失败';
+                    this.currentSentence.element.appendChild(errorIcon);
+                }
+            }
+            
+            skipCurrentSentence() {
+                if (this.currentSentence) {
+                    if (this.currentSentence.audio) {
+                        this.currentSentence.audio.pause();
+                    }
+                    this.completeSentence();
+                }
+            }
+        }
+
+        // 创建全局多通道路由器实例
+        const multiChannelRouter = new MultiChannelRouter();
+
+        // 处理收到的消息 - 多通道版本
         function handleIncomingMessage(message) {
+            // 系统消息特殊处理
             if (message.type === 'system') {
                 if (!currentSessionId) {
                     currentSessionId = message.sessionId;
@@ -1742,7 +2575,30 @@
                 } else {
                     addMessage('system', message.content);
                 }
-            } else if (message.type === 'text') {
+                return;
+            }
+            
+            // 错误消息特殊处理
+            if (message.type === 'error') {
+                removeTypingIndicator();
+                addMessage('error', '❌ ' + message.content);
+                enableSendButton();
+                return;
+            }
+            
+            // 使用多通道路由器处理其他消息
+            try {
+                multiChannelRouter.routeMessage(message);
+            } catch (error) {
+                console.error('多通道消息路由失败:', error, message);
+                // 降级到传统处理方式
+                handleLegacyMessage(message);
+            }
+        }
+        
+        // 传统消息处理（降级方案）
+        function handleLegacyMessage(message) {
+            if (message.type === 'text') {
                 removeTypingIndicator();
                 if (message.streaming) {
                     // 流式消息处理
@@ -1754,11 +2610,6 @@
                 } else {
                     addMessage('assistant', message.content);
                 }
-            } else if (message.type === 'error') {
-                removeTypingIndicator();
-                addMessage('error', '❌ ' + message.content);
-                // 重新启用发送按钮
-                enableSendButton();
             }
         }
         
@@ -2818,14 +3669,6 @@
                 setElementValue('soundNotificationToggle', preferences.soundNotification);
                 setElementValue('languageSelect', preferences.language);
                 
-                // 聊天设置
-                setElementValue('showThinkingToggle', preferences.showThinking);
-                setElementValue('useWebSearchToggle', preferences.useWebSearch);
-                setElementValue('defaultPersonaSelect', preferences.defaultPersona);
-                setElementValue('maxContextTokensInput', preferences.maxContextTokens);
-                setElementValue('temperatureInput', preferences.temperature);
-                updateRangeValue('temperatureInput', 'temperatureValue', preferences.temperature);
-                
                 // Ollama设置
                 setElementValue('ollamaUrlInput', preferences.ollamaBaseUrl);
                 setElementValue('ollamaModelInput', preferences.ollamaModel);
@@ -2862,13 +3705,6 @@
                 userPreferences.autoScroll = getElementValue('autoScrollToggle');
                 userPreferences.soundNotification = getElementValue('soundNotificationToggle');
                 userPreferences.language = getElementValue('languageSelect');
-                
-                // 聊天设置
-                userPreferences.showThinking = getElementValue('showThinkingToggle');
-                userPreferences.useWebSearch = getElementValue('useWebSearchToggle');
-                userPreferences.defaultPersona = getElementValue('defaultPersonaSelect');
-                userPreferences.maxContextTokens = parseInt(getElementValue('maxContextTokensInput'));
-                userPreferences.temperature = parseFloat(getElementValue('temperatureInput'));
                 
                 // Ollama设置
                 userPreferences.ollamaBaseUrl = getElementValue('ollamaUrlInput');
@@ -3077,13 +3913,6 @@
                 }
                 
                 // 范围滑块实时更新
-                const temperatureInput = document.getElementById('temperatureInput');
-                if (temperatureInput) {
-                    temperatureInput.addEventListener('input', (e) => {
-                        updateRangeValue('temperatureInput', 'temperatureValue', e.target.value);
-                    });
-                }
-                
                 const responseSpeedInput = document.getElementById('responseSpeedInput');
                 if (responseSpeedInput) {
                     responseSpeedInput.addEventListener('input', (e) => {
@@ -3092,32 +3921,32 @@
                 }
                 
                 // 实时应用某些设置
-            const darkModeToggle = document.getElementById('darkModeToggle');
-            if (darkModeToggle) {
-                darkModeToggle.addEventListener('change', (e) => {
-                    if (e.target.checked) {
-                        document.body.classList.add('dark-mode');
-                    } else {
-                        document.body.classList.remove('dark-mode');
+                const darkModeToggle = document.getElementById('darkModeToggle');
+                if (darkModeToggle) {
+                    darkModeToggle.addEventListener('change', (e) => {
+                        if (e.target.checked) {
+                            document.body.classList.add('dark-mode');
+                        } else {
+                            document.body.classList.remove('dark-mode');
                         }
                     });
                 }
                 
-            const animationsToggle = document.getElementById('animationsToggle');
-            if (animationsToggle) {
-                animationsToggle.addEventListener('change', (e) => {
-                    if (e.target.checked) {
-                        document.body.classList.remove('no-animations');
-                    } else {
-                        document.body.classList.add('no-animations');
+                const animationsToggle = document.getElementById('animationsToggle');
+                if (animationsToggle) {
+                    animationsToggle.addEventListener('change', (e) => {
+                        if (e.target.checked) {
+                            document.body.classList.remove('no-animations');
+                        } else {
+                            document.body.classList.add('no-animations');
                         }
                     });
                 }
                 
-            const autoScrollToggle = document.getElementById('autoScrollToggle');
-            if (autoScrollToggle) {
-                autoScrollToggle.addEventListener('change', (e) => {
-                    window.autoScrollEnabled = e.target.checked;
+                const autoScrollToggle = document.getElementById('autoScrollToggle');
+                if (autoScrollToggle) {
+                    autoScrollToggle.addEventListener('change', (e) => {
+                        window.autoScrollEnabled = e.target.checked;
                     });
                 }
             }
