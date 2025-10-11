@@ -220,20 +220,203 @@
             padding: 20px;
             overflow-y: auto;
             min-height: 0;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .settings-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            flex-wrap: wrap;
+        }
+        
+        .settings-actions button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .save-btn {
+            background: #28a745;
+            color: white;
+        }
+        
+        .save-btn:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+        
+        .reset-btn {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .reset-btn:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+        
+        .export-btn, .import-btn {
+            background: #007bff;
+            color: white;
+        }
+        
+        .export-btn:hover, .import-btn:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
         }
         
         .setting-section {
             background: white;
             border-radius: 10px;
-            padding: 20px;
+            padding: 25px;
             margin-bottom: 20px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .setting-section:hover {
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
         }
         
         .setting-section h3 {
-            margin: 0 0 10px 0;
+            margin: 0 0 20px 0;
             color: #333;
             font-size: 18px;
+            font-weight: 600;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+        }
+        
+        .setting-item {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .setting-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .setting-item label {
+            font-weight: 500;
+            color: #555;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .setting-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #667eea;
+            cursor: pointer;
+        }
+        
+        .setting-item input[type="text"],
+        .setting-item input[type="url"],
+        .setting-item input[type="number"],
+        .setting-item select {
+            padding: 10px 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .setting-item input[type="text"]:focus,
+        .setting-item input[type="url"]:focus,
+        .setting-item input[type="number"]:focus,
+        .setting-item select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .setting-item input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #e1e5e9;
+            outline: none;
+            -webkit-appearance: none;
+            margin: 10px 0;
+        }
+        
+        .setting-item input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .setting-item input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+        }
+        
+        .setting-item input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+        
+        .setting-description {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+            font-style: italic;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .info-label {
+            font-weight: 500;
+            color: #555;
+        }
+        
+        .info-value {
+            font-weight: 600;
+            color: #333;
         }
         
         .setting-section p {
@@ -1087,34 +1270,206 @@
                     </div>
                     
                     <div class="settings-content">
+                        <!-- 配置操作按钮 -->
+                        <div class="settings-actions">
+                            <button id="saveSettingsBtn" class="save-btn">💾 保存配置</button>
+                            <button id="resetSettingsBtn" class="reset-btn">🔄 重置为默认</button>
+                            <button id="exportSettingsBtn" class="export-btn">📤 导出配置</button>
+                            <button id="importSettingsBtn" class="import-btn">📥 导入配置</button>
+                            <input type="file" id="importFileInput" accept=".json" style="display: none;">
+                        </div>
+                        
+                        <!-- 界面设置 -->
                         <div class="setting-section">
                             <h3>🎨 界面设置</h3>
                             <div class="setting-item">
                                 <label>
                                     <input type="checkbox" id="darkModeToggle"> 深色模式
                                 </label>
+                                <span class="setting-description">切换深色/浅色主题</span>
                             </div>
                             <div class="setting-item">
                                 <label>
                                     <input type="checkbox" id="animationsToggle" checked> 启用动画效果
                                 </label>
+                                <span class="setting-description">启用界面动画和过渡效果</span>
                             </div>
-                        </div>
-                        
-                        <div class="setting-section">
-                            <h3>💬 聊天设置</h3>
                             <div class="setting-item">
                                 <label>
                                     <input type="checkbox" id="autoScrollToggle" checked> 自动滚动到底部
                                 </label>
+                                <span class="setting-description">新消息时自动滚动到底部</span>
                             </div>
                             <div class="setting-item">
                                 <label>
                                     <input type="checkbox" id="soundNotificationToggle"> 消息提示音
                                 </label>
+                                <span class="setting-description">收到新消息时播放提示音</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="languageSelect">界面语言:</label>
+                                <select id="languageSelect">
+                                    <option value="zh-CN">简体中文</option>
+                                    <option value="zh-TW">繁體中文</option>
+                                    <option value="en-US">English</option>
+                                    <option value="ja-JP">日本語</option>
+                                </select>
+                                <span class="setting-description">选择界面显示语言</span>
                             </div>
                         </div>
                         
+                        <!-- 聊天设置 -->
+                        <div class="setting-section">
+                            <h3>💬 聊天设置</h3>
+                            <div class="setting-item">
+                                <label>
+                                    <input type="checkbox" id="showThinkingToggle"> 显示思考过程
+                                </label>
+                                <span class="setting-description">显示AI的思考和推理过程</span>
+                            </div>
+                            <div class="setting-item">
+                                <label>
+                                    <input type="checkbox" id="useWebSearchToggle"> 启用联网搜索
+                                </label>
+                                <span class="setting-description">允许AI进行联网搜索获取最新信息</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="defaultPersonaSelect">默认人设:</label>
+                                <select id="defaultPersonaSelect">
+                                    <option value="default">智能助手</option>
+                                    <option value="advisor">专业顾问</option>
+                                    <option value="creative">创意助手</option>
+                                </select>
+                                <span class="setting-description">选择默认使用的AI人设</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="maxContextTokensInput">最大上下文长度:</label>
+                                <input type="number" id="maxContextTokensInput" min="1024" max="32768" step="512" value="8192">
+                                <span class="setting-description">控制AI记忆的对话长度 (1024-32768)</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="temperatureInput">创造性程度:</label>
+                                <input type="range" id="temperatureInput" min="0" max="2" step="0.1" value="0.7">
+                                <span id="temperatureValue">0.7</span>
+                                <span class="setting-description">控制AI回复的创造性和随机性 (0-2)</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Ollama设置 -->
+                        <div class="setting-section">
+                            <h3>🤖 Ollama设置</h3>
+                            <div class="setting-item">
+                                <label for="ollamaUrlInput">Ollama服务地址:</label>
+                                <input type="url" id="ollamaUrlInput" placeholder="http://localhost:11434" value="http://localhost:11434">
+                                <span class="setting-description">Ollama服务的访问地址</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="ollamaModelInput">使用模型:</label>
+                                <input type="text" id="ollamaModelInput" placeholder="qwen3:4b" value="qwen3:4b">
+                                <span class="setting-description">指定使用的AI模型名称</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="ollamaTimeoutInput">连接超时 (毫秒):</label>
+                                <input type="number" id="ollamaTimeoutInput" min="5000" max="120000" step="1000" value="30000">
+                                <span class="setting-description">Ollama服务连接超时时间</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="ollamaMaxTokensInput">最大输出长度:</label>
+                                <input type="number" id="ollamaMaxTokensInput" min="512" max="8192" step="256" value="4096">
+                                <span class="setting-description">单次回复的最大长度限制</span>
+                            </div>
+                            <div class="setting-item">
+                                <label>
+                                    <input type="checkbox" id="ollamaStreamToggle" checked> 启用流式输出
+                                </label>
+                                <span class="setting-description">实时显示AI回复过程</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 联网搜索设置 -->
+                        <div class="setting-section">
+                            <h3>🌐 联网搜索设置</h3>
+                            <div class="setting-item">
+                                <label>
+                                    <input type="checkbox" id="webSearchEnabledToggle"> 启用联网搜索
+                                </label>
+                                <span class="setting-description">全局启用/禁用联网搜索功能</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="webSearchEngineSelect">搜索引擎:</label>
+                                <select id="webSearchEngineSelect">
+                                    <option value="duckduckgo">DuckDuckGo</option>
+                                    <option value="google">Google</option>
+                                    <option value="bing">Bing</option>
+                                </select>
+                                <span class="setting-description">选择默认搜索引擎</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="webSearchMaxResultsInput">最大搜索结果数:</label>
+                                <input type="number" id="webSearchMaxResultsInput" min="1" max="20" value="5">
+                                <span class="setting-description">每次搜索返回的最大结果数量</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="webSearchTimeoutInput">搜索超时 (秒):</label>
+                                <input type="number" id="webSearchTimeoutInput" min="5" max="60" value="10">
+                                <span class="setting-description">搜索请求的超时时间</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 语音设置 -->
+                        <div class="setting-section">
+                            <h3>🎤 语音设置</h3>
+                            <div class="setting-item">
+                                <label>
+                                    <input type="checkbox" id="enableVoiceToggle"> 启用语音功能
+                                </label>
+                                <span class="setting-description">启用语音输入和输出功能</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="ttsVoiceSelect">语音合成声音:</label>
+                                <select id="ttsVoiceSelect">
+                                    <option value="zh-CN-XiaoxiaoNeural">小晓 (中文女声)</option>
+                                    <option value="zh-CN-YunxiNeural">云希 (中文男声)</option>
+                                    <option value="zh-CN-XiaoyiNeural">小艺 (中文女声)</option>
+                                    <option value="zh-CN-YunjianNeural">云健 (中文男声)</option>
+                                </select>
+                                <span class="setting-description">选择语音合成的声音</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="responseSpeedInput">语音速度:</label>
+                                <input type="range" id="responseSpeedInput" min="0.5" max="2.0" step="0.1" value="1.0">
+                                <span id="responseSpeedValue">1.0x</span>
+                                <span class="setting-description">调整语音播放速度</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="asrModelSelect">语音识别模型:</label>
+                                <select id="asrModelSelect">
+                                    <option value="whisper-tiny">Whisper Tiny (快速)</option>
+                                    <option value="whisper-base">Whisper Base (平衡)</option>
+                                    <option value="whisper-small">Whisper Small (较好)</option>
+                                    <option value="whisper-medium">Whisper Medium (推荐)</option>
+                                    <option value="whisper-large">Whisper Large (最佳)</option>
+                                </select>
+                                <span class="setting-description">选择语音识别的模型精度</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 流式输出设置 -->
+                        <div class="setting-section">
+                            <h3>⚡ 流式输出设置</h3>
+                            <div class="setting-item">
+                                <label for="streamingChunkSizeInput">数据块大小:</label>
+                                <input type="number" id="streamingChunkSizeInput" min="1" max="128" value="16">
+                                <span class="setting-description">每次传输的字符数量 (1-128)</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="streamingDelayInput">传输延迟 (毫秒):</label>
+                                <input type="number" id="streamingDelayInput" min="10" max="1000" step="10" value="50">
+                                <span class="setting-description">数据块之间的延迟时间</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 系统信息 -->
                         <div class="setting-section">
                             <h3>🔧 系统信息</h3>
                             <div class="info-grid">
@@ -1125,6 +1480,14 @@
                                 <div class="info-item">
                                     <span class="info-label">连接状态:</span>
                                     <span class="info-value" id="connectionStatus">未连接</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">配置状态:</span>
+                                    <span class="info-value" id="configStatus">未加载</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">最后保存:</span>
+                                    <span class="info-value" id="lastSavedTime">从未保存</span>
                                 </div>
                             </div>
                         </div>
@@ -2354,63 +2717,415 @@
         
         // 设置页面功能
         function initSettingsPage() {
-            // 深色模式切换
+            // 用户配置对象
+            let userPreferences = {};
+            
+            // 加载用户配置
+            async function loadUserPreferences() {
+                try {
+                    const response = await fetch('/api/preferences');
+                    const result = await response.json();
+                    
+                    if (result.success && result.data) {
+                        userPreferences = result.data;
+                        updateSettingsUI(userPreferences);
+                        updateConfigStatus('loaded', '配置已加载');
+                        console.log('✅ 用户配置加载成功', userPreferences);
+                    } else {
+                        console.warn('⚠️ 加载用户配置失败', result.message);
+                        updateConfigStatus('error', '加载失败');
+                    }
+                } catch (error) {
+                    console.error('❌ 加载用户配置错误', error);
+                    updateConfigStatus('error', '加载错误');
+                }
+            }
+            
+            // 保存用户配置
+            async function saveUserPreferences() {
+                try {
+                    updateConfigStatus('loading', '保存中...');
+                    
+                    const response = await fetch('/api/preferences', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(userPreferences)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        updateConfigStatus('loaded', '保存成功');
+                        updateLastSavedTime();
+                        console.log('✅ 用户配置保存成功');
+                        
+                        // 显示成功提示
+                        showNotification('配置保存成功！', 'success');
+                    } else {
+                        console.error('❌ 保存用户配置失败', result.message);
+                        updateConfigStatus('error', '保存失败');
+                        showNotification('配置保存失败: ' + result.message, 'error');
+                    }
+                } catch (error) {
+                    console.error('❌ 保存用户配置错误', error);
+                    updateConfigStatus('error', '保存错误');
+                    showNotification('配置保存错误: ' + error.message, 'error');
+                }
+            }
+            
+            // 重置配置为默认值
+            async function resetUserPreferences() {
+                if (!confirm('确定要重置所有配置为默认值吗？此操作不可撤销。')) {
+                    return;
+                }
+                
+                try {
+                    updateConfigStatus('loading', '重置中...');
+                    
+                    const response = await fetch('/api/preferences/reset', {
+                        method: 'POST'
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success && result.data) {
+                        userPreferences = result.data;
+                        updateSettingsUI(userPreferences);
+                        updateConfigStatus('loaded', '重置成功');
+                        updateLastSavedTime();
+                        console.log('✅ 用户配置重置成功');
+                        showNotification('配置已重置为默认值！', 'success');
+                    } else {
+                        console.error('❌ 重置用户配置失败', result.message);
+                        updateConfigStatus('error', '重置失败');
+                        showNotification('配置重置失败: ' + result.message, 'error');
+                    }
+                } catch (error) {
+                    console.error('❌ 重置用户配置错误', error);
+                    updateConfigStatus('error', '重置错误');
+                    showNotification('配置重置错误: ' + error.message, 'error');
+                }
+            }
+            
+            // 更新设置界面
+            function updateSettingsUI(preferences) {
+                // 界面设置
+                setElementValue('darkModeToggle', preferences.darkMode);
+                setElementValue('animationsToggle', preferences.enableAnimations);
+                setElementValue('autoScrollToggle', preferences.autoScroll);
+                setElementValue('soundNotificationToggle', preferences.soundNotification);
+                setElementValue('languageSelect', preferences.language);
+                
+                // 聊天设置
+                setElementValue('showThinkingToggle', preferences.showThinking);
+                setElementValue('useWebSearchToggle', preferences.useWebSearch);
+                setElementValue('defaultPersonaSelect', preferences.defaultPersona);
+                setElementValue('maxContextTokensInput', preferences.maxContextTokens);
+                setElementValue('temperatureInput', preferences.temperature);
+                updateRangeValue('temperatureInput', 'temperatureValue', preferences.temperature);
+                
+                // Ollama设置
+                setElementValue('ollamaUrlInput', preferences.ollamaBaseUrl);
+                setElementValue('ollamaModelInput', preferences.ollamaModel);
+                setElementValue('ollamaTimeoutInput', preferences.ollamaTimeout);
+                setElementValue('ollamaMaxTokensInput', preferences.ollamaMaxTokens);
+                setElementValue('ollamaStreamToggle', preferences.ollamaStream);
+                
+                // 联网搜索设置
+                setElementValue('webSearchEnabledToggle', preferences.webSearchEnabled);
+                setElementValue('webSearchEngineSelect', preferences.webSearchEngine);
+                setElementValue('webSearchMaxResultsInput', preferences.webSearchMaxResults);
+                setElementValue('webSearchTimeoutInput', preferences.webSearchTimeout);
+                
+                // 语音设置
+                setElementValue('enableVoiceToggle', preferences.enableVoice);
+                setElementValue('ttsVoiceSelect', preferences.preferredTtsVoice);
+                setElementValue('responseSpeedInput', preferences.responseSpeed);
+                updateRangeValue('responseSpeedInput', 'responseSpeedValue', preferences.responseSpeed + 'x');
+                setElementValue('asrModelSelect', preferences.asrModel);
+                
+                // 流式输出设置
+                setElementValue('streamingChunkSizeInput', preferences.streamingChunkSize);
+                setElementValue('streamingDelayInput', preferences.streamingDelayMs);
+                
+                // 应用一些设置
+                applyUISettings(preferences);
+            }
+            
+            // 从界面收集设置
+            function collectSettingsFromUI() {
+                // 界面设置
+                userPreferences.darkMode = getElementValue('darkModeToggle');
+                userPreferences.enableAnimations = getElementValue('animationsToggle');
+                userPreferences.autoScroll = getElementValue('autoScrollToggle');
+                userPreferences.soundNotification = getElementValue('soundNotificationToggle');
+                userPreferences.language = getElementValue('languageSelect');
+                
+                // 聊天设置
+                userPreferences.showThinking = getElementValue('showThinkingToggle');
+                userPreferences.useWebSearch = getElementValue('useWebSearchToggle');
+                userPreferences.defaultPersona = getElementValue('defaultPersonaSelect');
+                userPreferences.maxContextTokens = parseInt(getElementValue('maxContextTokensInput'));
+                userPreferences.temperature = parseFloat(getElementValue('temperatureInput'));
+                
+                // Ollama设置
+                userPreferences.ollamaBaseUrl = getElementValue('ollamaUrlInput');
+                userPreferences.ollamaModel = getElementValue('ollamaModelInput');
+                userPreferences.ollamaTimeout = parseInt(getElementValue('ollamaTimeoutInput'));
+                userPreferences.ollamaMaxTokens = parseInt(getElementValue('ollamaMaxTokensInput'));
+                userPreferences.ollamaStream = getElementValue('ollamaStreamToggle');
+                
+                // 联网搜索设置
+                userPreferences.webSearchEnabled = getElementValue('webSearchEnabledToggle');
+                userPreferences.webSearchEngine = getElementValue('webSearchEngineSelect');
+                userPreferences.webSearchMaxResults = parseInt(getElementValue('webSearchMaxResultsInput'));
+                userPreferences.webSearchTimeout = parseInt(getElementValue('webSearchTimeoutInput'));
+                
+                // 语音设置
+                userPreferences.enableVoice = getElementValue('enableVoiceToggle');
+                userPreferences.preferredTtsVoice = getElementValue('ttsVoiceSelect');
+                userPreferences.responseSpeed = parseFloat(getElementValue('responseSpeedInput'));
+                userPreferences.asrModel = getElementValue('asrModelSelect');
+                
+                // 流式输出设置
+                userPreferences.streamingChunkSize = parseInt(getElementValue('streamingChunkSizeInput'));
+                userPreferences.streamingDelayMs = parseInt(getElementValue('streamingDelayInput'));
+            }
+            
+            // 应用UI设置
+            function applyUISettings(preferences) {
+                // 深色模式
+                if (preferences.darkMode) {
+                    document.body.classList.add('dark-mode');
+                } else {
+                    document.body.classList.remove('dark-mode');
+                }
+                
+                // 动画效果
+                if (!preferences.enableAnimations) {
+                    document.body.classList.add('no-animations');
+                } else {
+                    document.body.classList.remove('no-animations');
+                }
+                
+                // 自动滚动
+                window.autoScrollEnabled = preferences.autoScroll;
+            }
+            
+            // 工具函数
+            function setElementValue(id, value) {
+                const element = document.getElementById(id);
+                if (element) {
+                    if (element.type === 'checkbox') {
+                        element.checked = value;
+                    } else {
+                        element.value = value;
+                    }
+                }
+            }
+            
+            function getElementValue(id) {
+                const element = document.getElementById(id);
+                if (element) {
+                    if (element.type === 'checkbox') {
+                        return element.checked;
+                    } else {
+                        return element.value;
+                    }
+                }
+                return null;
+            }
+            
+            function updateRangeValue(inputId, valueId, value) {
+                const valueElement = document.getElementById(valueId);
+                if (valueElement) {
+                    valueElement.textContent = value;
+                }
+            }
+            
+            function updateConfigStatus(status, message) {
+                const statusElement = document.getElementById('configStatus');
+                if (statusElement) {
+                    statusElement.textContent = message;
+                    statusElement.className = 'info-value config-status ' + status;
+                }
+            }
+            
+            function updateLastSavedTime() {
+                const timeElement = document.getElementById('lastSavedTime');
+                if (timeElement) {
+                    timeElement.textContent = new Date().toLocaleString();
+                }
+            }
+            
+            function showNotification(message, type = 'info') {
+                // 创建通知元素
+                const notification = document.createElement('div');
+                notification.className = `notification notification-${type}`;
+                notification.textContent = message;
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 15px 20px;
+                    border-radius: 6px;
+                    color: white;
+                    font-weight: 500;
+                    z-index: 10000;
+                    opacity: 0;
+                    transform: translateX(100%);
+                    transition: all 0.3s ease;
+                `;
+                
+                // 设置颜色
+                switch (type) {
+                    case 'success':
+                        notification.style.background = '#28a745';
+                        break;
+                    case 'error':
+                        notification.style.background = '#dc3545';
+                        break;
+                    default:
+                        notification.style.background = '#007bff';
+                }
+                
+                document.body.appendChild(notification);
+                
+                // 显示动画
+                setTimeout(() => {
+                    notification.style.opacity = '1';
+                    notification.style.transform = 'translateX(0)';
+                }, 100);
+                
+                // 自动移除
+                setTimeout(() => {
+                    notification.style.opacity = '0';
+                    notification.style.transform = 'translateX(100%)';
+                    setTimeout(() => {
+                        document.body.removeChild(notification);
+                    }, 300);
+                }, 3000);
+            }
+            
+            // 导出配置
+            function exportSettings() {
+                collectSettingsFromUI();
+                const dataStr = JSON.stringify(userPreferences, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'chatbot-settings-' + new Date().toISOString().split('T')[0] + '.json';
+                link.click();
+                URL.revokeObjectURL(url);
+                showNotification('配置已导出到文件！', 'success');
+            }
+            
+            // 导入配置
+            function importSettings(file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const importedSettings = JSON.parse(e.target.result);
+                        userPreferences = { ...userPreferences, ...importedSettings };
+                        updateSettingsUI(userPreferences);
+                        showNotification('配置导入成功！请点击保存按钮应用配置。', 'success');
+                    } catch (error) {
+                        console.error('❌ 导入配置失败', error);
+                        showNotification('配置文件格式错误！', 'error');
+                    }
+                };
+                reader.readAsText(file);
+            }
+            
+            // 绑定事件监听器
+            function bindEventListeners() {
+                // 保存按钮
+                const saveBtn = document.getElementById('saveSettingsBtn');
+                if (saveBtn) {
+                    saveBtn.addEventListener('click', () => {
+                        collectSettingsFromUI();
+                        saveUserPreferences();
+                    });
+                }
+                
+                // 重置按钮
+                const resetBtn = document.getElementById('resetSettingsBtn');
+                if (resetBtn) {
+                    resetBtn.addEventListener('click', resetUserPreferences);
+                }
+                
+                // 导出按钮
+                const exportBtn = document.getElementById('exportSettingsBtn');
+                if (exportBtn) {
+                    exportBtn.addEventListener('click', exportSettings);
+                }
+                
+                // 导入按钮
+                const importBtn = document.getElementById('importSettingsBtn');
+                const importFileInput = document.getElementById('importFileInput');
+                if (importBtn && importFileInput) {
+                    importBtn.addEventListener('click', () => importFileInput.click());
+                    importFileInput.addEventListener('change', (e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                            importSettings(file);
+                        }
+                    });
+                }
+                
+                // 范围滑块实时更新
+                const temperatureInput = document.getElementById('temperatureInput');
+                if (temperatureInput) {
+                    temperatureInput.addEventListener('input', (e) => {
+                        updateRangeValue('temperatureInput', 'temperatureValue', e.target.value);
+                    });
+                }
+                
+                const responseSpeedInput = document.getElementById('responseSpeedInput');
+                if (responseSpeedInput) {
+                    responseSpeedInput.addEventListener('input', (e) => {
+                        updateRangeValue('responseSpeedInput', 'responseSpeedValue', e.target.value + 'x');
+                    });
+                }
+                
+                // 实时应用某些设置
             const darkModeToggle = document.getElementById('darkModeToggle');
             if (darkModeToggle) {
                 darkModeToggle.addEventListener('change', (e) => {
                     if (e.target.checked) {
                         document.body.classList.add('dark-mode');
-                        localStorage.setItem('darkMode', 'true');
                     } else {
                         document.body.classList.remove('dark-mode');
-                        localStorage.setItem('darkMode', 'false');
-                    }
-                });
-                
-                // 加载保存的深色模式设置
-                const savedDarkMode = localStorage.getItem('darkMode');
-                if (savedDarkMode === 'true') {
-                    darkModeToggle.checked = true;
-                    document.body.classList.add('dark-mode');
+                        }
+                    });
                 }
-            }
-            
-            // 动画效果切换
+                
             const animationsToggle = document.getElementById('animationsToggle');
             if (animationsToggle) {
                 animationsToggle.addEventListener('change', (e) => {
                     if (e.target.checked) {
                         document.body.classList.remove('no-animations');
-                        localStorage.setItem('animations', 'true');
                     } else {
                         document.body.classList.add('no-animations');
-                        localStorage.setItem('animations', 'false');
-                    }
-                });
-                
-                // 加载保存的动画设置
-                const savedAnimations = localStorage.getItem('animations');
-                if (savedAnimations === 'false') {
-                    animationsToggle.checked = false;
-                    document.body.classList.add('no-animations');
+                        }
+                    });
                 }
-            }
-            
-            // 自动滚动切换
+                
             const autoScrollToggle = document.getElementById('autoScrollToggle');
             if (autoScrollToggle) {
                 autoScrollToggle.addEventListener('change', (e) => {
                     window.autoScrollEnabled = e.target.checked;
-                    localStorage.setItem('autoScroll', e.target.checked.toString());
-                });
-                
-                // 加载保存的自动滚动设置
-                const savedAutoScroll = localStorage.getItem('autoScroll');
-                if (savedAutoScroll !== null) {
-                    autoScrollToggle.checked = savedAutoScroll === 'true';
-                    window.autoScrollEnabled = savedAutoScroll === 'true';
+                    });
                 }
             }
+            
+            // 初始化
+            updateConfigStatus('loading', '加载中...');
+            bindEventListeners();
+            loadUserPreferences();
         }
         window.addEventListener('load', function() {
             connect();
