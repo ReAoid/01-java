@@ -1142,12 +1142,12 @@
             border-radius: 5px;
             background: white;
         }
-        .thinking-toggle, .web-search-toggle {
+        .thinking-toggle, .tts-toggle, .web-search-toggle {
             display: flex;
             align-items: center;
             gap: 8px;
         }
-        .thinking-toggle label, .web-search-toggle label {
+        .thinking-toggle label, .tts-toggle label, .web-search-toggle label {
             font-size: 14px;
             color: #666;
             margin: 0;
@@ -1413,6 +1413,19 @@
             transform: translateY(-1px);
         }
         
+        /* TTS模式显示 */
+        .current-mode-display {
+            display: inline-block;
+            padding: 4px 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+            animation: pulse 2s infinite;
+        }
+        
         /* 动画效果 */
         @keyframes pulse {
             0%, 100% { 
@@ -1444,6 +1457,17 @@
             to {
                 opacity: 1;
                 transform: translateY(0);
+            }
+        }
+        
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-20px);
             }
         }
         
@@ -1533,6 +1557,10 @@
             <div class="thinking-toggle">
                 <label for="thinkingToggle">显示思考过程:</label>
                 <div class="toggle-switch" id="thinkingToggle" title="切换是否显示AI的思考过程"></div>
+            </div>
+            <div class="tts-toggle">
+                <label for="ttsToggle">开启TTS:</label>
+                <div class="toggle-switch" id="ttsToggle" title="切换聊天窗口语音输出模式"></div>
             </div>
             <div class="web-search-toggle">
                 <label for="webSearchToggle">联网搜索:</label>
@@ -1672,6 +1700,64 @@
                                 <label for="webSearchTimeoutInput">搜索超时 (秒):</label>
                                 <input type="number" id="webSearchTimeoutInput" min="5" max="60" value="10">
                                 <span class="setting-description">搜索请求的超时时间</span>
+                            </div>
+                        </div>
+                        
+                        <!-- TTS语音设置 -->
+                        <div class="setting-section">
+                            <h3>🔊 TTS语音设置</h3>
+                            <div class="setting-item">
+                                <label>当前TTS模式:</label>
+                                <span id="currentTTSMode" class="current-mode-display">模式1 - 纯文本</span>
+                                <span class="setting-description">当前激活的语音输出模式</span>
+                            </div>
+                            <div class="setting-item">
+                                <label>
+                                    <input type="checkbox" id="chatTTSToggle"> 聊天窗口语音输出
+                                </label>
+                                <span class="setting-description">在主聊天窗口启用文字转语音功能</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="chatTTSModeSelect">聊天窗口模式:</label>
+                                <select id="chatTTSModeSelect">
+                                    <option value="text_only">模式1 - 纯文本</option>
+                                    <option value="char_stream_tts">模式2 - 字符流+语音</option>
+                                </select>
+                                <span class="setting-description">选择聊天窗口的输出模式</span>
+                            </div>
+                            <div class="setting-item">
+                                <label>
+                                    <input type="checkbox" id="live2DTTSToggle"> Live2D语音输出
+                                </label>
+                                <span class="setting-description">启用Live2D角色语音功能</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="live2DVoiceSelect">Live2D语音:</label>
+                                <select id="live2DVoiceSelect">
+                                    <option value="zh-CN-XiaoxiaoNeural">晓晓 (女声)</option>
+                                    <option value="zh-CN-YunxiNeural">云希 (男声)</option>
+                                    <option value="zh-CN-YunyangNeural">云扬 (男声)</option>
+                                    <option value="zh-CN-XiaochenNeural">晓辰 (女声)</option>
+                                </select>
+                                <span class="setting-description">选择Live2D角色的语音类型</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="ttsSpeedRange">语音速度:</label>
+                                <input type="range" id="ttsSpeedRange" min="0.5" max="2.0" step="0.1" value="1.0">
+                                <span id="ttsSpeedValue">1.0x</span>
+                                <span class="setting-description">调整语音播放速度</span>
+                            </div>
+                            
+                            <!-- 快速预设 -->
+                            <div class="setting-item">
+                                <label>快速预设:</label>
+                                <div class="preset-configs">
+                                    <button onclick="applyTTSPreset('text_only')">纯文本</button>
+                                    <button onclick="applyTTSPreset('chat_voice')">聊天+语音</button>
+                                    <button onclick="applyTTSPreset('live2d_only')">仅Live2D</button>
+                                    <button onclick="applyTTSPreset('full_experience')">完整体验</button>
+                                </div>
+                                <span class="setting-description">一键应用常用配置组合</span>
                             </div>
                         </div>
                         
@@ -1864,6 +1950,16 @@
         let isAIResponding = false; // AI是否正在回复
         let currentStreamingMessage = null; // 当前流式消息元素
         
+        // TTS相关变量
+        let currentTTSMode = 'text_only'; // 当前TTS模式
+        let ttsSettings = {
+            chatEnabled: false,
+            chatMode: 'text_only',
+            live2dEnabled: false,
+            live2dVoice: 'zh-CN-XiaoxiaoNeural',
+            speed: 1.0
+        };
+        
         // 日志相关变量
         let autoRefreshLogs = true; // 自动刷新日志状态 - 默认开启
         let logRefreshInterval = null; // 日志刷新定时器
@@ -1885,6 +1981,7 @@
         const interruptBtn = document.getElementById('interruptBtn');
         const personaSelect = document.getElementById('personaSelect');
         const thinkingToggle = document.getElementById('thinkingToggle');
+        const ttsToggle = document.getElementById('ttsToggle');
         const webSearchToggle = document.getElementById('webSearchToggle');
         
         // 日志相关DOM元素
@@ -2077,8 +2174,10 @@
             }
             
             handleCharStreamText(message) {
-                if (!this.currentAssistantMessage) {
+                // 为每个新的AI回复创建新的消息气泡
+                if (!this.currentAssistantMessage || message.sentenceOrder === 0) {
                     this.currentAssistantMessage = this.createMessage('assistant');
+                    console.log('🆕 创建新的助手消息气泡');
                 }
                 
                 // 立即显示文本
@@ -2089,6 +2188,7 @@
                     enableSendButton();
                     isAIResponding = false;
                     hideInterruptButton();
+                    console.log('✅ 字符流模式完成，重置状态');
                 }
             }
             
@@ -2994,6 +3094,9 @@
         // 思考切换事件监听
         thinkingToggle.addEventListener('click', toggleThinkingDisplay);
         
+        // TTS切换事件监听
+        ttsToggle.addEventListener('click', toggleChatTTS);
+        
         // 联网搜索切换事件监听
         webSearchToggle.addEventListener('click', toggleWebSearchDisplay);
 
@@ -3100,6 +3203,50 @@
         
         // 初始化联网搜索切换UI
         updateWebSearchToggleUI(useWebSearch);
+        
+        // 初始化TTS切换UI
+        updateTTSToggleUI(ttsSettings.chatEnabled);
+        
+        // TTS切换函数
+        function toggleChatTTS() {
+            // 切换TTS状态
+            ttsSettings.chatEnabled = !ttsSettings.chatEnabled;
+            
+            if (ttsSettings.chatEnabled) {
+                // 启用TTS，切换到模式2
+                ttsSettings.chatMode = 'char_stream_tts';
+                currentTTSMode = 'char_stream_tts';
+                addMessage('system', '✅ 已启用聊天窗口TTS (模式2 - 字符流+语音)');
+            } else {
+                // 禁用TTS，切换到模式1
+                ttsSettings.chatMode = 'text_only';
+                currentTTSMode = 'text_only';
+                addMessage('system', '❌ 已禁用聊天窗口TTS (模式1 - 纯文本)');
+            }
+            
+            // 更新UI
+            updateTTSToggleUI(ttsSettings.chatEnabled);
+            updateTTSModeDisplay();
+            updateTTSControlButton();
+            
+            // 保存设置
+            saveTTSSettings();
+            
+            console.log('TTS状态切换:', {
+                enabled: ttsSettings.chatEnabled,
+                mode: currentTTSMode,
+                settings: ttsSettings
+            });
+        }
+        
+        // 更新TTS切换UI
+        function updateTTSToggleUI(state) {
+            if (state) {
+                ttsToggle.classList.add('active');
+            } else {
+                ttsToggle.classList.remove('active');
+            }
+        }
         
         // 发送打断信号
         function sendInterruptSignal(interruptType, reason) {
@@ -3968,8 +4115,188 @@
             // 初始化自适应布局
             initResponsiveLayout();
             
+            // 初始化TTS设置
+            loadTTSSettings();
+            initTTSSettings();
+            
             console.log('✅ Chat system initialized');
         });
+        
+        // ========== TTS控制功能 ==========
+        
+        // 更新TTS模式显示
+        function updateTTSModeDisplay() {
+            const display = document.getElementById('currentTTSMode');
+            if (display) {
+                const modeText = currentTTSMode === 'text_only' ? '模式1 - 纯文本' : '模式2 - 字符流+语音';
+                display.textContent = modeText;
+            }
+            
+            // 更新设置界面
+            const chatToggle = document.getElementById('chatTTSToggle');
+            const chatModeSelect = document.getElementById('chatTTSModeSelect');
+            if (chatToggle) chatToggle.checked = ttsSettings.chatEnabled;
+            if (chatModeSelect) chatModeSelect.value = ttsSettings.chatMode;
+        }
+        
+        // 应用TTS预设
+        function applyTTSPreset(preset) {
+            switch (preset) {
+                case 'text_only':
+                    ttsSettings.chatEnabled = false;
+                    ttsSettings.chatMode = 'text_only';
+                    ttsSettings.live2dEnabled = false;
+                    currentTTSMode = 'text_only';
+                    break;
+                case 'chat_voice':
+                    ttsSettings.chatEnabled = true;
+                    ttsSettings.chatMode = 'char_stream_tts';
+                    ttsSettings.live2dEnabled = false;
+                    currentTTSMode = 'char_stream_tts';
+                    break;
+                case 'live2d_only':
+                    ttsSettings.chatEnabled = false;
+                    ttsSettings.chatMode = 'text_only';
+                    ttsSettings.live2dEnabled = true;
+                    currentTTSMode = 'sentence_sync';
+                    break;
+                case 'full_experience':
+                    ttsSettings.chatEnabled = true;
+                    ttsSettings.chatMode = 'char_stream_tts';
+                    ttsSettings.live2dEnabled = true;
+                    currentTTSMode = 'multi_channel';
+                    break;
+            }
+            
+            updateTTSModeDisplay();
+            updateTTSControlButton();
+            saveTTSSettings();
+            showTTSNotification(`已应用预设: ${preset}`);
+        }
+        
+        // 更新TTS控制按钮状态
+        function updateTTSControlButton() {
+            // 更新切换按钮状态
+            updateTTSToggleUI(ttsSettings.chatEnabled);
+        }
+        
+        // 显示TTS通知
+        function showTTSNotification(message) {
+            // 创建通知元素
+            const notification = document.createElement('div');
+            notification.className = 'tts-notification';
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 12px 20px;
+                border-radius: 25px;
+                font-size: 14px;
+                font-weight: bold;
+                z-index: 10000;
+                animation: slideInRight 0.3s ease, fadeInUp 0.3s ease;
+                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // 3秒后自动消失
+            setTimeout(() => {
+                notification.style.animation = 'fadeOut 0.3s ease';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        }
+        
+        // 保存TTS设置
+        function saveTTSSettings() {
+            localStorage.setItem('ttsSettings', JSON.stringify(ttsSettings));
+            localStorage.setItem('currentTTSMode', currentTTSMode);
+        }
+        
+        // 加载TTS设置
+        function loadTTSSettings() {
+            const savedSettings = localStorage.getItem('ttsSettings');
+            const savedMode = localStorage.getItem('currentTTSMode');
+            
+            if (savedSettings) {
+                ttsSettings = { ...ttsSettings, ...JSON.parse(savedSettings) };
+            }
+            
+            if (savedMode) {
+                currentTTSMode = savedMode;
+            }
+            
+            updateTTSModeDisplay();
+            updateTTSControlButton();
+        }
+        
+        // 初始化TTS设置事件监听
+        function initTTSSettings() {
+            // 聊天TTS开关
+            const chatToggle = document.getElementById('chatTTSToggle');
+            if (chatToggle) {
+                chatToggle.addEventListener('change', function() {
+                    ttsSettings.chatEnabled = this.checked;
+                    if (this.checked) {
+                        currentTTSMode = ttsSettings.chatMode;
+                    } else {
+                        currentTTSMode = 'text_only';
+                    }
+                    updateTTSModeDisplay();
+                    updateTTSControlButton();
+                    saveTTSSettings();
+                });
+            }
+            
+            // 聊天模式选择
+            const chatModeSelect = document.getElementById('chatTTSModeSelect');
+            if (chatModeSelect) {
+                chatModeSelect.addEventListener('change', function() {
+                    ttsSettings.chatMode = this.value;
+                    if (ttsSettings.chatEnabled) {
+                        currentTTSMode = this.value;
+                    }
+                    updateTTSModeDisplay();
+                    saveTTSSettings();
+                });
+            }
+            
+            // Live2D TTS开关
+            const live2dToggle = document.getElementById('live2DTTSToggle');
+            if (live2dToggle) {
+                live2dToggle.addEventListener('change', function() {
+                    ttsSettings.live2dEnabled = this.checked;
+                    saveTTSSettings();
+                });
+            }
+            
+            // Live2D语音选择
+            const live2dVoiceSelect = document.getElementById('live2DVoiceSelect');
+            if (live2dVoiceSelect) {
+                live2dVoiceSelect.addEventListener('change', function() {
+                    ttsSettings.live2dVoice = this.value;
+                    saveTTSSettings();
+                });
+            }
+            
+            // 语音速度
+            const speedRange = document.getElementById('ttsSpeedRange');
+            const speedValue = document.getElementById('ttsSpeedValue');
+            if (speedRange && speedValue) {
+                speedRange.addEventListener('input', function() {
+                    ttsSettings.speed = parseFloat(this.value);
+                    speedValue.textContent = this.value + 'x';
+                    saveTTSSettings();
+                });
+            }
+        }
     </script>
 </body>
 </html>

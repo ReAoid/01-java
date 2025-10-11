@@ -2,7 +2,6 @@ package com.chatbot.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -10,8 +9,9 @@ import java.util.regex.Pattern;
 /**
  * 句子缓冲区
  * 用于流式文本处理中的句子边界检测和分割
+ * 
+ * 注意：这不是Spring Bean，而是运行时动态创建的对象
  */
-@Component
 public class SentenceBuffer {
     
     private static final Logger logger = LoggerFactory.getLogger(SentenceBuffer.class);

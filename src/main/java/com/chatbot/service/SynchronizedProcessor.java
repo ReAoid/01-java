@@ -1,27 +1,24 @@
 package com.chatbot.service;
 
 import com.chatbot.model.ChatMessage;
-import com.chatbot.model.SentenceItem;
 import com.chatbot.service.channel.OutputChannel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.function.Consumer;
 
 /**
  * 同步处理器
  * 负责协调多个输出通道的句子处理和同步
+ * 
+ * 注意：这不是Spring Bean，而是运行时动态创建的对象
  */
-@Component
 public class SynchronizedProcessor {
     
     private static final Logger logger = LoggerFactory.getLogger(SynchronizedProcessor.class);
     
     private final SharedSentenceQueue sharedQueue;
     private final List<OutputChannel> channels;
-    private final Consumer<ChatMessage> responseCallback;
     private final SentenceBuffer buffer;
     private final MultiChannelContext context;
     
@@ -30,7 +27,6 @@ public class SynchronizedProcessor {
                                Consumer<ChatMessage> responseCallback) {
         this.sharedQueue = sharedQueue;
         this.channels = channels;
-        this.responseCallback = responseCallback;
         this.buffer = new SentenceBuffer();
         this.context = new MultiChannelContext(sharedQueue.getSessionId(), responseCallback, sharedQueue);
         

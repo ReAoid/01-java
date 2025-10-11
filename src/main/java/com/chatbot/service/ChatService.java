@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -69,10 +70,28 @@ public class ChatService {
         String taskId = taskManager.generateTaskId(sessionId);
         logger.info("开始处理消息，sessionId: {}, taskId: {}", sessionId, taskId);
         
-        // 取消该会话的所有之前的任务（实现打断功能）
-        int cancelledTasks = taskManager.cancelSessionTasks(sessionId);
-        if (cancelledTasks > 0) {
-            logger.info("打断了 {} 个之前的任务，sessionId: {}", cancelledTasks, sessionId);
+        // 检查是否有活跃的任务需要中断
+        int activeTasks = taskManager.getSessionActiveTaskCount(sessionId);
+        if (activeTasks > 0) {
+            logger.info("检测到会话有 {} 个活跃任务正在运行，进行中断处理", activeTasks);
+            int cancelledTasks = taskManager.cancelSessionTasks(sessionId);
+            if (cancelledTasks > 0) {
+                logger.info("中断了 {} 个之前的任务，sessionId: {}", cancelledTasks, sessionId);
+                
+                // 发送中断通知给前端
+                ChatMessage interruptNotification = new ChatMessage();
+                interruptNotification.setType("system");
+                interruptNotification.setContent("AI回复已被中断 (中断了 " + cancelledTasks + " 个任务)");
+                interruptNotification.setSessionId(sessionId);
+                interruptNotification.setMetadata(Map.of(
+                    "interrupt_confirmed", true,
+                    "interrupted_tasks", cancelledTasks,
+                    "interrupt_type", "new_message"
+                ));
+                responseCallback.accept(interruptNotification);
+            }
+        } else {
+            logger.debug("会话没有活跃任务，直接处理新消息");
         }
         
         // 提交新任务

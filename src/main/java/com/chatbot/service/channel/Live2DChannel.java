@@ -8,7 +8,6 @@ import com.chatbot.service.MultiModalService;
 import com.chatbot.service.UserPreferencesService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
@@ -18,7 +17,6 @@ import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Live2D通道实现
@@ -35,7 +33,6 @@ public class Live2DChannel implements OutputChannel {
     // 会话级别的同步队列管理
     private final Map<String, Live2DSyncQueue> sessionQueues = new ConcurrentHashMap<>();
     
-    @Autowired
     public Live2DChannel(UserPreferencesService userPreferencesService,
                         MultiModalService multiModalService) {
         this.userPreferencesService = userPreferencesService;
@@ -150,9 +147,7 @@ public class Live2DChannel implements OutputChannel {
         private final MultiChannelContext context;
         private final Live2DChannel channel;
         private final Queue<SentenceItem> sentences = new LinkedList<>();
-        private final AtomicInteger orderCounter = new AtomicInteger(0);
         
-        private int currentProcessingIndex = 0;
         private boolean isProcessing = false;
         private String currentSentenceId = null;
         
@@ -225,7 +220,6 @@ public class Live2DChannel implements OutputChannel {
                            sentenceId, sessionId);
                 
                 currentSentenceId = null;
-                currentProcessingIndex++;
                 
                 // 处理下一个句子
                 processNextSentence();

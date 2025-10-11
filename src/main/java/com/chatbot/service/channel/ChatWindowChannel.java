@@ -8,7 +8,6 @@ import com.chatbot.service.MultiModalService;
 import com.chatbot.service.UserPreferencesService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
@@ -34,7 +33,6 @@ public class ChatWindowChannel implements OutputChannel {
     // 会话级别的句子存储
     private final Map<String, List<SentenceItem>> sessionSentences = new ConcurrentHashMap<>();
     
-    @Autowired
     public ChatWindowChannel(UserPreferencesService userPreferencesService,
                            MultiModalService multiModalService) {
         this.userPreferencesService = userPreferencesService;

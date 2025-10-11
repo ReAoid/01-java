@@ -3,8 +3,6 @@ package com.chatbot.service;
 import com.chatbot.model.SentenceItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -12,8 +10,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * 共享句子队列
  * 用于多通道TTS处理中的句子管理和同步
+ * 
+ * 注意：这不是Spring Bean，而是运行时动态创建的对象
  */
-@Component
 public class SharedSentenceQueue {
     
     private static final Logger logger = LoggerFactory.getLogger(SharedSentenceQueue.class);
@@ -21,10 +20,6 @@ public class SharedSentenceQueue {
     private final String sessionId;
     private final List<SentenceItem> sentences = new ArrayList<>();
     private final AtomicInteger orderCounter = new AtomicInteger(0);
-    
-    public SharedSentenceQueue() {
-        this.sessionId = null; // 默认构造函数，实际使用时会通过工厂方法创建
-    }
     
     public SharedSentenceQueue(String sessionId) {
         this.sessionId = sessionId;
