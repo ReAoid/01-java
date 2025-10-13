@@ -1555,7 +1555,7 @@
                 </select>
             </div>
             <div class="thinking-toggle">
-                <label for="thinkingToggle">显示思考过程:</label>
+                <label for="thinkingToggle">显示思考:</label>
                 <div class="toggle-switch" id="thinkingToggle" title="切换是否显示AI的思考过程"></div>
             </div>
             <div class="tts-toggle">
@@ -1709,21 +1709,13 @@
                             <div class="setting-item">
                                 <label>当前TTS模式:</label>
                                 <span id="currentTTSMode" class="current-mode-display">模式1 - 纯文本</span>
-                                <span class="setting-description">当前激活的语音输出模式</span>
+                                <span class="setting-description">当前激活的语音输出模式（通过聊天窗口切换）</span>
                             </div>
                             <div class="setting-item">
                                 <label>
                                     <input type="checkbox" id="chatTTSToggle"> 聊天窗口语音输出
                                 </label>
-                                <span class="setting-description">在主聊天窗口启用文字转语音功能</span>
-                            </div>
-                            <div class="setting-item">
-                                <label for="chatTTSModeSelect">聊天窗口模式:</label>
-                                <select id="chatTTSModeSelect">
-                                    <option value="text_only">模式1 - 纯文本</option>
-                                    <option value="char_stream_tts">模式2 - 字符流+语音</option>
-                                </select>
-                                <span class="setting-description">选择聊天窗口的输出模式</span>
+                                <span class="setting-description">在主聊天窗口启用文字转语音功能（与聊天窗口按钮同步）</span>
                             </div>
                             <div class="setting-item">
                                 <label>
@@ -2149,6 +2141,7 @@
                         if (!isAIResponding) {
                             isAIResponding = true;
                             showInterruptButton();
+                            disableChatControls();
                         }
                         handleStreamingMessage(message);
                     } else {
@@ -2165,6 +2158,7 @@
                     if (!isAIResponding) {
                         isAIResponding = true;
                         showInterruptButton();
+                        disableChatControls();
                     }
                     handleStreamingMessage(message);
                 } else {
@@ -2188,6 +2182,7 @@
                     enableSendButton();
                     isAIResponding = false;
                     hideInterruptButton();
+                    enableChatControls();
                     console.log('✅ 字符流模式完成，重置状态');
                 }
             }
@@ -2683,6 +2678,7 @@
                 removeTypingIndicator();
                 addMessage('error', '❌ ' + message.content);
                 enableSendButton();
+                enableChatControls();
                 return;
             }
             
@@ -2705,6 +2701,7 @@
                     if (!isAIResponding) {
                         isAIResponding = true;
                         showInterruptButton();
+                        disableChatControls();
                     }
                     handleStreamingMessage(message);
                 } else {
@@ -2731,6 +2728,7 @@
                 // 隐藏打断按钮
                 isAIResponding = false;
                 hideInterruptButton();
+                enableChatControls();
             } else if (message.content) {
                 console.log('📝 收到内容:', {
                     content: message.content,
@@ -2740,6 +2738,7 @@
                 });
                 
                 // 确保有一个混合内容消息来接收内容
+                // 重要：每次新的对话都应该创建新的消息气泡
                 if (!currentAssistantMessage || !currentAssistantMessage.classList.contains('mixed-content')) {
                     console.log('🆕 创建新的混合内容消息');
                     currentAssistantMessage = addMixedContentMessage('', '');
@@ -2764,6 +2763,7 @@
                     // 隐藏打断按钮
                     isAIResponding = false;
                     hideInterruptButton();
+                    enableChatControls();
                 }
             }
         }
@@ -2965,6 +2965,7 @@
                 currentAssistantMessage = null;
                 // 重新启用发送按钮
                 enableSendButton();
+                enableChatControls();
             }
         }
         
@@ -3032,6 +3033,15 @@
                 sendInterruptSignal('NEW_MESSAGE', '用户发送了新消息');
             }
 
+            // 重置当前消息状态，确保新消息创建新气泡
+            currentAssistantMessage = null;
+            
+            // 同时重置ChatWindowHandler中的currentAssistantMessage
+            const chatHandler = multiChannelRouter.getChannel('chat_window');
+            if (chatHandler) {
+                chatHandler.currentAssistantMessage = null;
+            }
+
             const message = {
                 type: 'text',
                 content: content,
@@ -3058,6 +3068,7 @@
             setTimeout(() => {
                 if (isConnected) {
                     enableSendButton();
+                    enableChatControls();
                 }
             }, 10000);
         }
@@ -3076,6 +3087,17 @@
         });
 
         personaSelect.addEventListener('change', function() {
+            // 如果AI正在回复，阻止切换
+            if (isAIResponding) {
+                // 恢复到之前的选择
+                this.selectedIndex = this.dataset.lastSelectedIndex || 0;
+                addMessage('system', '⚠️ AI正在回复中，请等待回复完成后再切换人设');
+                return;
+            }
+            
+            // 记录当前选择的索引
+            this.dataset.lastSelectedIndex = this.selectedIndex;
+            
             if (currentSessionId) {
                 const message = {
                     type: 'system',
@@ -3114,6 +3136,52 @@
             messageInput.disabled = true;
             sendBtn.textContent = '发送中...';
         }
+
+        // 禁用聊天控件（AI回复时）
+        function disableChatControls() {
+            // 禁用人设选择器
+            personaSelect.disabled = true;
+            personaSelect.style.opacity = '0.5';
+            personaSelect.style.cursor = 'not-allowed';
+            
+            // 禁用思考过程切换
+            thinkingToggle.style.pointerEvents = 'none';
+            thinkingToggle.style.opacity = '0.5';
+            thinkingToggle.style.cursor = 'not-allowed';
+            
+            // 禁用TTS切换
+            ttsToggle.style.pointerEvents = 'none';
+            ttsToggle.style.opacity = '0.5';
+            ttsToggle.style.cursor = 'not-allowed';
+            
+            // 禁用联网搜索切换
+            webSearchToggle.style.pointerEvents = 'none';
+            webSearchToggle.style.opacity = '0.5';
+            webSearchToggle.style.cursor = 'not-allowed';
+        }
+
+        // 启用聊天控件（AI回复结束时）
+        function enableChatControls() {
+            // 启用人设选择器
+            personaSelect.disabled = false;
+            personaSelect.style.opacity = '1';
+            personaSelect.style.cursor = 'pointer';
+            
+            // 启用思考过程切换
+            thinkingToggle.style.pointerEvents = 'auto';
+            thinkingToggle.style.opacity = '1';
+            thinkingToggle.style.cursor = 'pointer';
+            
+            // 启用TTS切换
+            ttsToggle.style.pointerEvents = 'auto';
+            ttsToggle.style.opacity = '1';
+            ttsToggle.style.cursor = 'pointer';
+            
+            // 启用联网搜索切换
+            webSearchToggle.style.pointerEvents = 'auto';
+            webSearchToggle.style.opacity = '1';
+            webSearchToggle.style.cursor = 'pointer';
+        }
         
         // 处理思考切换确认
         function handleThinkingToggleConfirmation(message) {
@@ -3140,6 +3208,12 @@
         function toggleThinkingDisplay() {
             if (!ws || !isConnected) {
                 addMessage('system', '请先连接到服务器');
+                return;
+            }
+            
+            // 如果AI正在回复，阻止切换
+            if (isAIResponding) {
+                addMessage('system', '⚠️ AI正在回复中，请等待回复完成后再切换思考显示');
                 return;
             }
             
@@ -3184,6 +3258,12 @@
                 return;
             }
             
+            // 如果AI正在回复，阻止切换
+            if (isAIResponding) {
+                addMessage('system', '⚠️ AI正在回复中，请等待回复完成后再切换联网搜索');
+                return;
+            }
+            
             const newState = !useWebSearch;
             
             const toggleMessage = {
@@ -3207,8 +3287,17 @@
         // 初始化TTS切换UI
         updateTTSToggleUI(ttsSettings.chatEnabled);
         
+        // 初始化人设选择器的索引记录
+        personaSelect.dataset.lastSelectedIndex = personaSelect.selectedIndex;
+        
         // TTS切换函数
         function toggleChatTTS() {
+            // 如果AI正在回复，阻止切换
+            if (isAIResponding) {
+                addMessage('system', '⚠️ AI正在回复中，请等待回复完成后再切换TTS');
+                return;
+            }
+            
             // 切换TTS状态
             ttsSettings.chatEnabled = !ttsSettings.chatEnabled;
             
@@ -3229,6 +3318,9 @@
             updateTTSModeDisplay();
             updateTTSControlButton();
             
+            // 同步更新设置页面的状态
+            syncSettingsPageTTS();
+            
             // 保存设置
             saveTTSSettings();
             
@@ -3245,6 +3337,14 @@
                 ttsToggle.classList.add('active');
             } else {
                 ttsToggle.classList.remove('active');
+            }
+        }
+        
+        // 同步设置页面的TTS状态
+        function syncSettingsPageTTS() {
+            const chatToggle = document.getElementById('chatTTSToggle');
+            if (chatToggle) {
+                chatToggle.checked = ttsSettings.chatEnabled;
             }
         }
         
@@ -3283,6 +3383,7 @@
             // 立即隐藏打断按钮
             isAIResponding = false;
             hideInterruptButton();
+            enableChatControls();
         }
         
         // 显示打断按钮
@@ -3304,15 +3405,22 @@
             // 确保打断按钮被隐藏
             isAIResponding = false;
             hideInterruptButton();
+            enableChatControls();
             
             // 移除正在输入指示器
             removeTypingIndicator();
             
             // 重新启用发送按钮
             enableSendButton();
+            enableChatControls();
             
-            // 显示打断确认消息
-            addMessage('system', message.content + ` (中断了 ${message.metadata.interrupted_tasks} 个任务)`);
+            // 只有在确实有任务被中断时才显示中断确认消息
+            if (message.metadata.interrupted_tasks && message.metadata.interrupted_tasks > 0) {
+                addMessage('system', message.content + ` (中断了 ${message.metadata.interrupted_tasks} 个任务)`);
+            } else {
+                // 如果没有任务被中断，不显示中断消息
+                console.log('没有任务被中断，跳过显示中断消息');
+            }
         }
         
         // 自适应窗口大小管理
@@ -4132,11 +4240,9 @@
                 display.textContent = modeText;
             }
             
-            // 更新设置界面
+            // 更新设置界面的checkbox状态
             const chatToggle = document.getElementById('chatTTSToggle');
-            const chatModeSelect = document.getElementById('chatTTSModeSelect');
             if (chatToggle) chatToggle.checked = ttsSettings.chatEnabled;
-            if (chatModeSelect) chatModeSelect.value = ttsSettings.chatMode;
         }
         
         // 应用TTS预设
@@ -4239,32 +4345,15 @@
         
         // 初始化TTS设置事件监听
         function initTTSSettings() {
-            // 聊天TTS开关
+            // 聊天TTS开关 - 设置页面的checkbox现在只是显示状态，不允许直接修改
             const chatToggle = document.getElementById('chatTTSToggle');
             if (chatToggle) {
                 chatToggle.addEventListener('change', function() {
-                    ttsSettings.chatEnabled = this.checked;
-                    if (this.checked) {
-                        currentTTSMode = ttsSettings.chatMode;
-                    } else {
-                        currentTTSMode = 'text_only';
-                    }
-                    updateTTSModeDisplay();
-                    updateTTSControlButton();
-                    saveTTSSettings();
-                });
-            }
-            
-            // 聊天模式选择
-            const chatModeSelect = document.getElementById('chatTTSModeSelect');
-            if (chatModeSelect) {
-                chatModeSelect.addEventListener('change', function() {
-                    ttsSettings.chatMode = this.value;
-                    if (ttsSettings.chatEnabled) {
-                        currentTTSMode = this.value;
-                    }
-                    updateTTSModeDisplay();
-                    saveTTSSettings();
+                    // 阻止直接在设置页面修改，提示用户在聊天窗口操作
+                    this.checked = ttsSettings.chatEnabled; // 恢复原状态
+                    
+                    // 显示提示信息
+                    showTTSNotification('请在聊天窗口使用TTS按钮切换模式');
                 });
             }
             
