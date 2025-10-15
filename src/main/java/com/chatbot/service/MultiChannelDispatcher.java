@@ -14,8 +14,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
- * 多通道分发器
- * 负责将AI响应分发到不同的输出通道
+ * 用户选择模式分发器（原多通道分发器简化版）
+ * 根据用户选择的模式（纯文本、字符流+TTS、句级TTS）选择对应的输出通道
  */
 @Service
 public class MultiChannelDispatcher {
@@ -29,6 +29,19 @@ public class MultiChannelDispatcher {
     // 会话级别的队列管理
     private final Map<String, SharedSentenceQueue> sessionQueues = new ConcurrentHashMap<>();
     
+    /**
+     * 通道选择结果
+     */
+    private static class ChannelSelection {
+        final OutputChannel channel;
+        final String mode;
+        
+        ChannelSelection(OutputChannel channel, String mode) {
+            this.channel = channel;
+            this.mode = mode;
+        }
+    }
+    
     public MultiChannelDispatcher(List<OutputChannel> availableChannels,
                                  UserPreferencesService userPreferencesService,
                                  ChatService chatService) {
@@ -36,13 +49,13 @@ public class MultiChannelDispatcher {
         this.userPreferencesService = userPreferencesService;
         this.chatService = chatService;
         
-        logger.info("初始化多通道分发器，可用通道数: {}", availableChannels.size());
+        logger.info("初始化用户选择模式分发器，可用通道数: {}", availableChannels.size());
         availableChannels.forEach(channel -> 
             logger.info("注册输出通道: type={}, mode={}", channel.getChannelType(), channel.getMode()));
     }
     
     /**
-     * 处理消息并分发到多个通道
+     * 处理消息并根据用户选择的模式选择对应的输出通道
      * @param message 输入消息
      * @param responseCallback 响应回调
      * @return 任务ID
@@ -50,83 +63,147 @@ public class MultiChannelDispatcher {
     public String processMessage(ChatMessage message, Consumer<ChatMessage> responseCallback) {
         String sessionId = message.getSessionId();
         
-        logger.info("开始多通道消息处理: sessionId={}", sessionId);
+        logger.info("开始用户选择模式的消息处理: sessionId={}", sessionId);
         
         try {
             // 获取用户偏好
             UserPreferences prefs = userPreferencesService.getUserPreferences(sessionId);
             
-            // 获取启用的通道
-            List<OutputChannel> activeChannels = getActiveChannels(prefs);
+            // 根据用户选择的模式选择对应的输出通道
+            ChannelSelection selection = selectChannelByUserChoice(prefs);
             
-            if (activeChannels.isEmpty()) {
-                logger.warn("没有启用的输出通道，降级为基础处理: sessionId={}", sessionId);
+            if (selection.channel == null) {
+                logger.warn("没有找到对应的输出通道，降级为基础处理: sessionId={}", sessionId);
                 return chatService.processMessage(message, responseCallback);
             }
             
-            logger.info("启用的输出通道: sessionId={}, channels={}", sessionId, 
-                       activeChannels.stream().map(OutputChannel::getChannelType).toList());
+            logger.info("用户选择模式: sessionId={}, mode={}, channel={}", sessionId, 
+                       selection.mode, selection.channel.getChannelType());
             
-            // 创建或获取共享句子队列
-            SharedSentenceQueue sharedQueue = getOrCreateSharedQueue(sessionId);
+            // 创建用户选择模式的回调包装器
+            Consumer<ChatMessage> userModeCallback = createUserModeCallback(
+                selection, responseCallback, sessionId);
             
-            // 创建多通道回调包装器，实现流式响应的拦截和分发
-            Consumer<ChatMessage> multiChannelCallback = createMultiChannelCallback(
-                sharedQueue, activeChannels, responseCallback);
-            
-            // 使用ChatService处理消息，但拦截响应进行多通道分发
-            return chatService.processMessage(message, multiChannelCallback);
+            // 使用ChatService处理消息，通过用户选择的通道输出
+            return chatService.processMessage(message, userModeCallback);
             
         } catch (Exception e) {
-            logger.error("多通道消息处理失败: sessionId={}", sessionId, e);
+            logger.error("用户选择模式消息处理失败: sessionId={}", sessionId, e);
             // 降级处理
             return chatService.processMessage(message, responseCallback);
         }
     }
     
     /**
-     * 创建多通道回调包装器
-     * @param sharedQueue 共享句子队列
-     * @param activeChannels 活跃通道列表
-     * @param originalCallback 原始回调
-     * @return 多通道回调包装器
+     * 根据用户选择的模式选择对应的输出通道
+     * @param prefs 用户偏好
+     * @return 通道选择结果
      */
-    private Consumer<ChatMessage> createMultiChannelCallback(
-            SharedSentenceQueue sharedQueue,
-            List<OutputChannel> activeChannels, 
-            Consumer<ChatMessage> originalCallback) {
+    private ChannelSelection selectChannelByUserChoice(UserPreferences prefs) {
+        // 获取用户的TTS设置
+        boolean chatTTSEnabled = prefs.getChatOutput().isEnabled() && prefs.getChatOutput().isAutoTTS();
+        String chatTTSMode = prefs.getChatOutput().getMode(); // "text_only", "char_stream_tts"
+        boolean live2dEnabled = prefs.getLive2dOutput().isEnabled();
         
-        // 创建同步处理器
-        SynchronizedProcessor processor = new SynchronizedProcessor(
-            sharedQueue, activeChannels, originalCallback);
+        logger.debug("用户TTS设置: chatTTSEnabled={}, chatTTSMode={}, live2dEnabled={}", 
+                    chatTTSEnabled, chatTTSMode, live2dEnabled);
+        
+        // 模式选择逻辑：
+        // 1. 如果Live2D启用 → 句级TTS模式 (Live2D通道)
+        // 2. 如果聊天TTS启用且模式为char_stream_tts → 字符流+TTS模式 (ChatWindow通道)
+        // 3. 其他情况 → 纯文本模式 (ChatWindow通道)
+        
+        if (live2dEnabled) {
+            // 句级TTS模式 - 使用Live2D通道
+            OutputChannel live2dChannel = findChannelByType("live2d");
+            if (live2dChannel != null) {
+                logger.debug("选择句级TTS模式 (Live2D通道)");
+                return new ChannelSelection(live2dChannel, "sentence_tts");
+            }
+        }
+        
+        if (chatTTSEnabled && "char_stream_tts".equals(chatTTSMode)) {
+            // 字符流+TTS模式 - 使用ChatWindow通道的字符流模式
+            OutputChannel chatChannel = findChannelByType("chat_window");
+            if (chatChannel != null) {
+                logger.debug("选择字符流+TTS模式 (ChatWindow通道)");
+                return new ChannelSelection(chatChannel, "char_stream_tts");
+            }
+        }
+        
+        // 纯文本模式 - 使用ChatWindow通道的文本模式
+        OutputChannel chatChannel = findChannelByType("chat_window");
+        if (chatChannel != null) {
+            logger.debug("选择纯文本模式 (ChatWindow通道)");
+            return new ChannelSelection(chatChannel, "text_only");
+        }
+        
+        logger.warn("没有找到任何可用的输出通道");
+        return new ChannelSelection(null, "none");
+    }
+    
+    /**
+     * 根据类型查找通道
+     * @param channelType 通道类型
+     * @return 通道实例，如果不存在返回null
+     */
+    private OutputChannel findChannelByType(String channelType) {
+        return availableChannels.stream()
+                .filter(channel -> channel.getChannelType().equals(channelType))
+                .findFirst()
+                .orElse(null);
+    }
+    
+    /**
+     * 创建用户选择模式的回调包装器
+     * @param selection 通道选择结果
+     * @param originalCallback 原始回调
+     * @param sessionId 会话ID
+     * @return 用户模式回调包装器
+     */
+    private Consumer<ChatMessage> createUserModeCallback(
+            ChannelSelection selection,
+            Consumer<ChatMessage> originalCallback, 
+            String sessionId) {
         
         return chatMessage -> {
             try {
-                // 如果是思考内容，直接转发不进行TTS处理
+                // 如果是思考内容，直接转发不进行特殊处理
                 if (chatMessage.isThinking()) {
-                    logger.debug("跳过思考内容的TTS处理: sessionId={}", chatMessage.getSessionId());
+                    logger.debug("跳过思考内容的特殊处理: sessionId={}", sessionId);
                     originalCallback.accept(chatMessage);
                     return;
                 }
                 
-                // 如果是流式文本消息，进行句子分割处理
-                if ("text".equals(chatMessage.getType()) && chatMessage.isStreaming()) {
-                    String content = chatMessage.getContent();
-                    if (content != null && !content.isEmpty()) {
-                        processor.processChunk(content);
-                    }
-                    
-                    // 如果流式完成，结束处理
-                    if (chatMessage.isStreamComplete()) {
-                        processor.finishProcessing();
-                    }
-                } else {
-                    // 非流式消息或其他类型消息直接转发
-                    originalCallback.accept(chatMessage);
+                // 根据用户选择的模式处理消息
+                switch (selection.mode) {
+                    case "text_only":
+                        // 纯文本模式：直接转发给ChatWindow
+                        originalCallback.accept(chatMessage);
+                        break;
+                        
+                    case "char_stream_tts":
+                        // 字符流+TTS模式：设置ttsMode并转发给ChatWindow
+                        if ("text".equals(chatMessage.getType()) && chatMessage.isStreaming()) {
+                            chatMessage.setTtsMode("char_stream");
+                        }
+                        originalCallback.accept(chatMessage);
+                        break;
+                        
+                    case "sentence_tts":
+                        // 句级TTS模式：使用Live2D通道处理
+                        handleLive2DMode(selection.channel, chatMessage, originalCallback, sessionId);
+                        break;
+                        
+                    default:
+                        // 未知模式，直接转发
+                        logger.warn("未知的用户选择模式: {}, sessionId={}", selection.mode, sessionId);
+                        originalCallback.accept(chatMessage);
+                        break;
                 }
             } catch (Exception e) {
-                logger.error("多通道回调处理失败: sessionId={}", 
-                           chatMessage.getSessionId(), e);
+                logger.error("用户模式回调处理失败: sessionId={}, mode={}", 
+                           sessionId, selection.mode, e);
                 // 错误时直接转发原始消息
                 originalCallback.accept(chatMessage);
             }
@@ -134,41 +211,33 @@ public class MultiChannelDispatcher {
     }
     
     /**
-     * 获取启用的输出通道
-     * @param prefs 用户偏好
-     * @return 启用的通道列表
+     * 处理Live2D模式
      */
-    private List<OutputChannel> getActiveChannels(UserPreferences prefs) {
-        List<OutputChannel> active = new ArrayList<>();
-        
-        for (OutputChannel channel : availableChannels) {
-            try {
-                // 创建临时上下文用于检查是否启用
-                MultiChannelContext tempContext = new MultiChannelContext(
-                    "temp", null, null);
-                tempContext.setSharedData("userPreferences", prefs);
-                
-                if (channel.isEnabled(tempContext)) {
-                    active.add(channel);
-                    logger.debug("启用输出通道: type={}, mode={}", 
-                               channel.getChannelType(), channel.getMode());
-                }
-            } catch (Exception e) {
-                logger.error("检查通道启用状态失败: channelType={}", 
-                           channel.getChannelType(), e);
+    private void handleLive2DMode(OutputChannel live2dChannel, ChatMessage chatMessage, 
+                                 Consumer<ChatMessage> originalCallback, String sessionId) {
+        if ("text".equals(chatMessage.getType()) && chatMessage.isStreaming()) {
+            // 创建上下文
+            SharedSentenceQueue queue = getOrCreateSharedQueue(sessionId);
+            MultiChannelContext context = new MultiChannelContext(sessionId, originalCallback, queue);
+            
+            String content = chatMessage.getContent();
+            if (content != null && !content.isEmpty()) {
+                // 使用Live2D通道处理内容
+                live2dChannel.onNewSentence(content, 0, context);
+                live2dChannel.startProcessing(context);
             }
+            
+            // 如果流式完成，通知通道结束处理
+            if (chatMessage.isStreamComplete()) {
+                logger.debug("通知Live2D通道流式完成: sessionId={}", sessionId);
+                live2dChannel.onProcessingComplete(context);
+                // 转发完成信号给前端
+                originalCallback.accept(chatMessage);
+            }
+        } else {
+            // 非流式消息直接转发
+            originalCallback.accept(chatMessage);
         }
-        
-        return active;
-    }
-    
-    /**
-     * 获取或创建共享句子队列
-     * @param sessionId 会话ID
-     * @return 共享句子队列
-     */
-    private SharedSentenceQueue getOrCreateSharedQueue(String sessionId) {
-        return sessionQueues.computeIfAbsent(sessionId, SharedSentenceQueue::new);
     }
     
     /**
@@ -176,7 +245,7 @@ public class MultiChannelDispatcher {
      * @param sessionId 会话ID
      */
     public void cleanupSession(String sessionId) {
-        logger.info("清理多通道会话资源: sessionId={}", sessionId);
+        logger.info("清理用户选择模式会话资源: sessionId={}", sessionId);
         
         SharedSentenceQueue queue = sessionQueues.remove(sessionId);
         if (queue != null) {
@@ -193,6 +262,15 @@ public class MultiChannelDispatcher {
                            channel.getChannelType(), sessionId, e);
             }
         }
+    }
+    
+    /**
+     * 获取或创建共享句子队列
+     * @param sessionId 会话ID
+     * @return 共享句子队列
+     */
+    private SharedSentenceQueue getOrCreateSharedQueue(String sessionId) {
+        return sessionQueues.computeIfAbsent(sessionId, SharedSentenceQueue::new);
     }
     
     /**

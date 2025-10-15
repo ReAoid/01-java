@@ -404,7 +404,7 @@ public class OllamaService {
                 onError.accept(new RuntimeException("AI服务返回空响应"));
             } else if (hasContent) {
                 // 只有在成功收到内容时才调用完成回调
-//                logger.debug("调用流式响应完成回调");
+                logger.debug("调用流式响应完成回调");
                 if (onComplete != null) {
                     onComplete.run();
                 }

@@ -1941,6 +1941,10 @@
         let useWebSearch = false; // 联网搜索状态
         let isAIResponding = false; // AI是否正在回复
         let currentStreamingMessage = null; // 当前流式消息元素
+        let aiResponseTimeout = null; // AI响应超时定时器
+        let timeoutMessageShown = false; // 防止重复显示超时消息的标志
+        let lastAIActivityTime = null; // 最后一次AI活动时间
+        let activityCheckInterval = null; // 活动检测定时器
         
         // TTS相关变量
         let currentTTSMode = 'text_only'; // 当前TTS模式
@@ -2029,6 +2033,12 @@
                 messageInput.disabled = true;
                 sendBtn.disabled = true;
                 
+                // 重置AI响应状态（连接断开时）
+                console.log('🔌 WebSocket连接断开 - 重置AI状态');
+                isAIResponding = false;
+                hideInterruptButton();
+                enableChatControls();
+                
                 if (reconnectAttempts < maxReconnectAttempts) {
                     addMessage('system', `连接已断开，正在尝试重连... (${reconnectAttempts + 1}/${maxReconnectAttempts})`);
                     reconnectAttempts++;
@@ -2041,6 +2051,12 @@
             ws.onerror = function(error) {
                 console.error('WebSocket错误:', error);
                 addMessage('system', '连接出现错误，请检查服务器状态。');
+                
+                // 重置AI响应状态（连接错误时）
+                console.log('❌ WebSocket连接错误 - 重置AI状态');
+                isAIResponding = false;
+                hideInterruptButton();
+                enableChatControls();
             };
         }
 
@@ -2088,8 +2104,8 @@
                     handler.handleMessage(message);
                 } else {
                     console.warn('未知的通道类型:', channelType, message);
-                    // 降级到默认处理
-                    this.handleLegacyMessage(message);
+                    // 抛出异常让外层处理
+                    throw new Error(`未知的通道类型: ${channelType}`);
                 }
             }
             
@@ -2139,35 +2155,65 @@
                     console.log('🧠 处理思考内容，跳过TTS:', message);
                     if (message.streaming) {
                         if (!isAIResponding) {
+                            console.log('🚀 开始AI回复 (思考流式消息)');
                             isAIResponding = true;
                             showInterruptButton();
                             disableChatControls();
+                            setAIResponseTimeout();
                         }
                         handleStreamingMessage(message);
                     } else {
+                        recordAIActivity(); // 记录最后一次活动
                         addMessage('assistant', message.content);
+                        // 重置AI响应状态（思考消息完成）
+                        console.log('✅ AI回复结束 (思考非流式消息)');
+                        isAIResponding = false;
+                        clearAIResponseTimeout();
+                        hideInterruptButton();
+                        enableSendButton();
+                        enableChatControls();
                     }
                     return;
                 }
                 
                 if (message.ttsMode === 'char_stream') {
                     // 模式2：字符流+TTS
+                    if (!isAIResponding) {
+                        console.log('🚀 开始AI回复 (字符流模式)');
+                        isAIResponding = true;
+                        showInterruptButton();
+                        disableChatControls();
+                        setAIResponseTimeout();
+                    }
                     this.handleCharStreamText(message);
                 } else if (message.streaming) {
                     // 传统流式消息
                     if (!isAIResponding) {
+                        console.log('🚀 开始AI回复 (传统流式消息)');
                         isAIResponding = true;
                         showInterruptButton();
                         disableChatControls();
+                        setAIResponseTimeout();
                     }
                     handleStreamingMessage(message);
                 } else {
-                    // 普通文本消息
+                    // 普通文本消息 - 需要重置AI状态
+                    recordAIActivity(); // 记录最后一次活动
                     addMessage('assistant', message.content);
+                    // 重置AI响应状态
+                    console.log('✅ AI回复结束 (普通文本消息)');
+                    isAIResponding = false;
+                    clearAIResponseTimeout();
+                    hideInterruptButton();
+                    enableSendButton();
+                    enableChatControls();
                 }
             }
             
             handleCharStreamText(message) {
+                // 记录AI活动
+                recordAIActivity();
+                
                 // 为每个新的AI回复创建新的消息气泡
                 if (!this.currentAssistantMessage || message.sentenceOrder === 0) {
                     this.currentAssistantMessage = this.createMessage('assistant');
@@ -2181,6 +2227,7 @@
                     this.currentAssistantMessage = null;
                     enableSendButton();
                     isAIResponding = false;
+                    clearAIResponseTimeout();
                     hideInterruptButton();
                     enableChatControls();
                     console.log('✅ 字符流模式完成，重置状态');
@@ -2328,8 +2375,13 @@
             }
             
             handleAllComplete(message) {
-                console.log('Live2D所有句子处理完成');
-                // 可以在这里做一些清理工作
+                console.log('✅ Live2D所有句子处理完成 - 重置AI状态');
+                // 重置AI响应状态
+                isAIResponding = false;
+                clearAIResponseTimeout();
+                hideInterruptButton();
+                enableSendButton();
+                enableChatControls();
             }
         }
         
@@ -2677,6 +2729,9 @@
             if (message.type === 'error') {
                 removeTypingIndicator();
                 addMessage('error', '❌ ' + message.content);
+                // 重置AI响应状态
+                isAIResponding = false;
+                hideInterruptButton();
                 enableSendButton();
                 enableChatControls();
                 return;
@@ -2702,10 +2757,18 @@
                         isAIResponding = true;
                         showInterruptButton();
                         disableChatControls();
+                        setAIResponseTimeout();
                     }
                     handleStreamingMessage(message);
                 } else {
+                    recordAIActivity(); // 记录最后一次活动
                     addMessage('assistant', message.content);
+                    // 重置AI响应状态（非流式消息完成）
+                    isAIResponding = false;
+                    clearAIResponseTimeout();
+                    hideInterruptButton();
+                    enableSendButton();
+                    enableChatControls();
                 }
             }
         }
@@ -2714,22 +2777,21 @@
         function handleStreamingMessage(message) {
             console.log('🔄 处理流式消息:', message);
             console.log('🔧 当前思考显示状态:', showThinking);
+            console.log('🔧 当前AI响应状态:', isAIResponding);
+            console.log('🔍 消息详细信息:', {
+                hasContent: !!message.content,
+                contentLength: message.content ? message.content.length : 0,
+                streaming: message.streaming,
+                streamComplete: message.streamComplete,
+                thinking: message.thinking,
+                type: message.type
+            });
             
-            if (!message.content && message.streamComplete) {
-                // 流式响应结束
-                console.log('✅ 流式响应结束');
-                if (currentAssistantMessage) {
-                    currentAssistantMessage.dataset.streamable = 'false';
-                    currentAssistantMessage.classList.add('stream-complete');
-                    currentAssistantMessage = null;
-                }
-                // 重新启用发送按钮
-                enableSendButton();
-                // 隐藏打断按钮
-                isAIResponding = false;
-                hideInterruptButton();
-                enableChatControls();
-            } else if (message.content) {
+            // 首先处理有内容的消息
+            if (message.content) {
+                // 记录AI活动
+                recordAIActivity();
+                
                 console.log('📝 收到内容:', {
                     content: message.content,
                     thinking: message.thinking,
@@ -2755,16 +2817,32 @@
                 
                 // 如果流式消息完成，标记完成状态
                 if (message.streamComplete && currentAssistantMessage) {
-                    console.log('✅ 单个消息流完成');
+                    console.log('✅ 单个消息流完成 - 重置AI状态');
                     currentAssistantMessage.dataset.streamable = 'false';
                     currentAssistantMessage.classList.add('stream-complete');
                     currentAssistantMessage = null;
                     enableSendButton();
                     // 隐藏打断按钮
                     isAIResponding = false;
+                    clearAIResponseTimeout();
                     hideInterruptButton();
                     enableChatControls();
                 }
+            } else if (message.streamComplete) {
+                // 处理无内容的完成信号
+                console.log('✅ 收到无内容的流式完成信号 - 重置AI状态');
+                if (currentAssistantMessage) {
+                    currentAssistantMessage.dataset.streamable = 'false';
+                    currentAssistantMessage.classList.add('stream-complete');
+                    currentAssistantMessage = null;
+                }
+                // 重新启用发送按钮
+                enableSendButton();
+                // 隐藏打断按钮
+                isAIResponding = false;
+                clearAIResponseTimeout();
+                hideInterruptButton();
+                enableChatControls();
             }
         }
 
@@ -2997,6 +3075,13 @@
             
             if (isComplete) {
                 lastThinkingMessage.classList.add('stream-complete');
+                // 重置AI响应状态
+                isAIResponding = false;
+                clearAIResponseTimeout();
+                hideInterruptButton();
+                enableSendButton();
+                enableChatControls();
+                console.log('✅ 思考消息完成，重置状态');
             }
         }
         
@@ -3139,6 +3224,7 @@
 
         // 禁用聊天控件（AI回复时）
         function disableChatControls() {
+            console.log('🚫 禁用聊天控件 - isAIResponding:', isAIResponding);
             // 禁用人设选择器
             personaSelect.disabled = true;
             personaSelect.style.opacity = '0.5';
@@ -3162,6 +3248,7 @@
 
         // 启用聊天控件（AI回复结束时）
         function enableChatControls() {
+            console.log('✅ 启用聊天控件 - isAIResponding:', isAIResponding);
             // 启用人设选择器
             personaSelect.disabled = false;
             personaSelect.style.opacity = '1';
@@ -3181,6 +3268,76 @@
             webSearchToggle.style.pointerEvents = 'auto';
             webSearchToggle.style.opacity = '1';
             webSearchToggle.style.cursor = 'pointer';
+        }
+
+        // 记录AI活动
+        function recordAIActivity() {
+            lastAIActivityTime = Date.now();
+            console.log('📝 记录AI活动时间:', new Date(lastAIActivityTime).toLocaleTimeString());
+        }
+        
+        // 设置AI响应超时（基于活动检测）
+        function setAIResponseTimeout() {
+            // 如果已经有超时定时器在运行，不重复设置
+            if (aiResponseTimeout || activityCheckInterval) {
+                console.log('🔄 AI响应超时定时器已存在，跳过重复设置');
+                return;
+            }
+            
+            // 重置超时消息标志
+            timeoutMessageShown = false;
+            
+            // 记录开始时间
+            recordAIActivity();
+            
+            console.log('⏰ 启动基于活动检测的AI响应监控 (每30秒检查一次)');
+            
+            // 每30秒检查一次AI活动状态
+            activityCheckInterval = setInterval(() => {
+                if (!isAIResponding) {
+                    // AI已经不在响应状态，清除监控
+                    console.log('✅ AI已完成响应，停止活动监控');
+                    clearAIResponseTimeout();
+                    return;
+                }
+                
+                const now = Date.now();
+                const timeSinceLastActivity = now - (lastAIActivityTime || now);
+                
+                console.log('🔍 检查AI活动状态:', {
+                    timeSinceLastActivity: Math.round(timeSinceLastActivity / 1000) + '秒',
+                    isAIResponding: isAIResponding,
+                    lastActivity: new Date(lastAIActivityTime).toLocaleTimeString()
+                });
+                
+                // 如果30秒内没有AI活动，认为超时
+                if (timeSinceLastActivity > 30000 && !timeoutMessageShown) {
+                    console.log('⏰ AI响应真正超时 - 30秒内无活动，强制重置状态');
+                    timeoutMessageShown = true;
+                    isAIResponding = false;
+                    clearAIResponseTimeout();
+                    hideInterruptButton();
+                    enableSendButton();
+                    enableChatControls();
+                    addMessage('system', '⚠️ AI响应超时，已自动重置状态');
+                }
+            }, 30000); // 每30秒检查一次
+        }
+
+        // 清除AI响应超时
+        function clearAIResponseTimeout() {
+            if (aiResponseTimeout) {
+                clearTimeout(aiResponseTimeout);
+                aiResponseTimeout = null;
+            }
+            if (activityCheckInterval) {
+                clearInterval(activityCheckInterval);
+                activityCheckInterval = null;
+                console.log('🛑 停止AI活动监控');
+            }
+            // 重置超时消息标志和活动时间
+            timeoutMessageShown = false;
+            lastAIActivityTime = null;
         }
         
         // 处理思考切换确认
@@ -3382,6 +3539,7 @@
             
             // 立即隐藏打断按钮
             isAIResponding = false;
+            clearAIResponseTimeout();
             hideInterruptButton();
             enableChatControls();
         }
@@ -3404,6 +3562,7 @@
             
             // 确保打断按钮被隐藏
             isAIResponding = false;
+            clearAIResponseTimeout();
             hideInterruptButton();
             enableChatControls();
             
