@@ -3148,14 +3148,6 @@
             
             // 禁用发送按钮防止重复发送
             disableSendButton();
-            
-            // 10秒后强制重新启用（防止卡死）
-            setTimeout(() => {
-                if (isConnected) {
-                    enableSendButton();
-                    enableChatControls();
-                }
-            }, 10000);
         }
 
         // 事件监听
@@ -3172,11 +3164,10 @@
         });
 
         personaSelect.addEventListener('change', function() {
-            // 如果AI正在回复，阻止切换
+            // 如果AI正在回复，恢复到之前的选择并直接返回
             if (isAIResponding) {
                 // 恢复到之前的选择
                 this.selectedIndex = this.dataset.lastSelectedIndex || 0;
-                addMessage('system', '⚠️ AI正在回复中，请等待回复完成后再切换人设');
                 return;
             }
             
@@ -3368,9 +3359,8 @@
                 return;
             }
             
-            // 如果AI正在回复，阻止切换
+            // 如果AI正在回复，直接返回不做任何操作
             if (isAIResponding) {
-                addMessage('system', '⚠️ AI正在回复中，请等待回复完成后再切换思考显示');
                 return;
             }
             
@@ -3415,9 +3405,8 @@
                 return;
             }
             
-            // 如果AI正在回复，阻止切换
+            // 如果AI正在回复，直接返回不做任何操作
             if (isAIResponding) {
-                addMessage('system', '⚠️ AI正在回复中，请等待回复完成后再切换联网搜索');
                 return;
             }
             
@@ -3449,9 +3438,8 @@
         
         // TTS切换函数
         function toggleChatTTS() {
-            // 如果AI正在回复，阻止切换
+            // 如果AI正在回复，直接返回不做任何操作
             if (isAIResponding) {
-                addMessage('system', '⚠️ AI正在回复中，请等待回复完成后再切换TTS');
                 return;
             }
             
