@@ -41,12 +41,19 @@ app:
 
   # Python API配置
   python:
-    base-url: "http://localhost:5000"
-    endpoints:
-      asr: "/api/asr"
-      tts: "/api/tts"
-      vad: "/api/vad"
-      ocr: "/api/ocr"
+    # 独立服务URL配置 - 每个服务可以有不同的域名和端口
+    services:
+      # ASR (语音识别) 服务
+      asr-url: "http://localhost:5000"
+      
+      # TTS (文本转语音) 服务
+      tts-url: "http://localhost:50000"
+      
+      # VAD (语音活动检测) 服务
+      vad-url: "http://localhost:5000"
+      
+      # OCR (图像识别) 服务
+      ocr-url: "http://localhost:5000"
 
   # 资源路径配置
   resources:

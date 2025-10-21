@@ -203,34 +203,62 @@ public class AppConfig {
     
     /**
      * Python API配置
+     * 每个服务都配置独立的完整URL，支持不同的域名和端口
      */
     public static class PythonApiConfig {
-        private String baseUrl = "http://localhost:5000";
-        private EndpointsConfig endpoints = new EndpointsConfig();
+        private ServicesConfig services = new ServicesConfig();
         
-        public String getBaseUrl() { return baseUrl; }
-        public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
+        public ServicesConfig getServices() { return services; }
+        public void setServices(ServicesConfig services) { this.services = services; }
         
-        public EndpointsConfig getEndpoints() { return endpoints; }
-        public void setEndpoints(EndpointsConfig endpoints) { this.endpoints = endpoints; }
-        
-        public static class EndpointsConfig {
-            private String asr = "/api/asr";
-            private String tts = "/api/tts";
-            private String vad = "/api/vad";
-            private String ocr = "/api/ocr";
+        /**
+         * 各个服务的独立URL配置
+         */
+        public static class ServicesConfig {
+            // ASR (语音识别) 服务
+            private String asrUrl = "http://localhost:5000/api/asr";
             
-            public String getAsr() { return asr; }
-            public void setAsr(String asr) { this.asr = asr; }
+            // TTS (文本转语音) 服务 - CosyVoice默认端口
+            private String ttsUrl = "http://localhost:50000";
             
-            public String getTts() { return tts; }
-            public void setTts(String tts) { this.tts = tts; }
+            // VAD (语音活动检测) 服务
+            private String vadUrl = "http://localhost:5000/api/vad";
             
-            public String getVad() { return vad; }
-            public void setVad(String vad) { this.vad = vad; }
+            // OCR (图像识别) 服务
+            private String ocrUrl = "http://localhost:5000/api/ocr";
             
-            public String getOcr() { return ocr; }
-            public void setOcr(String ocr) { this.ocr = ocr; }
+            // Getters and Setters
+            public String getAsrUrl() { return asrUrl; }
+            public void setAsrUrl(String asrUrl) { this.asrUrl = asrUrl; }
+            
+            public String getTtsUrl() { return ttsUrl; }
+            public void setTtsUrl(String ttsUrl) { this.ttsUrl = ttsUrl; }
+            
+            public String getVadUrl() { return vadUrl; }
+            public void setVadUrl(String vadUrl) { this.vadUrl = vadUrl; }
+            
+            public String getOcrUrl() { return ocrUrl; }
+            public void setOcrUrl(String ocrUrl) { this.ocrUrl = ocrUrl; }
+            
+            // 便捷方法：获取TTS健康检查URL
+            public String getTtsHealthUrl() {
+                return ttsUrl + (ttsUrl.endsWith("/") ? "health" : "/health");
+            }
+            
+            // 便捷方法：获取TTS注册说话人URL
+            public String getTtsRegisterSpeakerUrl() {
+                return ttsUrl + (ttsUrl.endsWith("/") ? "register_speaker" : "/register_speaker");
+            }
+            
+            // 便捷方法：获取TTS自定义说话人合成URL
+            public String getTtsCustomSpeakerUrl() {
+                return ttsUrl + (ttsUrl.endsWith("/") ? "inference_custom_speaker" : "/inference_custom_speaker");
+            }
+            
+            // 便捷方法：获取TTS删除说话人URL
+            public String getTtsDeleteSpeakerUrl(String speakerName) {
+                return ttsUrl + (ttsUrl.endsWith("/") ? "speaker/" : "/speaker/") + speakerName;
+            }
         }
     }
     
