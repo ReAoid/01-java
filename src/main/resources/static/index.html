@@ -1693,6 +1693,21 @@
         body.dark-mode .form-actions {
             border-top-color: #4a5f7a;
         }
+
+        /* 加载动画 */
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -1896,11 +1911,25 @@
                             </div>
                             <div class="setting-item">
                                 <label for="cosyVoiceSpeakerSelect">语音人设:</label>
-                                <select id="cosyVoiceSpeakerSelect">
-                                    <option value="">请选择语音人设...</option>
-                                </select>
-                                <button id="refreshSpeakersBtn" type="button" style="margin-left: 10px;">刷新</button>
-                                <button id="addCustomSpeakerBtn" type="button" style="margin-left: 10px;">新增语音人设</button>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <select id="cosyVoiceSpeakerSelect" style="flex: 1;">
+                                        <option value="">请选择语音人设...</option>
+                                    </select>
+                                    <button id="refreshSpeakersBtn" type="button">刷新</button>
+                                    <button id="addCustomSpeakerBtn" type="button">新增语音人设</button>
+                                </div>
+                                <span class="setting-description">选择CosyVoice TTS服务的语音人设</span>
+                            </div>
+                            <div class="setting-item">
+                                <label for="testVoiceText">测试人设语音:</label>
+                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                    <input type="text" id="testVoiceText" placeholder="请输入要测试的文本..." style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <button id="generateVoiceBtn" type="button">生成语音</button>
+                                </div>
+                                <div id="voiceTestResult" style="margin-top: 10px; min-height: 40px;">
+                                    <!-- 音频播放器将在这里显示 -->
+                                </div>
+                                <span class="setting-description">输入文本测试当前选中的语音人设效果</span>
                             </div>
                             <div class="setting-item">
                                 <label for="ttsSpeedRange">语音速度:</label>
@@ -4757,6 +4786,14 @@
                     showAddSpeakerModal();
                 });
             }
+
+            // 生成语音按钮
+            const generateVoiceBtn = document.getElementById('generateVoiceBtn');
+            if (generateVoiceBtn) {
+                generateVoiceBtn.addEventListener('click', function() {
+                    generateTestVoice();
+                });
+            }
             
             // 语音速度
             const speedRange = document.getElementById('ttsSpeedRange');
@@ -4957,6 +4994,126 @@
         document.addEventListener('DOMContentLoaded', function() {
             initAddSpeakerModal();
         });
+
+        // ==================== 测试语音生成功能 ====================
+
+        // 生成测试语音
+        async function generateTestVoice() {
+            const textInput = document.getElementById('testVoiceText');
+            const speakerSelect = document.getElementById('cosyVoiceSpeakerSelect');
+            const generateBtn = document.getElementById('generateVoiceBtn');
+            const resultDiv = document.getElementById('voiceTestResult');
+
+            // 验证输入
+            const text = textInput.value.trim();
+            if (!text) {
+                showTTSNotification('请输入要测试的文本', 'error');
+                textInput.focus();
+                return;
+            }
+
+            const selectedSpeaker = speakerSelect.value;
+            if (!selectedSpeaker) {
+                showTTSNotification('请先选择一个语音人设', 'error');
+                return;
+            }
+
+            try {
+                // 禁用按钮并显示加载状态
+                generateBtn.disabled = true;
+                generateBtn.textContent = '生成中...';
+                
+                // 显示加载占位符
+                resultDiv.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
+                        <div class="loading-spinner"></div>
+                        <span>正在生成语音，请稍候...</span>
+                    </div>
+                `;
+
+                // 获取当前语音速度设置
+                const speedRange = document.getElementById('ttsSpeedRange');
+                const speed = speedRange ? parseFloat(speedRange.value) : 1.0;
+
+                // 调用API生成语音
+                const response = await fetch('/api/cosyvoice/synthesis/test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        text: text,
+                        speakerName: selectedSpeaker,
+                        speed: speed.toString(),
+                        format: 'wav'
+                    })
+                });
+
+                if (response.ok) {
+                    // 获取音频数据
+                    const audioBlob = await response.blob();
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    
+                    // 显示音频播放器
+                    resultDiv.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: #e8f5e8; border-radius: 6px; border-left: 4px solid #4caf50;">
+                            <span style="color: #2e7d32; font-weight: 500;">✅ 语音生成成功</span>
+                            <audio controls style="flex: 1;">
+                                <source src="${audioUrl}" type="audio/wav">
+                                您的浏览器不支持音频播放。
+                            </audio>
+                            <button onclick="downloadTestAudio('${audioUrl}')" style="padding: 4px 8px; font-size: 12px;">下载</button>
+                        </div>
+                    `;
+                    
+                    showTTSNotification('语音生成成功！', 'success');
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.innerHTML = `
+                        <div style="padding: 10px; background: #f8d7da; border-radius: 6px; border-left: 4px solid #dc3545; color: #721c24;">
+                            ❌ 生成失败: ${errorText}
+                        </div>
+                    `;
+                    showTTSNotification('语音生成失败: ' + errorText, 'error');
+                }
+
+            } catch (error) {
+                console.error('生成语音异常:', error);
+                resultDiv.innerHTML = `
+                    <div style="padding: 10px; background: #f8d7da; border-radius: 6px; border-left: 4px solid #dc3545; color: #721c24;">
+                        ❌ 生成异常: ${error.message}
+                    </div>
+                `;
+                showTTSNotification('语音生成异常: ' + error.message, 'error');
+            } finally {
+                // 恢复按钮状态
+                generateBtn.disabled = false;
+                generateBtn.textContent = '生成语音';
+            }
+        }
+
+        // 下载测试音频
+        function downloadTestAudio(audioUrl) {
+            const link = document.createElement('a');
+            link.href = audioUrl;
+            link.download = 'test_voice_' + new Date().getTime() + '.wav';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // 清理音频URL（防止内存泄漏）
+        function cleanupAudioUrls() {
+            const audioElements = document.querySelectorAll('#voiceTestResult audio');
+            audioElements.forEach(audio => {
+                if (audio.src && audio.src.startsWith('blob:')) {
+                    URL.revokeObjectURL(audio.src);
+                }
+            });
+        }
+
+        // 在生成新语音前清理旧的URL
+        window.addEventListener('beforeunload', cleanupAudioUrls);
     </script>
 
     <!-- 新增语音人设弹窗 -->

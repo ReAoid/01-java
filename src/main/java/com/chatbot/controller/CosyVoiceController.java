@@ -224,4 +224,96 @@ public class CosyVoiceController {
             return ResponseEntity.status(500).body("创建失败: " + e.getMessage());
         }
     }
+
+    /**
+     * 测试语音合成接口（包含文件清理）
+     */
+    @PostMapping("/synthesis/test")
+    public ResponseEntity<?> testSpeakerSynthesis(
+            @RequestParam("text") String text,
+            @RequestParam("speakerName") String speakerName,
+            @RequestParam(value = "speed", required = false) Double speed,
+            @RequestParam(value = "format", required = false, defaultValue = "wav") String format) {
+        
+        logger.info("收到测试语音合成请求: 说话人={}, 文本长度={}", speakerName, text.length());
+        
+        try {
+            // 验证输入参数
+            if (text == null || text.trim().isEmpty()) {
+                return ResponseEntity.status(400).body("文本内容不能为空");
+            }
+            
+            if (speakerName == null || speakerName.trim().isEmpty()) {
+                return ResponseEntity.status(400).body("语音人设不能为空");
+            }
+            
+            // 清理output_audio目录
+            clearOutputAudioDirectory();
+            
+            // 调用CosyVoice服务进行语音合成
+            CosyVoiceTTSService.SynthesisResult result = 
+                cosyVoiceService.customSpeakerSynthesis(text.trim(), speakerName.trim(), speed, format);
+            
+            if (result.isSuccess()) {
+                // 保存音频文件到output_audio目录
+                String fileName = "test_" + System.currentTimeMillis() + "." + format;
+                Path outputDir = Paths.get("src/main/resources/data/tts_data/output_audio");
+                
+                // 确保output_audio目录存在
+                if (!Files.exists(outputDir)) {
+                    Files.createDirectories(outputDir);
+                    logger.info("创建output_audio目录: {}", outputDir.toAbsolutePath());
+                }
+                
+                Path audioFilePath = outputDir.resolve(fileName);
+                Files.write(audioFilePath, result.getAudioData());
+                logger.info("测试音频已保存: {}", audioFilePath.toAbsolutePath());
+                
+                // 返回音频数据
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.parseMediaType("audio/" + format));
+                headers.setContentDispositionFormData("attachment", fileName);
+                
+                return ResponseEntity.ok()
+                        .headers(headers)
+                        .body(result.getAudioData());
+            } else {
+                logger.warn("测试语音合成失败: {}", result.getMessage());
+                return ResponseEntity.status(400).body(result.getMessage());
+            }
+            
+        } catch (IOException e) {
+            logger.error("处理测试语音合成时发生IO错误", e);
+            return ResponseEntity.status(500).body("文件处理失败: " + e.getMessage());
+        } catch (Exception e) {
+            logger.error("测试语音合成时发生未知错误", e);
+            return ResponseEntity.status(500).body("合成失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 清理output_audio目录
+     */
+    private void clearOutputAudioDirectory() {
+        try {
+            Path outputDir = Paths.get("src/main/resources/data/tts_data/output_audio");
+            
+            if (Files.exists(outputDir)) {
+                // 删除目录中的所有文件
+                Files.walk(outputDir)
+                    .filter(Files::isRegularFile)
+                    .forEach(file -> {
+                        try {
+                            Files.delete(file);
+                            logger.debug("已删除文件: {}", file.getFileName());
+                        } catch (IOException e) {
+                            logger.warn("删除文件失败: {}", file.getFileName(), e);
+                        }
+                    });
+                logger.info("已清理output_audio目录");
+            }
+        } catch (IOException e) {
+            logger.error("清理output_audio目录失败", e);
+        }
+    }
 }
