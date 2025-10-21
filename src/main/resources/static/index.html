@@ -3436,23 +3436,58 @@
         // 初始化人设选择器的索引记录
         personaSelect.dataset.lastSelectedIndex = personaSelect.selectedIndex;
         
+        // TTS健康检查函数
+        async function checkTTSHealth() {
+            try {
+                const response = await fetch('/api/cosyvoice/health', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    return result.success && result.healthy;
+                } else {
+                    console.error('TTS健康检查失败:', response.status);
+                    return false;
+                }
+            } catch (error) {
+                console.error('TTS健康检查异常:', error);
+                return false;
+            }
+        }
+        
         // TTS切换函数
-        function toggleChatTTS() {
+        async function toggleChatTTS() {
             // 如果AI正在回复，直接返回不做任何操作
             if (isAIResponding) {
                 return;
             }
             
-            // 切换TTS状态
-            ttsSettings.chatEnabled = !ttsSettings.chatEnabled;
-            
-            if (ttsSettings.chatEnabled) {
-                // 启用TTS，切换到模式2
+            // 如果要启用TTS，先检查服务健康状态
+            if (!ttsSettings.chatEnabled) {
+                // 显示检查中的提示
+                addMessage('system', '🔍 正在检查TTS服务状态...');
+                
+                // 执行健康检查
+                const isHealthy = await checkTTSHealth();
+                
+                if (!isHealthy) {
+                    // TTS服务不可用，显示警告并返回
+                    addMessage('system', '⚠️ TTS服务不可用，无法启用');
+                    return;
+                }
+                
+                // 服务可用，继续启用TTS
+                ttsSettings.chatEnabled = true;
                 ttsSettings.chatMode = 'char_stream_tts';
                 currentTTSMode = 'char_stream_tts';
                 addMessage('system', '✅ 已启用聊天窗口TTS (模式2 - 字符流+语音)');
             } else {
                 // 禁用TTS，切换到模式1
+                ttsSettings.chatEnabled = false;
                 ttsSettings.chatMode = 'text_only';
                 currentTTSMode = 'text_only';
                 addMessage('system', '❌ 已禁用聊天窗口TTS (模式1 - 纯文本)');
@@ -4393,7 +4428,24 @@
         }
         
         // 应用TTS预设
-        function applyTTSPreset(preset) {
+        async function applyTTSPreset(preset) {
+            // 检查预设是否需要启用TTS
+            const needsTTS = preset === 'chat_voice' || preset === 'full_experience';
+            
+            if (needsTTS) {
+                // 显示检查中的提示
+                showTTSNotification('🔍 正在检查TTS服务状态...');
+                
+                // 执行健康检查
+                const isHealthy = await checkTTSHealth();
+                
+                if (!isHealthy) {
+                    // TTS服务不可用，显示警告并返回
+                    showTTSNotification('⚠️ TTS服务不可用，无法应用该预设');
+                    return;
+                }
+            }
+            
             switch (preset) {
                 case 'text_only':
                     ttsSettings.chatEnabled = false;
