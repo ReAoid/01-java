@@ -122,19 +122,83 @@ public class CosyVoiceController {
     }
     
     /**
-     * 删除自定义说话人接口
+     * 删除自定义说话人接口（包含本地文件删除）
      */
-    @DeleteMapping("/speaker/{speakerName}")
+    @DeleteMapping("/speaker/delete/{speakerName}")
     public ResponseEntity<?> deleteSpeaker(@PathVariable String speakerName) {
         logger.info("收到删除说话人请求: {}", speakerName);
         
-        CosyVoiceTTSService.SpeakerDeletionResult result = 
-            cosyVoiceService.deleteCustomSpeaker(speakerName);
-        
-        if (result.isSuccess()) {
-            return ResponseEntity.ok(result);
-        } else {
-            return ResponseEntity.status(400).body(result);
+        try {
+            // 验证输入参数
+            if (speakerName == null || speakerName.trim().isEmpty()) {
+                return ResponseEntity.status(400).body("语音人设名称不能为空");
+            }
+            
+            String cleanSpeakerName = speakerName.trim();
+            
+            // 检查是否为默认语音人设（在reference_audio目录中的不能删除）
+            Path referenceAudioDir = Paths.get("src/main/resources/data/tts_data/reference_audio");
+            Path referenceAudioFile = referenceAudioDir.resolve(cleanSpeakerName + ".wav");
+            Path referenceTextFile = referenceAudioDir.resolve(cleanSpeakerName + ".txt");
+            
+            if (Files.exists(referenceAudioFile) || Files.exists(referenceTextFile)) {
+                return ResponseEntity.status(400).body("默认语音人设不能删除");
+            }
+            
+            // 调用CosyVoice服务删除语音人设
+            CosyVoiceTTSService.SpeakerDeletionResult result = 
+                cosyVoiceService.deleteCustomSpeaker(cleanSpeakerName);
+            
+            if (result.isSuccess()) {
+                // 删除本地文件（user_audio目录中的文件）
+                deleteLocalSpeakerFiles(cleanSpeakerName);
+                
+                logger.info("语音人设删除成功: {}", cleanSpeakerName);
+                return ResponseEntity.ok(result);
+            } else {
+                logger.warn("CosyVoice服务删除失败: {}", result.getMessage());
+                return ResponseEntity.status(400).body(result);
+            }
+            
+        } catch (Exception e) {
+            logger.error("删除语音人设时发生错误", e);
+            return ResponseEntity.status(500).body("删除失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 删除本地语音人设文件
+     */
+    private void deleteLocalSpeakerFiles(String speakerName) {
+        try {
+            Path userAudioDir = Paths.get("src/main/resources/data/tts_data/user_audio");
+            Path audioFilePath = userAudioDir.resolve(speakerName + ".wav");
+            Path textFilePath = userAudioDir.resolve(speakerName + ".txt");
+            
+            boolean audioDeleted = false;
+            boolean textDeleted = false;
+            
+            // 删除音频文件
+            if (Files.exists(audioFilePath)) {
+                Files.delete(audioFilePath);
+                audioDeleted = true;
+                logger.info("已删除音频文件: {}", audioFilePath.toAbsolutePath());
+            }
+            
+            // 删除文本文件
+            if (Files.exists(textFilePath)) {
+                Files.delete(textFilePath);
+                textDeleted = true;
+                logger.info("已删除文本文件: {}", textFilePath.toAbsolutePath());
+            }
+            
+            if (!audioDeleted && !textDeleted) {
+                logger.warn("未找到要删除的本地文件: {}", speakerName);
+            }
+            
+        } catch (IOException e) {
+            logger.error("删除本地文件失败: {}", speakerName, e);
+            // 不抛出异常，因为CosyVoice服务中的删除已经成功
         }
     }
 
