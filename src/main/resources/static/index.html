@@ -1712,26 +1712,12 @@
                                 <span class="setting-description">当前激活的语音输出模式（通过聊天窗口切换）</span>
                             </div>
                             <div class="setting-item">
-                                <label>
-                                    <input type="checkbox" id="chatTTSToggle"> 聊天窗口语音输出
-                                </label>
-                                <span class="setting-description">在主聊天窗口启用文字转语音功能（与聊天窗口按钮同步）</span>
-                            </div>
-                            <div class="setting-item">
-                                <label>
-                                    <input type="checkbox" id="live2DTTSToggle"> Live2D语音输出
-                                </label>
-                                <span class="setting-description">启用Live2D角色语音功能</span>
-                            </div>
-                            <div class="setting-item">
-                                <label for="live2DVoiceSelect">Live2D语音:</label>
-                                <select id="live2DVoiceSelect">
-                                    <option value="zh-CN-XiaoxiaoNeural">晓晓 (女声)</option>
-                                    <option value="zh-CN-YunxiNeural">云希 (男声)</option>
-                                    <option value="zh-CN-YunyangNeural">云扬 (男声)</option>
-                                    <option value="zh-CN-XiaochenNeural">晓辰 (女声)</option>
+                                <label for="cosyVoiceSpeakerSelect">语音人设:</label>
+                                <select id="cosyVoiceSpeakerSelect">
+                                    <option value="">请选择语音人设...</option>
                                 </select>
-                                <span class="setting-description">选择Live2D角色的语音类型</span>
+                                <button id="refreshSpeakersBtn" type="button" style="margin-left: 10px;">刷新</button>
+                                <span class="setting-description">选择CosyVoice TTS服务的语音人设</span>
                             </div>
                             <div class="setting-item">
                                 <label for="ttsSpeedRange">语音速度:</label>
@@ -1739,72 +1725,8 @@
                                 <span id="ttsSpeedValue">1.0x</span>
                                 <span class="setting-description">调整语音播放速度</span>
                             </div>
-                            
-                            <!-- 快速预设 -->
-                            <div class="setting-item">
-                                <label>快速预设:</label>
-                                <div class="preset-configs">
-                                    <button onclick="applyTTSPreset('text_only')">纯文本</button>
-                                    <button onclick="applyTTSPreset('chat_voice')">聊天+语音</button>
-                                    <button onclick="applyTTSPreset('live2d_only')">仅Live2D</button>
-                                    <button onclick="applyTTSPreset('full_experience')">完整体验</button>
-                                </div>
-                                <span class="setting-description">一键应用常用配置组合</span>
-                            </div>
                         </div>
                         
-                        <!-- 语音设置 -->
-                        <div class="setting-section">
-                            <h3>🎤 语音设置</h3>
-                            <div class="setting-item">
-                                <label>
-                                    <input type="checkbox" id="enableVoiceToggle"> 启用语音功能
-                                </label>
-                                <span class="setting-description">启用语音输入和输出功能</span>
-                            </div>
-                            <div class="setting-item">
-                                <label for="ttsVoiceSelect">语音合成声音:</label>
-                                <select id="ttsVoiceSelect">
-                                    <option value="zh-CN-XiaoxiaoNeural">小晓 (中文女声)</option>
-                                    <option value="zh-CN-YunxiNeural">云希 (中文男声)</option>
-                                    <option value="zh-CN-XiaoyiNeural">小艺 (中文女声)</option>
-                                    <option value="zh-CN-YunjianNeural">云健 (中文男声)</option>
-                                </select>
-                                <span class="setting-description">选择语音合成的声音</span>
-                            </div>
-                            <div class="setting-item">
-                                <label for="responseSpeedInput">语音速度:</label>
-                                <input type="range" id="responseSpeedInput" min="0.5" max="2.0" step="0.1" value="1.0">
-                                <span id="responseSpeedValue">1.0x</span>
-                                <span class="setting-description">调整语音播放速度</span>
-                            </div>
-                            <div class="setting-item">
-                                <label for="asrModelSelect">语音识别模型:</label>
-                                <select id="asrModelSelect">
-                                    <option value="whisper-tiny">Whisper Tiny (快速)</option>
-                                    <option value="whisper-base">Whisper Base (平衡)</option>
-                                    <option value="whisper-small">Whisper Small (较好)</option>
-                                    <option value="whisper-medium">Whisper Medium (推荐)</option>
-                                    <option value="whisper-large">Whisper Large (最佳)</option>
-                                </select>
-                                <span class="setting-description">选择语音识别的模型精度</span>
-                            </div>
-                        </div>
-                        
-                        <!-- 流式输出设置 -->
-                        <div class="setting-section">
-                            <h3>⚡ 流式输出设置</h3>
-                            <div class="setting-item">
-                                <label for="streamingChunkSizeInput">数据块大小:</label>
-                                <input type="number" id="streamingChunkSizeInput" min="1" max="128" value="16">
-                                <span class="setting-description">每次传输的字符数量 (1-128)</span>
-                            </div>
-                            <div class="setting-item">
-                                <label for="streamingDelayInput">传输延迟 (毫秒):</label>
-                                <input type="number" id="streamingDelayInput" min="10" max="1000" step="10" value="50">
-                                <span class="setting-description">数据块之间的延迟时间</span>
-                            </div>
-                        </div>
                         
                         <!-- 系统信息 -->
                         <div class="setting-section">
@@ -1951,9 +1873,8 @@
         let ttsSettings = {
             chatEnabled: false,
             chatMode: 'text_only',
-            live2dEnabled: false,
-            live2dVoice: 'zh-CN-XiaoxiaoNeural',
-            speed: 1.0
+            speed: 1.0,
+            spk_id: null // CosyVoice语音人设ID
         };
         
         // 日志相关变量
@@ -4119,16 +4040,6 @@
                 setElementValue('webSearchMaxResultsInput', preferences.webSearchMaxResults);
                 setElementValue('webSearchTimeoutInput', preferences.webSearchTimeout);
                 
-                // 语音设置
-                setElementValue('enableVoiceToggle', preferences.enableVoice);
-                setElementValue('ttsVoiceSelect', preferences.preferredTtsVoice);
-                setElementValue('responseSpeedInput', preferences.responseSpeed);
-                updateRangeValue('responseSpeedInput', 'responseSpeedValue', preferences.responseSpeed + 'x');
-                setElementValue('asrModelSelect', preferences.asrModel);
-                
-                // 流式输出设置
-                setElementValue('streamingChunkSizeInput', preferences.streamingChunkSize);
-                setElementValue('streamingDelayInput', preferences.streamingDelayMs);
                 
                 // 应用一些设置
                 applyUISettings(preferences);
@@ -4156,15 +4067,6 @@
                 userPreferences.webSearchMaxResults = parseInt(getElementValue('webSearchMaxResultsInput'));
                 userPreferences.webSearchTimeout = parseInt(getElementValue('webSearchTimeoutInput'));
                 
-                // 语音设置
-                userPreferences.enableVoice = getElementValue('enableVoiceToggle');
-                userPreferences.preferredTtsVoice = getElementValue('ttsVoiceSelect');
-                userPreferences.responseSpeed = parseFloat(getElementValue('responseSpeedInput'));
-                userPreferences.asrModel = getElementValue('asrModelSelect');
-                
-                // 流式输出设置
-                userPreferences.streamingChunkSize = parseInt(getElementValue('streamingChunkSizeInput'));
-                userPreferences.streamingDelayMs = parseInt(getElementValue('streamingDelayInput'));
             }
             
             // 应用UI设置
@@ -4425,64 +4327,141 @@
             // 更新设置界面的checkbox状态
             const chatToggle = document.getElementById('chatTTSToggle');
             if (chatToggle) chatToggle.checked = ttsSettings.chatEnabled;
+            
+            // 更新语音人设选择状态
+            const speakerSelect = document.getElementById('cosyVoiceSpeakerSelect');
+            if (speakerSelect && ttsSettings.spk_id) {
+                speakerSelect.value = ttsSettings.spk_id;
+            }
         }
         
-        // 应用TTS预设
-        async function applyTTSPreset(preset) {
-            // 检查预设是否需要启用TTS
-            const needsTTS = preset === 'chat_voice' || preset === 'full_experience';
-            
-            if (needsTTS) {
-                // 显示检查中的提示
-                showTTSNotification('🔍 正在检查TTS服务状态...');
-                
-                // 执行健康检查
-                const isHealthy = await checkTTSHealth();
-                
-                if (!isHealthy) {
-                    // TTS服务不可用，显示警告并返回
-                    showTTSNotification('⚠️ TTS服务不可用，无法应用该预设');
-                    return;
-                }
-            }
-            
-            switch (preset) {
-                case 'text_only':
-                    ttsSettings.chatEnabled = false;
-                    ttsSettings.chatMode = 'text_only';
-                    ttsSettings.live2dEnabled = false;
-                    currentTTSMode = 'text_only';
-                    break;
-                case 'chat_voice':
-                    ttsSettings.chatEnabled = true;
-                    ttsSettings.chatMode = 'char_stream_tts';
-                    ttsSettings.live2dEnabled = false;
-                    currentTTSMode = 'char_stream_tts';
-                    break;
-                case 'live2d_only':
-                    ttsSettings.chatEnabled = false;
-                    ttsSettings.chatMode = 'text_only';
-                    ttsSettings.live2dEnabled = true;
-                    currentTTSMode = 'sentence_sync';
-                    break;
-                case 'full_experience':
-                    ttsSettings.chatEnabled = true;
-                    ttsSettings.chatMode = 'char_stream_tts';
-                    ttsSettings.live2dEnabled = true;
-                    currentTTSMode = 'multi_channel';
-                    break;
-            }
-            
-            updateTTSModeDisplay();
-            updateTTSControlButton();
-            saveTTSSettings();
-            showTTSNotification(`已应用预设: ${preset}`);
-        }
         
         // 更新TTS控制按钮状态
         function updateTTSControlButton() {
             // 更新切换按钮状态
             updateTTSToggleUI(ttsSettings.chatEnabled);
+        }
+        
+        // 获取CosyVoice语音角色列表
+        async function loadCosyVoiceSpeakers() {
+            try {
+                const response = await fetch('/api/cosyvoice/speakers', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        updateSpeakerSelect(result.builtinSpeakers, result.customSpeakers);
+                        return true;
+                    } else {
+                        console.error('获取语音人设失败:', result.message);
+                        showTTSNotification('获取语音人设失败: ' + result.message);
+                        return false;
+                    }
+                } else {
+                    console.error('获取语音人设请求失败:', response.status);
+                    showTTSNotification('获取语音人设失败，请检查TTS服务状态');
+                    return false;
+                }
+            } catch (error) {
+                console.error('获取语音人设异常:', error);
+                showTTSNotification('获取语音人设异常: ' + error.message);
+                return false;
+            }
+        }
+        
+        // 更新语音人设选择框
+        function updateSpeakerSelect(builtinSpeakers, customSpeakers) {
+            const select = document.getElementById('cosyVoiceSpeakerSelect');
+            if (!select) return;
+            
+            // 清空现有选项
+            select.innerHTML = '';
+            
+            let firstSpeaker = null;
+            
+            // 添加内置语音人设
+            if (builtinSpeakers && builtinSpeakers.length > 0) {
+                const builtinGroup = document.createElement('optgroup');
+                builtinGroup.label = '内置语音人设';
+                
+                builtinSpeakers.forEach((speaker, index) => {
+                    const option = document.createElement('option');
+                    option.value = speaker;
+                    option.textContent = speaker;
+                    builtinGroup.appendChild(option);
+                    
+                    // 记录第一个语音人设
+                    if (firstSpeaker === null) {
+                        firstSpeaker = speaker;
+                    }
+                });
+                
+                select.appendChild(builtinGroup);
+            }
+            
+            // 添加自定义语音人设
+            if (customSpeakers && customSpeakers.length > 0) {
+                const customGroup = document.createElement('optgroup');
+                customGroup.label = '自定义语音人设';
+                
+                customSpeakers.forEach(speaker => {
+                    const option = document.createElement('option');
+                    option.value = speaker;
+                    option.textContent = speaker + ' (自定义)';
+                    customGroup.appendChild(option);
+                    
+                    // 如果没有内置语音人设，记录第一个自定义语音人设
+                    if (firstSpeaker === null) {
+                        firstSpeaker = speaker;
+                    }
+                });
+                
+                select.appendChild(customGroup);
+            }
+            
+            // 设置选中的语音人设
+            let selectedSpeaker = ttsSettings.spk_id;
+            
+            // 如果没有保存的选择或保存的选择不在列表中，使用第一个
+            if (!selectedSpeaker || !isValidSpeaker(selectedSpeaker, builtinSpeakers, customSpeakers)) {
+                selectedSpeaker = firstSpeaker;
+                if (selectedSpeaker) {
+                    ttsSettings.spk_id = selectedSpeaker;
+                    saveTTSSettings();
+                }
+            }
+            
+            // 设置选中值
+            if (selectedSpeaker) {
+                select.value = selectedSpeaker;
+            }
+            
+            console.log('语音人设列表已更新:', {
+                builtin: builtinSpeakers ? builtinSpeakers.length : 0,
+                custom: customSpeakers ? customSpeakers.length : 0,
+                selected: selectedSpeaker,
+                first: firstSpeaker
+            });
+        }
+        
+        // 检查语音人设是否有效
+        function isValidSpeaker(speakerId, builtinSpeakers, customSpeakers) {
+            if (!speakerId) return false;
+            
+            if (builtinSpeakers && builtinSpeakers.includes(speakerId)) {
+                return true;
+            }
+            
+            if (customSpeakers && customSpeakers.includes(speakerId)) {
+                return true;
+            }
+            
+            return false;
         }
         
         // 显示TTS通知
@@ -4540,6 +4519,9 @@
             
             updateTTSModeDisplay();
             updateTTSControlButton();
+            
+            // 初始加载语音角色列表
+            loadCosyVoiceSpeakers();
         }
         
         // 初始化TTS设置事件监听
@@ -4556,21 +4538,32 @@
                 });
             }
             
-            // Live2D TTS开关
-            const live2dToggle = document.getElementById('live2DTTSToggle');
-            if (live2dToggle) {
-                live2dToggle.addEventListener('change', function() {
-                    ttsSettings.live2dEnabled = this.checked;
-                    saveTTSSettings();
+            
+            // CosyVoice语音人设选择
+            const speakerSelect = document.getElementById('cosyVoiceSpeakerSelect');
+            if (speakerSelect) {
+                speakerSelect.addEventListener('change', function() {
+                    // 确保不可为空，如果为空则不保存
+                    if (this.value) {
+                        ttsSettings.spk_id = this.value;
+                        saveTTSSettings();
+                        console.log('语音人设已更改:', ttsSettings.spk_id);
+                        showTTSNotification('语音人设已更新: ' + this.value);
+                    }
+                });
+                
+                // 点击下拉框时自动刷新语音人设列表
+                speakerSelect.addEventListener('focus', function() {
+                    loadCosyVoiceSpeakers();
                 });
             }
             
-            // Live2D语音选择
-            const live2dVoiceSelect = document.getElementById('live2DVoiceSelect');
-            if (live2dVoiceSelect) {
-                live2dVoiceSelect.addEventListener('change', function() {
-                    ttsSettings.live2dVoice = this.value;
-                    saveTTSSettings();
+            // 刷新语音人设按钮
+            const refreshBtn = document.getElementById('refreshSpeakersBtn');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', function() {
+                    showTTSNotification('正在刷新语音人设列表...');
+                    loadCosyVoiceSpeakers();
                 });
             }
             

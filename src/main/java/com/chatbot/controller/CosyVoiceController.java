@@ -102,6 +102,22 @@ public class CosyVoiceController {
     }
     
     /**
+     * 获取说话人列表接口
+     */
+    @GetMapping("/speakers")
+    public ResponseEntity<?> getSpeakers() {
+        logger.info("收到获取说话人列表请求");
+        
+        CosyVoiceTTSService.SpeakerListResult result = cosyVoiceService.getSpeakers();
+        
+        if (result.isSuccess()) {
+            return ResponseEntity.ok(result);
+        } else {
+            return ResponseEntity.status(500).body(result);
+        }
+    }
+    
+    /**
      * 删除自定义说话人接口
      */
     @DeleteMapping("/speaker/{speakerName}")
