@@ -44,11 +44,13 @@ public class MultiChannelContext {
         message.setChannelType(channelType);
         message.setSessionId(sessionId);
         
-        logger.debug("发送消息到通道: type={}, channelType={}, sessionId={}", 
-                    message.getType(), channelType, sessionId);
+        logger.info("发送消息到通道: type={}, channelType={}, sessionId={}, hasAudioData={}", 
+                    message.getType(), channelType, sessionId, message.getAudioData() != null);
         
         try {
             responseCallback.accept(message);
+            logger.info("消息发送成功: type={}, channelType={}, sessionId={}", 
+                       message.getType(), channelType, sessionId);
         } catch (Exception e) {
             logger.error("发送消息到通道失败: channelType={}, sessionId={}", 
                         channelType, sessionId, e);

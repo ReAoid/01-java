@@ -266,6 +266,78 @@ public class UserPreferencesController {
     }
     
     /**
+     * 更新TTS配置
+     * @param userId 用户ID（可选，默认为default）
+     * @param ttsConfig TTS配置
+     * @return 更新结果
+     */
+    @PostMapping("/tts")
+    public ResponseEntity<Map<String, Object>> updateTTSConfig(
+            @RequestParam(value = "userId", required = false) String userId,
+            @RequestBody Map<String, Object> ttsConfig) {
+        try {
+            logger.info("更新TTS配置: userId={}, config={}", userId, ttsConfig);
+            
+            UserPreferences preferences = userPreferencesService.getUserPreferences(userId);
+            
+            // 更新ChatOutputConfig
+            if (preferences.getChatOutput() == null) {
+                preferences.setChatOutput(new UserPreferences.ChatOutputConfig());
+            }
+            
+            UserPreferences.ChatOutputConfig chatOutput = preferences.getChatOutput();
+            
+            // 更新配置字段
+            if (ttsConfig.containsKey("chatEnabled")) {
+                boolean enabled = (Boolean) ttsConfig.get("chatEnabled");
+                chatOutput.setEnabled(enabled);
+                chatOutput.setAutoTTS(enabled);
+            }
+            
+            if (ttsConfig.containsKey("chatMode")) {
+                String mode = (String) ttsConfig.get("chatMode");
+                chatOutput.setMode(mode);
+            }
+            
+            if (ttsConfig.containsKey("speakerId")) {
+                String speakerId = (String) ttsConfig.get("speakerId");
+                if (speakerId != null && !speakerId.isEmpty()) {
+                    chatOutput.setSpeakerId(speakerId);
+                    preferences.setPreferredSpeakerId(speakerId); // 同时更新全局配置
+                }
+            }
+            
+            if (ttsConfig.containsKey("speed")) {
+                Double speed = ((Number) ttsConfig.get("speed")).doubleValue();
+                preferences.setResponseSpeed(speed);
+            }
+            
+            // 保存配置
+            boolean success = userPreferencesService.saveUserPreferences(userId, preferences);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", success);
+            response.put("message", success ? "TTS配置更新成功" : "TTS配置更新失败");
+            
+            if (success) {
+                response.put("data", chatOutput);
+            }
+            
+            logger.info("TTS配置更新结果: success={}", success);
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("更新TTS配置失败", e);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "更新TTS配置失败: " + e.getMessage());
+            
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+    
+    /**
      * 清除用户配置缓存
      * @param userId 用户ID（可选，如果不提供则清除所有缓存）
      * @return 清除结果

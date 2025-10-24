@@ -5,6 +5,7 @@ import com.chatbot.model.UserPreferences;
 import com.chatbot.service.channel.OutputChannel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -66,8 +67,8 @@ public class MultiChannelDispatcher {
         logger.info("开始用户选择模式的消息处理: sessionId={}", sessionId);
         
         try {
-            // 获取用户偏好
-            UserPreferences prefs = userPreferencesService.getUserPreferences(sessionId);
+            // 获取用户偏好 - 使用default用户配置而不是会话ID配置
+            UserPreferences prefs = userPreferencesService.getUserPreferences("default");
             
             // 根据用户选择的模式选择对应的输出通道
             ChannelSelection selection = selectChannelByUserChoice(prefs);
@@ -105,8 +106,10 @@ public class MultiChannelDispatcher {
         String chatTTSMode = prefs.getChatOutput().getMode(); // "text_only", "char_stream_tts"
         boolean live2dEnabled = prefs.getLive2dOutput().isEnabled();
         
-        logger.debug("用户TTS设置: chatTTSEnabled={}, chatTTSMode={}, live2dEnabled={}", 
+        logger.info("用户TTS设置: chatTTSEnabled={}, chatTTSMode={}, live2dEnabled={}", 
                     chatTTSEnabled, chatTTSMode, live2dEnabled);
+        logger.info("详细TTS配置: enabled={}, autoTTS={}, mode={}", 
+                    prefs.getChatOutput().isEnabled(), prefs.getChatOutput().isAutoTTS(), prefs.getChatOutput().getMode());
         
         // 模式选择逻辑：
         // 1. 如果Live2D启用 → 句级TTS模式 (Live2D通道)
@@ -126,7 +129,7 @@ public class MultiChannelDispatcher {
             // 字符流+TTS模式 - 使用ChatWindow通道的字符流模式
             OutputChannel chatChannel = findChannelByType("chat_window");
             if (chatChannel != null) {
-                logger.debug("选择字符流+TTS模式 (ChatWindow通道)");
+                logger.info("选择字符流+TTS模式 (ChatWindow通道)");
                 return new ChannelSelection(chatChannel, "char_stream_tts");
             }
         }
@@ -134,7 +137,7 @@ public class MultiChannelDispatcher {
         // 纯文本模式 - 使用ChatWindow通道的文本模式
         OutputChannel chatChannel = findChannelByType("chat_window");
         if (chatChannel != null) {
-            logger.debug("选择纯文本模式 (ChatWindow通道)");
+            logger.info("选择纯文本模式 (ChatWindow通道)");
             return new ChannelSelection(chatChannel, "text_only");
         }
         
@@ -183,16 +186,13 @@ public class MultiChannelDispatcher {
                         break;
                         
                     case "char_stream_tts":
-                        // 字符流+TTS模式：设置ttsMode并转发给ChatWindow
-                        if ("text".equals(chatMessage.getType()) && chatMessage.isStreaming()) {
-                            chatMessage.setTtsMode("char_stream");
-                        }
-                        originalCallback.accept(chatMessage);
+                        // 字符流+TTS模式：文字立即显示，TTS异步生成
+                        handleAsyncCharStreamTTSMode(selection.channel, chatMessage, originalCallback, sessionId);
                         break;
                         
                     case "sentence_tts":
-                        // 句级TTS模式：使用Live2D通道处理
-                        handleLive2DMode(selection.channel, chatMessage, originalCallback, sessionId);
+                        // 句级TTS模式：严格同步，等待完整句子
+                        handleSyncSentenceTTSMode(selection.channel, chatMessage, originalCallback, sessionId);
                         break;
                         
                     default:
@@ -211,7 +211,144 @@ public class MultiChannelDispatcher {
     }
     
     /**
-     * 处理Live2D模式
+     * 处理异步字符流TTS模式（真正的模式2）
+     * 文字立即显示，TTS异步生成，互不等待
+     */
+    private void handleAsyncCharStreamTTSMode(OutputChannel chatChannel, ChatMessage chatMessage,
+                                            Consumer<ChatMessage> originalCallback, String sessionId) {
+        if ("text".equals(chatMessage.getType()) && chatMessage.isStreaming()) {
+            // 设置TTS模式
+            chatMessage.setTtsMode("char_stream");
+            
+            // 1. 立即转发文字消息给前端（不等待TTS）
+            originalCallback.accept(chatMessage);
+            
+            // 2. 异步处理TTS（在后台独立运行）
+            handleAsyncTTSGeneration(chatChannel, chatMessage, originalCallback, sessionId);
+            
+        } else {
+            // 非流式消息直接转发
+            originalCallback.accept(chatMessage);
+        }
+    }
+    
+    /**
+     * 异步TTS生成处理
+     */
+    private void handleAsyncTTSGeneration(OutputChannel chatChannel, ChatMessage chatMessage,
+                                        Consumer<ChatMessage> originalCallback, String sessionId) {
+        String content = chatMessage.getContent();
+        
+        if (content != null && !content.isEmpty()) {
+            // 获取或创建句子队列（用于TTS）
+            SharedSentenceQueue queue = getOrCreateSharedQueue(sessionId);
+            
+            // 累积文本到句子缓冲区
+            queue.addTextChunk(content);
+            logger.debug("异步TTS - 累积文本块: '{}', sessionId={}", content, sessionId);
+            
+            // 检查是否有完整句子可以生成TTS
+            while (queue.hasPendingSentence()) {
+                String completeSentence = queue.extractSentence();
+                if (completeSentence != null && !completeSentence.trim().isEmpty()) {
+                    logger.info("异步TTS - 生成语音: '{}', sessionId={}", completeSentence, sessionId);
+                    
+                    // 异步生成TTS（不阻塞文字显示）
+                    generateAsyncTTS(chatChannel, completeSentence, queue.getNextOrder(), originalCallback, sessionId);
+                }
+            }
+            
+            // 如果流式完成，处理剩余文本
+            if (chatMessage.isStreamComplete()) {
+                logger.debug("异步TTS - 流式完成，处理剩余文本: sessionId={}", sessionId);
+                String remainingText = queue.getRemainingText();
+                if (remainingText != null && !remainingText.trim().isEmpty()) {
+                    logger.info("异步TTS - 处理剩余文本: '{}', sessionId={}", remainingText, sessionId);
+                    generateAsyncTTS(chatChannel, remainingText, queue.getNextOrder(), originalCallback, sessionId);
+                }
+            }
+        }
+    }
+    
+    /**
+     * 异步生成单个句子的TTS
+     */
+    @Async
+    public void generateAsyncTTS(OutputChannel chatChannel, String sentence, int order, 
+                               Consumer<ChatMessage> callback, String sessionId) {
+        try {
+            // 创建临时上下文用于TTS生成
+            SharedSentenceQueue tempQueue = getOrCreateSharedQueue(sessionId);
+            MultiChannelContext context = new MultiChannelContext(sessionId, callback, tempQueue);
+            
+            // 调用ChatWindow通道生成TTS
+            chatChannel.onNewSentence(sentence, order, context);
+            
+            logger.debug("异步TTS生成完成: order={}, sessionId={}", order, sessionId);
+            
+        } catch (Exception e) {
+            logger.error("异步TTS生成失败: order={}, sessionId={}, sentence='{}'", 
+                        order, sessionId, sentence, e);
+        }
+    }
+    
+    /**
+     * 处理同步句级TTS模式（模式3 - Live2D）
+     * 等待完整句子，严格同步显示和TTS
+     */
+    private void handleSyncSentenceTTSMode(OutputChannel channel, ChatMessage chatMessage,
+                                         Consumer<ChatMessage> originalCallback, String sessionId) {
+        if ("text".equals(chatMessage.getType()) && chatMessage.isStreaming()) {
+            // 设置TTS模式
+            chatMessage.setTtsMode("char_stream");
+            
+            // 先转发消息给前端（立即显示文本）
+            originalCallback.accept(chatMessage);
+            
+            // 获取或创建句子队列进行累积处理
+            SharedSentenceQueue queue = getOrCreateSharedQueue(sessionId);
+            String content = chatMessage.getContent();
+            
+            if (content != null && !content.isEmpty()) {
+                // 累积文本到句子缓冲区
+                queue.addTextChunk(content);
+                logger.debug("累积文本块: '{}', sessionId={}", content, sessionId);
+                
+                // 检查是否有完整句子
+                while (queue.hasPendingSentence()) {
+                    String completeSentence = queue.extractSentence();
+                    if (completeSentence != null && !completeSentence.trim().isEmpty()) {
+                        logger.info("提取完整句子进行TTS: '{}', sessionId={}", completeSentence, sessionId);
+                        
+                        // 创建上下文并处理完整句子
+                        MultiChannelContext context = new MultiChannelContext(sessionId, originalCallback, queue);
+                        channel.onNewSentence(completeSentence, queue.getNextOrder(), context);
+                    }
+                }
+            }
+            
+            // 如果流式完成，处理剩余文本
+            if (chatMessage.isStreamComplete()) {
+                logger.debug("流式完成，处理剩余文本: sessionId={}", sessionId);
+                String remainingText = queue.getRemainingText();
+                if (remainingText != null && !remainingText.trim().isEmpty()) {
+                    logger.info("处理剩余文本: '{}', sessionId={}", remainingText, sessionId);
+                    MultiChannelContext context = new MultiChannelContext(sessionId, originalCallback, queue);
+                    channel.onNewSentence(remainingText, queue.getNextOrder(), context);
+                }
+                
+                // 通知通道处理完成
+                MultiChannelContext context = new MultiChannelContext(sessionId, originalCallback, queue);
+                channel.onProcessingComplete(context);
+            }
+        } else {
+            // 非流式消息直接转发
+            originalCallback.accept(chatMessage);
+        }
+    }
+    
+    /**
+     * 处理Live2D模式（保留原有逻辑）
      */
     private void handleLive2DMode(OutputChannel live2dChannel, ChatMessage chatMessage, 
                                  Consumer<ChatMessage> originalCallback, String sessionId) {

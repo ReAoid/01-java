@@ -1,5 +1,6 @@
 package com.chatbot.service.channel;
 
+import com.chatbot.config.AppConfig;
 import com.chatbot.model.ChatMessage;
 import com.chatbot.model.SentenceItem;
 import com.chatbot.model.UserPreferences;
@@ -29,14 +30,17 @@ public class ChatWindowChannel implements OutputChannel {
     
     private final UserPreferencesService userPreferencesService;
     private final MultiModalService multiModalService;
+    private final AppConfig appConfig;
     
     // 会话级别的句子存储
     private final Map<String, List<SentenceItem>> sessionSentences = new ConcurrentHashMap<>();
     
     public ChatWindowChannel(UserPreferencesService userPreferencesService,
-                           MultiModalService multiModalService) {
+                           MultiModalService multiModalService,
+                           AppConfig appConfig) {
         this.userPreferencesService = userPreferencesService;
         this.multiModalService = multiModalService;
+        this.appConfig = appConfig;
     }
     
     @Override
@@ -55,7 +59,8 @@ public class ChatWindowChannel implements OutputChannel {
         String sessionId = context.getSessionId();
         
         try {
-            UserPreferences prefs = userPreferencesService.getUserPreferences(sessionId);
+            // 使用default用户配置获取TTS偏好
+            UserPreferences prefs = userPreferencesService.getUserPreferences("default");
             String chatMode = getChatMode(prefs);
             
             logger.debug("聊天窗口接收新句子: order={}, mode={}, sessionId={}", 
@@ -172,22 +177,13 @@ public class ChatWindowChannel implements OutputChannel {
      * 处理字符流+TTS模式（模式2）
      */
     private void processCharStreamMode(String sentence, int order, MultiChannelContext context) {
-        // 1. 立即发送文本
-        ChatMessage textMessage = new ChatMessage();
-        textMessage.setType("text");
-        textMessage.setChannelType(getChannelType());
-        textMessage.setTtsMode("char_stream");
-        textMessage.setContent(sentence);
-        textMessage.setStreaming(true);
-        textMessage.setStreamComplete(false);
-        textMessage.setSentenceOrder(order);
+        // 注意：在新的TTS流程中，文本消息已经在MultiChannelDispatcher中发送了
+        // 这里只需要生成TTS音频，不需要重复发送文本消息
         
-        context.sendMessage(textMessage, getChannelType());
-        
-        // 2. 异步生成TTS
+        // 直接异步生成TTS
         generateTTSAsync(sentence, order, context);
         
-        logger.debug("发送字符流消息并启动TTS: order={}, sessionId={}", 
+        logger.debug("启动TTS生成（不重复发送文本）: order={}, sessionId={}", 
                     order, context.getSessionId());
     }
     
@@ -199,15 +195,16 @@ public class ChatWindowChannel implements OutputChannel {
         String sessionId = context.getSessionId();
         
         try {
-            // 获取用户TTS偏好
-            UserPreferences prefs = userPreferencesService.getUserPreferences(sessionId);
-            String voice = prefs.getPreferredTtsVoice();
+            // 获取用户TTS偏好 - 使用default用户配置
+            UserPreferences prefs = userPreferencesService.getUserPreferences("default");
+            String speakerId = prefs.getPreferredSpeakerId();
             
-            logger.debug("开始生成TTS: order={}, voice={}, sessionId={}", order, voice, sessionId);
+            logger.debug("开始生成TTS: order={}, speakerId={}, sessionId={}", order, speakerId, sessionId);
             
             // 调用TTS服务
-            CompletableFuture<byte[]> ttsTask = multiModalService.textToSpeech(sentence, voice, "mp3");
-            byte[] audioData = ttsTask.get(10, TimeUnit.SECONDS);
+            CompletableFuture<byte[]> ttsTask = multiModalService.textToSpeech(sentence, speakerId, "wav");
+            int timeoutSeconds = appConfig.getPython().getTimeout().getTtsTaskTimeoutSeconds();
+            byte[] audioData = ttsTask.get(timeoutSeconds, TimeUnit.SECONDS);
             
             // 发送音频消息
             ChatMessage audioMessage = new ChatMessage();
@@ -221,7 +218,7 @@ public class ChatWindowChannel implements OutputChannel {
             
             context.sendMessage(audioMessage, getChannelType());
             
-            logger.debug("TTS生成完成: order={}, audioSize={}bytes, sessionId={}", 
+            logger.info("TTS生成完成并发送音频消息: order={}, audioSize={}bytes, sessionId={}", 
                         order, audioData.length, sessionId);
             
         } catch (Exception e) {

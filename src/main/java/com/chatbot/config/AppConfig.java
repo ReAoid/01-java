@@ -207,9 +207,13 @@ public class AppConfig {
      */
     public static class PythonApiConfig {
         private ServicesConfig services = new ServicesConfig();
+        private TimeoutConfig timeout = new TimeoutConfig();
         
         public ServicesConfig getServices() { return services; }
         public void setServices(ServicesConfig services) { this.services = services; }
+        
+        public TimeoutConfig getTimeout() { return timeout; }
+        public void setTimeout(TimeoutConfig timeout) { this.timeout = timeout; }
         
         /**
          * 各个服务的独立URL配置
@@ -375,5 +379,40 @@ public class AppConfig {
         
         public String getBingApiKey() { return bingApiKey; }
         public void setBingApiKey(String bingApiKey) { this.bingApiKey = bingApiKey; }
+    }
+    
+    /**
+     * 超时配置
+     */
+    public static class TimeoutConfig {
+        // HTTP连接超时（秒）
+        private int connectTimeoutSeconds = 60;
+        
+        // HTTP读取超时（秒）
+        private int readTimeoutSeconds = 60;
+        
+        // HTTP写入超时（秒）
+        private int writeTimeoutSeconds = 60;
+        
+        // TTS任务等待超时（秒）
+        private int ttsTaskTimeoutSeconds = 60;
+        
+        // Live2D TTS任务等待超时（秒）
+        private int live2dTtsTaskTimeoutSeconds = 60;
+        
+        public int getConnectTimeoutSeconds() { return connectTimeoutSeconds; }
+        public void setConnectTimeoutSeconds(int connectTimeoutSeconds) { this.connectTimeoutSeconds = connectTimeoutSeconds; }
+        
+        public int getReadTimeoutSeconds() { return readTimeoutSeconds; }
+        public void setReadTimeoutSeconds(int readTimeoutSeconds) { this.readTimeoutSeconds = readTimeoutSeconds; }
+        
+        public int getWriteTimeoutSeconds() { return writeTimeoutSeconds; }
+        public void setWriteTimeoutSeconds(int writeTimeoutSeconds) { this.writeTimeoutSeconds = writeTimeoutSeconds; }
+        
+        public int getTtsTaskTimeoutSeconds() { return ttsTaskTimeoutSeconds; }
+        public void setTtsTaskTimeoutSeconds(int ttsTaskTimeoutSeconds) { this.ttsTaskTimeoutSeconds = ttsTaskTimeoutSeconds; }
+        
+        public int getLive2dTtsTaskTimeoutSeconds() { return live2dTtsTaskTimeoutSeconds; }
+        public void setLive2dTtsTaskTimeoutSeconds(int live2dTtsTaskTimeoutSeconds) { this.live2dTtsTaskTimeoutSeconds = live2dTtsTaskTimeoutSeconds; }
     }
 }

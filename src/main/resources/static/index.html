@@ -901,6 +901,7 @@
             text-align: center;
             max-width: 100%;
         }
+        
         .typing-indicator {
             background: #f1f3f4;
             color: #666;
@@ -2502,41 +2503,119 @@
                 // 记录AI活动
                 recordAIActivity();
                 
+                console.log('🔍 处理字符流文本:', {
+                    content: message.content,
+                    contentLength: message.content ? message.content.length : 0,
+                    isEmpty: !message.content || message.content.trim() === '',
+                    sentenceOrder: message.sentenceOrder,
+                    streamComplete: message.streamComplete
+                });
+                
+                // 如果内容为空且不是流式完成消息，跳过处理
+                if ((!message.content || message.content.trim() === '') && !message.streamComplete) {
+                    console.warn('⚠️ 跳过空内容消息');
+                    return;
+                }
+                
                 // 为每个新的AI回复创建新的消息气泡
                 if (!this.currentAssistantMessage || message.sentenceOrder === 0) {
                     this.currentAssistantMessage = this.createMessage('assistant');
                     console.log('🆕 创建新的助手消息气泡');
                 }
                 
-                // 立即显示文本
-                this.appendText(this.currentAssistantMessage, message.content);
+                // 立即显示文本（只有在有内容时才显示）
+                if (message.content && message.content.trim() !== '') {
+                    this.appendText(this.currentAssistantMessage, message.content);
+                }
                 
                 if (message.streamComplete) {
+                    // 检查当前消息是否为空，如果为空则移除
+                    if (this.currentAssistantMessage && 
+                        (!this.currentAssistantMessage.textContent || 
+                         this.currentAssistantMessage.textContent.trim() === '')) {
+                        console.warn('🗑️ 移除空的消息气泡');
+                        this.currentAssistantMessage.remove();
+                    }
+                    
                     this.currentAssistantMessage = null;
                     enableSendButton();
-                    isAIResponding = false;
-                    clearAIResponseTimeout();
-                    hideInterruptButton();
-                    enableChatControls();
-                    console.log('✅ 字符流模式完成，重置状态');
+                    
+                    // 在模式2下，需要等待音频播放完成才能完全重置状态
+                    if (ttsSettings.chatEnabled && ttsSettings.chatMode === 'char_stream_tts') {
+                        console.log('📝 字符流文本完成，但音频可能还在播放，保持停止按钮');
+                        // 设置一个检查器来监控音频播放状态
+                        this.checkAudioCompletionForMode2();
+                    } else {
+                        // 非TTS模式，立即重置状态
+                        isAIResponding = false;
+                        clearAIResponseTimeout();
+                        hideInterruptButton();
+                        enableChatControls();
+                        
+                        
+                        console.log('✅ 字符流模式完成，重置状态');
+                    }
                 }
+            }
+            
+            checkAudioCompletionForMode2() {
+                // 检查音频是否还在播放
+                const checkInterval = setInterval(() => {
+                    const audioManager = this.audioManager;
+                    const isAudioPlaying = audioManager && (audioManager.isPlaying || audioManager.audioQueue.length > 0);
+                    
+                    if (!isAudioPlaying) {
+                        // 音频播放完成，可以重置状态
+                        console.log('🔊 模式2音频播放完成，重置UI状态');
+                        isAIResponding = false;
+                        clearAIResponseTimeout();
+                        hideInterruptButton();
+                        enableChatControls();
+                        clearInterval(checkInterval);
+                    } else {
+                        console.log('🎵 模式2音频仍在播放，保持停止按钮显示');
+                    }
+                }, 500); // 每500ms检查一次
+                
+                // 设置最大等待时间，防止无限等待
+                setTimeout(() => {
+                    clearInterval(checkInterval);
+                    if (isAIResponding) {
+                        console.log('⏰ 模式2音频等待超时，强制重置状态');
+                        isAIResponding = false;
+                        clearAIResponseTimeout();
+                        hideInterruptButton();
+                        enableChatControls();
+                    }
+                }, 30000); // 30秒超时
             }
             
             handleAudioMessage(message) {
                 if (message.ttsMode === 'char_stream') {
                     // 模式2：异步音频播放
+                    console.log('🎵 收到音频消息:', {
+                        sentenceId: message.sentenceId,
+                        hasAudioData: !!message.audioData,
+                        audioDataLength: message.audioData ? message.audioData.length : 0,
+                        content: message.content
+                    });
+                    
+                    if (!message.audioData) {
+                        console.error('❌ 音频数据为空！');
+                        return;
+                    }
+                    
                     this.audioManager.addAudio(
                         message.audioData, 
                         message.sentenceId || this.generateId(), 
-                        message.content
+                        message.content,
+                        this.currentAssistantMessage // 传递消息元素用于状态更新
                     );
                 }
             }
             
             handleTTSError(message) {
                 console.warn('TTS错误:', message.content);
-                // 可以显示一个小的错误提示
-                this.showTTSError(message.content);
             }
             
             createMessage(sender) {
@@ -2681,7 +2760,15 @@
                 this.currentAudio = null;
             }
             
-            addAudio(audioData, sentenceId, text) {
+            addAudio(audioData, sentenceId, text, messageElement = null) {
+                console.log('🎵 CharStreamAudioManager.addAudio 调用:', {
+                    hasAudioData: !!audioData,
+                    audioDataType: typeof audioData,
+                    audioDataLength: audioData ? audioData.length : 0,
+                    sentenceId: sentenceId,
+                    text: text
+                });
+                
                 if (!audioData) {
                     console.warn('音频数据为空，跳过播放');
                     return;
@@ -2689,30 +2776,52 @@
                 
                 try {
                     // 将Base64音频数据转换为Blob
+                    console.log('🔄 开始转换Base64音频数据...');
                     const binaryString = atob(audioData);
+                    console.log('✅ Base64解码成功，二进制长度:', binaryString.length);
+                    
                     const bytes = new Uint8Array(binaryString.length);
                     for (let i = 0; i < binaryString.length; i++) {
                         bytes[i] = binaryString.charCodeAt(i);
                     }
                     
-                    const audioBlob = new Blob([bytes], {type: 'audio/mp3'});
+                    const audioBlob = new Blob([bytes], {type: 'audio/wav'});
                     const audioUrl = URL.createObjectURL(audioBlob);
+                    console.log('✅ 音频Blob创建成功，URL:', audioUrl);
+                    
+                    const audioElement = new Audio(audioUrl);
+                    
+                    // 添加音频加载事件监听
+                    audioElement.addEventListener('loadstart', () => {
+                        console.log('🎵 音频开始加载:', sentenceId);
+                    });
+                    
+                    audioElement.addEventListener('canplay', () => {
+                        console.log('✅ 音频可以播放:', sentenceId);
+                    });
+                    
+                    audioElement.addEventListener('error', (e) => {
+                        console.error('❌ 音频加载错误:', e, sentenceId);
+                    });
                     
                     const audioItem = {
                         id: sentenceId,
                         text: text,
-                        audio: new Audio(audioUrl),
-                        timestamp: Date.now()
+                        audio: audioElement,
+                        timestamp: Date.now(),
+                        messageElement: messageElement
                     };
                     
                     this.audioQueue.push(audioItem);
+                    console.log('✅ 音频添加到队列，队列长度:', this.audioQueue.length);
                     
                     // 如果当前没有播放，立即开始播放
                     if (!this.isPlaying) {
+                        console.log('🚀 开始播放音频队列');
                         this.playNext();
                     }
                 } catch (error) {
-                    console.error('处理音频数据失败:', error);
+                    console.error('❌ 处理音频数据失败:', error);
                 }
             }
             
@@ -2738,9 +2847,26 @@
             
             playAudio(audio) {
                 return new Promise((resolve, reject) => {
-                    audio.onended = resolve;
-                    audio.onerror = reject;
-                    audio.play().catch(reject);
+                    console.log('🎵 开始播放音频:', audio.src);
+                    
+                    audio.onended = () => {
+                        console.log('✅ 音频播放完成:', audio.src);
+                        resolve();
+                    };
+                    
+                    audio.onerror = (e) => {
+                        console.error('❌ 音频播放错误:', e, audio.src);
+                        reject(e);
+                    };
+                    
+                    audio.play()
+                        .then(() => {
+                            console.log('✅ 音频开始播放:', audio.src);
+                        })
+                        .catch((e) => {
+                            console.error('❌ 音频播放失败:', e, audio.src);
+                            reject(e);
+                        });
                 });
             }
             
@@ -2758,6 +2884,31 @@
                     this.currentAudio.pause();
                 }
                 this.isPlaying = false;
+            }
+            
+            stopAll() {
+                console.log('🔇 CharStreamAudioManager: 停止所有音频');
+                
+                // 停止当前播放的音频
+                if (this.currentAudio) {
+                    this.currentAudio.pause();
+                    this.currentAudio.currentTime = 0;
+                    this.currentAudio = null;
+                }
+                
+                // 清空队列中的所有音频
+                this.audioQueue.forEach(item => {
+                    if (item.audio) {
+                        item.audio.pause();
+                        item.audio.currentTime = 0;
+                    }
+                });
+                
+                // 清空队列
+                this.audioQueue = [];
+                this.isPlaying = false;
+                
+                console.log('✅ CharStreamAudioManager: 所有音频已停止');
             }
         }
         
@@ -2833,7 +2984,7 @@
                         bytes[i] = binaryString.charCodeAt(i);
                     }
                     
-                    const audioBlob = new Blob([bytes], {type: 'audio/mp3'});
+                    const audioBlob = new Blob([bytes], {type: 'audio/wav'});
                     const audioUrl = URL.createObjectURL(audioBlob);
                     const audio = new Audio(audioUrl);
                     
@@ -2989,6 +3140,16 @@
 
         // 处理收到的消息 - 多通道版本
         function handleIncomingMessage(message) {
+            // 添加全局消息接收日志
+            console.log('📨 收到WebSocket消息:', {
+                type: message.type,
+                channelType: message.channelType,
+                hasAudioData: !!message.audioData,
+                audioDataLength: message.audioData ? message.audioData.length : 0,
+                ttsMode: message.ttsMode,
+                sentenceId: message.sentenceId
+            });
+            
             // 系统消息特殊处理
             if (message.type === 'system') {
                 if (!currentSessionId) {
@@ -3147,6 +3308,12 @@
 
         // 添加消息到聊天容器
         function addMessage(sender, content) {
+            // 检查内容是否为空
+            if (!content || content.trim() === '') {
+                console.warn('⚠️ 跳过添加空内容消息:', sender);
+                return;
+            }
+            
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
             messageDiv.textContent = content;
@@ -3823,6 +3990,12 @@
                 return;
             }
             
+            console.log('🛑 用户点击停止按钮，开始中断处理');
+            
+            // 1. 停止所有音频播放
+            stopAllAudio();
+            
+            // 2. 发送后端中断信号
             const interruptMessage = {
                 type: 'system',
                 content: 'interrupt',
@@ -3835,9 +4008,9 @@
             };
             
             ws.send(JSON.stringify(interruptMessage));
-            console.log('发送打断信号:', interruptMessage);
+            console.log('📤 发送后端打断信号:', interruptMessage);
             
-            // 立即进行视觉反馈
+            // 3. 立即进行视觉反馈
             if (currentStreamingMessage) {
                 // 在当前流式消息末尾添加中断提示
                 const interruptNotice = document.createElement('span');
@@ -3848,12 +4021,42 @@
                 currentStreamingMessage.appendChild(interruptNotice);
             }
             
-            // 立即隐藏打断按钮
+            // 4. 立即重置UI状态
             isAIResponding = false;
             clearAIResponseTimeout();
             hideInterruptButton();
             enableChatControls();
+            
+            console.log('✅ 中断处理完成，UI状态已重置');
         }
+        
+        // 停止所有音频播放
+        function stopAllAudio() {
+            console.log('🔇 停止所有音频播放');
+            
+            // 停止字符流音频管理器中的音频
+            if (window.charStreamAudioManager) {
+                window.charStreamAudioManager.stopAll();
+            }
+            
+            // 停止所有HTML5音频元素
+            const audioElements = document.querySelectorAll('audio');
+            audioElements.forEach(audio => {
+                if (!audio.paused) {
+                    audio.pause();
+                    audio.currentTime = 0;
+                    console.log('⏸️ 停止音频元素:', audio.src);
+                }
+            });
+            
+            // 清除音频播放队列
+            if (window.audioQueue) {
+                window.audioQueue.length = 0;
+                console.log('🗑️ 清空音频队列');
+            }
+            
+        }
+        
         
         // 显示打断按钮
         function showInterruptButton() {
@@ -4948,9 +5151,32 @@
         }
         
         // 保存TTS设置
-        function saveTTSSettings() {
+        async function saveTTSSettings() {
+            // 保存到localStorage
             localStorage.setItem('ttsSettings', JSON.stringify(ttsSettings));
             localStorage.setItem('currentTTSMode', currentTTSMode);
+            
+            // 同步到后端UserPreferences
+            try {
+                const response = await fetch('/api/preferences/tts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        chatEnabled: ttsSettings.chatEnabled,
+                        chatMode: ttsSettings.chatMode,
+                        speakerId: ttsSettings.spk_id,
+                        speed: ttsSettings.speed
+                    })
+                });
+                
+                if (!response.ok) {
+                    console.warn('TTS设置同步到后端失败:', response.status);
+                }
+            } catch (error) {
+                console.warn('TTS设置同步异常:', error);
+            }
         }
         
         // 加载TTS设置

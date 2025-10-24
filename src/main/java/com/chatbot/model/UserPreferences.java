@@ -17,7 +17,7 @@ public class UserPreferences {
     
     // ========== 语音设置 ==========
     private boolean enableVoice = false;
-    private String preferredTtsVoice = "zh-CN-XiaoxiaoNeural";
+    private String preferredSpeakerId = "派蒙";
     private double responseSpeed = 1.0;
     private String asrModel = "whisper-medium";
     
@@ -143,12 +143,12 @@ public class UserPreferences {
         updateLastModified();
     }
     
-    public String getPreferredTtsVoice() {
-        return preferredTtsVoice;
+    public String getPreferredSpeakerId() {
+        return preferredSpeakerId;
     }
     
-    public void setPreferredTtsVoice(String preferredTtsVoice) {
-        this.preferredTtsVoice = preferredTtsVoice;
+    public void setPreferredSpeakerId(String preferredSpeakerId) {
+        this.preferredSpeakerId = preferredSpeakerId;
         updateLastModified();
     }
     
@@ -339,6 +339,7 @@ public class UserPreferences {
         private boolean enabled = true;
         private String mode = "text_only";  // "text_only", "char_stream_tts"
         private boolean autoTTS = false;    // 是否自动启用TTS
+        private String speakerId = "派蒙";   // CosyVoice说话人ID
         
         public boolean isEnabled() {
             return enabled;
@@ -363,6 +364,14 @@ public class UserPreferences {
         public void setAutoTTS(boolean autoTTS) {
             this.autoTTS = autoTTS;
         }
+        
+        public String getSpeakerId() {
+            return speakerId;
+        }
+        
+        public void setSpeakerId(String speakerId) {
+            this.speakerId = speakerId;
+        }
     }
     
     /**
@@ -371,7 +380,7 @@ public class UserPreferences {
     public static class Live2DOutputConfig {
         private boolean enabled = false;
         private String mode = "sentence_sync";  // 固定为句级同步
-        private String voice = "zh-CN-XiaoxiaoNeural";
+        private String speakerId = "派蒙";
         private double speed = 1.0;
         private boolean showBubble = true;      // 是否显示气泡
         private int bubbleTimeout = 5000;       // 气泡显示超时(毫秒)
@@ -392,12 +401,12 @@ public class UserPreferences {
             this.mode = mode;
         }
         
-        public String getVoice() {
-            return voice;
+        public String getSpeakerId() {
+            return speakerId;
         }
         
-        public void setVoice(String voice) {
-            this.voice = voice;
+        public void setSpeakerId(String speakerId) {
+            this.speakerId = speakerId;
         }
         
         public double getSpeed() {

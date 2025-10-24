@@ -247,7 +247,7 @@ public class UserPreferencesService {
         
         AppConfig.AIConfig.VoiceConfig voiceConfig = appConfig.getAi().getVoice();
         preferences.setAsrModel(voiceConfig.getAsrModel());
-        preferences.setPreferredTtsVoice(voiceConfig.getTtsVoice());
+        preferences.setPreferredSpeakerId(voiceConfig.getTtsVoice());
         
         AppConfig.WebSearchConfig webSearchConfig = appConfig.getWebSearch();
         preferences.setWebSearchEnabled(webSearchConfig.isEnabled());
@@ -276,8 +276,8 @@ public class UserPreferencesService {
                 case "enableVoice":
                     preferences.setEnableVoice((Boolean) value);
                     return true;
-                case "preferredTtsVoice":
-                    preferences.setPreferredTtsVoice((String) value);
+                case "preferredSpeakerId":
+                    preferences.setPreferredSpeakerId((String) value);
                     return true;
                 case "responseSpeed":
                     preferences.setResponseSpeed(((Number) value).doubleValue());
@@ -365,7 +365,7 @@ public class UserPreferencesService {
             
             // 语音设置
             case "enableVoice": return preferences.isEnableVoice();
-            case "preferredTtsVoice": return preferences.getPreferredTtsVoice();
+            case "preferredSpeakerId": return preferences.getPreferredSpeakerId();
             case "responseSpeed": return preferences.getResponseSpeed();
             case "asrModel": return preferences.getAsrModel();
             

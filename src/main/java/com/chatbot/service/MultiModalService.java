@@ -12,8 +12,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * 多模态处理服务
- * 通过调用Python API实现语音、图像等多媒体处理
- * 当前为Mock实现，实际使用时需要连接真实的Python服务
+ * 集成CosyVoice TTS服务和其他多媒体处理功能
  */
 @Service
 public class MultiModalService {
@@ -22,10 +21,12 @@ public class MultiModalService {
     
     private final AppConfig.PythonApiConfig pythonApiConfig;
     private final ObjectMapper objectMapper;
+    private final CosyVoiceTTSService cosyVoiceTTSService;
     
-    public MultiModalService(AppConfig appConfig) {
+    public MultiModalService(AppConfig appConfig, CosyVoiceTTSService cosyVoiceTTSService) {
         this.pythonApiConfig = appConfig.getPython();
         this.objectMapper = new ObjectMapper();
+        this.cosyVoiceTTSService = cosyVoiceTTSService;
     }
     
     /**
@@ -51,22 +52,29 @@ public class MultiModalService {
     
     /**
      * 文本转语音 (TTS - Text To Speech)
+     * 使用CosyVoice服务进行语音合成
      */
-    public CompletableFuture<byte[]> textToSpeech(String text, String voice, String format) {
+    public CompletableFuture<byte[]> textToSpeech(String text, String speakerId, String format) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                logger.info("调用TTS服务，文本长度: {}, 语音: {}, 格式: {}", 
-                           text.length(), voice, format);
+                logger.info("调用CosyVoice TTS服务，文本长度: {}, 说话人: {}, 格式: {}", 
+                           text.length(), speakerId, format);
                 
-                // Mock实现 - 实际应该调用Python TTS API
-                byte[] mockResult = mockTtsProcessing(text, voice, format);
+                // 调用CosyVoice TTS服务
+                CosyVoiceTTSService.SynthesisResult result = 
+                    cosyVoiceTTSService.customSpeakerSynthesis(text, speakerId, 1.0, format);
                 
-                logger.debug("TTS处理完成，生成音频大小: {} bytes", mockResult.length);
-                return mockResult;
+                if (result.isSuccess()) {
+                    logger.debug("CosyVoice TTS处理完成，生成音频大小: {} bytes", result.getAudioData().length);
+                    return result.getAudioData();
+                } else {
+                    logger.error("CosyVoice TTS合成失败: {}", result.getMessage());
+                    throw new RuntimeException("CosyVoice语音合成失败: " + result.getMessage());
+                }
                 
             } catch (Exception e) {
                 logger.error("TTS处理失败", e);
-                throw new RuntimeException("语音合成失败", e);
+                throw new RuntimeException("语音合成失败: " + e.getMessage(), e);
             }
         });
     }
@@ -157,12 +165,16 @@ public class MultiModalService {
     }
     
     /**
-     * Mock TTS处理
+     * 检查TTS服务健康状态
      */
-    private byte[] mockTtsProcessing(String text, String voice, String format) {
-        // 模拟生成音频数据（实际应该是真实的音频字节）
-        String mockAudioData = "MOCK_AUDIO_DATA_" + text.hashCode();
-        return mockAudioData.getBytes();
+    public boolean isTTSServiceHealthy() {
+        try {
+            CosyVoiceTTSService.HealthCheckResult result = cosyVoiceTTSService.healthCheck();
+            return result.isSuccess() && result.isHealthy();
+        } catch (Exception e) {
+            logger.error("TTS健康检查失败", e);
+            return false;
+        }
     }
     
     /**

@@ -267,12 +267,40 @@ public class ChatMessage {
         this.sentenceComplete = sentenceComplete;
     }
     
+    /**
+     * 隐藏原始byte[]字段，避免JSON序列化
+     */
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public byte[] getAudioData() {
         return audioData;
     }
     
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public void setAudioData(byte[] audioData) {
         this.audioData = audioData;
+    }
+    
+    /**
+     * 获取Base64编码的音频数据（用于JSON序列化）
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty("audioData")
+    public String getAudioDataBase64() {
+        if (audioData == null) {
+            return null;
+        }
+        return java.util.Base64.getEncoder().encodeToString(audioData);
+    }
+    
+    /**
+     * 设置Base64编码的音频数据（用于JSON反序列化）
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty("audioData")
+    public void setAudioDataBase64(String base64AudioData) {
+        if (base64AudioData == null) {
+            this.audioData = null;
+        } else {
+            this.audioData = java.util.Base64.getDecoder().decode(base64AudioData);
+        }
     }
     
     public String getAudioUrl() {

@@ -1,5 +1,6 @@
 package com.chatbot.service.channel;
 
+import com.chatbot.config.AppConfig;
 import com.chatbot.model.ChatMessage;
 import com.chatbot.model.SentenceItem;
 import com.chatbot.model.UserPreferences;
@@ -29,14 +30,17 @@ public class Live2DChannel implements OutputChannel {
     
     private final UserPreferencesService userPreferencesService;
     private final MultiModalService multiModalService;
+    private final AppConfig appConfig;
     
     // 会话级别的同步队列管理
     private final Map<String, Live2DSyncQueue> sessionQueues = new ConcurrentHashMap<>();
     
     public Live2DChannel(UserPreferencesService userPreferencesService,
-                        MultiModalService multiModalService) {
+                        MultiModalService multiModalService,
+                        AppConfig appConfig) {
         this.userPreferencesService = userPreferencesService;
         this.multiModalService = multiModalService;
+        this.appConfig = appConfig;
     }
     
     @Override
@@ -259,18 +263,19 @@ public class Live2DChannel implements OutputChannel {
         String sentenceId = sentence.getId();
         
         try {
-            // 获取Live2D语音偏好
-            UserPreferences prefs = userPreferencesService.getUserPreferences(sessionId);
-            String voice = (prefs.getLive2dOutput() != null) ? 
-                prefs.getLive2dOutput().getVoice() : "zh-CN-XiaoxiaoNeural";
+            // 获取Live2D语音偏好 - 使用default用户配置
+            UserPreferences prefs = userPreferencesService.getUserPreferences("default");
+            String speakerId = (prefs.getLive2dOutput() != null) ? 
+                prefs.getLive2dOutput().getSpeakerId() : "派蒙";
             
-            logger.debug("开始生成Live2D TTS: id={}, voice={}, sessionId={}", 
-                        sentenceId, voice, sessionId);
+            logger.debug("开始生成Live2D TTS: id={}, speakerId={}, sessionId={}", 
+                        sentenceId, speakerId, sessionId);
             
             // 调用TTS服务
             CompletableFuture<byte[]> ttsTask = multiModalService.textToSpeech(
-                sentence.getText(), voice, "mp3");
-            byte[] audioData = ttsTask.get(15, TimeUnit.SECONDS); // Live2D允许更长的等待时间
+                sentence.getText(), speakerId, "wav");
+            int timeoutSeconds = appConfig.getPython().getTimeout().getLive2dTtsTaskTimeoutSeconds();
+            byte[] audioData = ttsTask.get(timeoutSeconds, TimeUnit.SECONDS);
             
             // 发送音频消息
             ChatMessage audioMessage = new ChatMessage();

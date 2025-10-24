@@ -20,6 +20,7 @@ public class SharedSentenceQueue {
     private final String sessionId;
     private final List<SentenceItem> sentences = new ArrayList<>();
     private final AtomicInteger orderCounter = new AtomicInteger(0);
+    private final SentenceBuffer sentenceBuffer = new SentenceBuffer();
     
     public SharedSentenceQueue(String sessionId) {
         this.sessionId = sessionId;
@@ -118,6 +119,38 @@ public class SharedSentenceQueue {
         synchronized (sentences) {
             return sentences.isEmpty();
         }
+    }
+    
+    /**
+     * 添加文本块到句子缓冲区
+     * @param chunk 文本块
+     */
+    public void addTextChunk(String chunk) {
+        sentenceBuffer.addChunk(chunk);
+    }
+    
+    /**
+     * 检查是否有待处理的完整句子
+     * @return 是否有完整句子
+     */
+    public boolean hasPendingSentence() {
+        return sentenceBuffer.hasPendingSentence();
+    }
+    
+    /**
+     * 提取下一个完整句子
+     * @return 完整句子，如果没有返回null
+     */
+    public String extractSentence() {
+        return sentenceBuffer.extractSentence();
+    }
+    
+    /**
+     * 获取剩余文本内容
+     * @return 剩余文本
+     */
+    public String getRemainingText() {
+        return sentenceBuffer.getRemainingText();
     }
     
     @Override

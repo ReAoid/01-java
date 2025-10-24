@@ -33,7 +33,7 @@ app:
   # Ollama配置
   ollama:
     base-url: "http://localhost:11434"
-    model: "qwen3:4b"
+    model: "yi:6b"
     timeout: 30000
     max-tokens: 4096
     temperature: 0.7
@@ -54,6 +54,23 @@ app:
       
       # OCR (图像识别) 服务
       ocr-url: "http://localhost:5000"
+    
+    # 超时配置（单位：秒）
+    timeout:
+      # HTTP连接超时
+      connect-timeout-seconds: 60
+      
+      # HTTP读取超时
+      read-timeout-seconds: 60
+      
+      # HTTP写入超时
+      write-timeout-seconds: 60
+      
+      # TTS任务等待超时
+      tts-task-timeout-seconds: 60
+      
+      # Live2D TTS任务等待超时
+      live2d-tts-task-timeout-seconds: 60
 
   # 资源路径配置
   resources:

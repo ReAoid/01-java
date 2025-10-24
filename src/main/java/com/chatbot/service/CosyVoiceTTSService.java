@@ -24,15 +24,15 @@ public class CosyVoiceTTSService {
     private final String ttsBaseUrl;
     private final AppConfig.PythonApiConfig.ServicesConfig servicesConfig;
     
-    // 默认配置
-    private static final int TIMEOUT_SECONDS = 60;
-    
     public CosyVoiceTTSService(AppConfig appConfig) {
+        // 从配置中获取超时设置
+        AppConfig.TimeoutConfig timeoutConfig = appConfig.getPython().getTimeout();
+        
         // 初始化OkHttp客户端
         this.okHttpClient = new OkHttpClient.Builder()
-                .connectTimeout(Duration.ofSeconds(10))
-                .readTimeout(Duration.ofSeconds(TIMEOUT_SECONDS))
-                .writeTimeout(Duration.ofSeconds(TIMEOUT_SECONDS))
+                .connectTimeout(Duration.ofSeconds(timeoutConfig.getConnectTimeoutSeconds()))
+                .readTimeout(Duration.ofSeconds(timeoutConfig.getReadTimeoutSeconds()))
+                .writeTimeout(Duration.ofSeconds(timeoutConfig.getWriteTimeoutSeconds()))
                 .build();
         
         this.objectMapper = new ObjectMapper();
@@ -150,42 +150,125 @@ public class CosyVoiceTTSService {
         logger.info("文本: {}", text);
         logger.info("说话人: {}", speakerName);
         
+        // 文本验证和预处理
+        String validatedText = validateAndPreprocessText(text);
+        if (validatedText == null) {
+            return new SynthesisResult(false, "文本验证失败：文本为空或包含无效字符", null);
+        }
+        
         // 设置默认值
         double actualSpeed = speed != null ? speed : 1.0;
         String actualFormat = format != null ? format : "wav";
         
-        // 使用OkHttp构建multipart/form-data请求
-        RequestBody requestBody = new MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("tts_text", text)
-                .addFormDataPart("spk_id", speakerName)
-                .addFormDataPart("stream", "false")
-                .addFormDataPart("speed", String.valueOf(actualSpeed))
-                .addFormDataPart("format", actualFormat)
-                .build();
-        
-        String synthesisUrl = ttsBaseUrl + "/inference_custom_speaker";
-        
-        Request request = new Request.Builder()
-                .url(synthesisUrl)
-                .post(requestBody)
-                .build();
-        
-        try (Response response = okHttpClient.newCall(request).execute()) {
-            logger.info("合成响应状态: {}", response.code());
-            
-            if (response.isSuccessful()) {
-                byte[] audioData = response.body().bytes();
-                logger.info("合成成功，音频大小: {} 字节", audioData.length);
-                return new SynthesisResult(true, "合成成功", audioData);
-            } else {
-                logger.warn("自定义说话人合成失败: HTTP {}", response.code());
-                return new SynthesisResult(false, "合成失败: HTTP " + response.code(), null);
-            }
-        } catch (Exception e) {
-            logger.error("自定义说话人合成异常", e);
-            return new SynthesisResult(false, "合成异常: " + e.getMessage(), null);
+        // 使用重试机制进行合成
+        return performSynthesisWithRetry(validatedText, speakerName, actualSpeed, actualFormat);
+    }
+    
+    /**
+     * 文本验证和预处理
+     * @param text 原始文本
+     * @return 处理后的文本，如果无效返回null
+     */
+    private String validateAndPreprocessText(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            logger.warn("文本为空或只包含空格");
+            return null;
         }
+        
+        // 移除控制字符和特殊字符
+        String cleaned = text.replaceAll("[\\p{Cntrl}&&[^\r\n\t]]", "")
+                             .replaceAll("[\u200B-\u200D\uFEFF]", "") // 零宽字符
+                             .trim();
+        
+        if (cleaned.isEmpty()) {
+            logger.warn("文本清理后为空");
+            return null;
+        }
+        
+        // 限制文本长度
+        if (cleaned.length() > 500) {
+            logger.warn("文本过长，截断到500字符: 原长度={}", cleaned.length());
+            cleaned = cleaned.substring(0, 500);
+        }
+        
+        logger.debug("文本预处理完成: 原长度={}, 处理后长度={}", text.length(), cleaned.length());
+        return cleaned;
+    }
+    
+    /**
+     * 带重试机制的语音合成
+     * @param text 验证后的文本
+     * @param speakerName 说话人名称
+     * @param speed 语速
+     * @param format 格式
+     * @return 合成结果
+     */
+    private SynthesisResult performSynthesisWithRetry(String text, String speakerName, double speed, String format) {
+        final int maxRetries = 3;
+        final long baseDelayMs = 1000; // 1秒基础延迟
+        
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                logger.debug("TTS合成尝试 {}/{}", attempt, maxRetries);
+                
+                // 构建请求
+                RequestBody requestBody = new MultipartBody.Builder()
+                        .setType(MultipartBody.FORM)
+                        .addFormDataPart("tts_text", text)
+                        .addFormDataPart("spk_id", speakerName)
+                        .addFormDataPart("stream", "false")
+                        .addFormDataPart("speed", String.valueOf(speed))
+                        .addFormDataPart("format", format)
+                        .build();
+                
+                String synthesisUrl = ttsBaseUrl + "/inference_custom_speaker";
+                
+                Request request = new Request.Builder()
+                        .url(synthesisUrl)
+                        .post(requestBody)
+                        .build();
+                
+                try (Response response = okHttpClient.newCall(request).execute()) {
+                    logger.info("合成响应状态: {} (尝试 {}/{})", response.code(), attempt, maxRetries);
+                    
+                    if (response.isSuccessful()) {
+                        byte[] audioData = response.body().bytes();
+                        logger.info("合成成功，音频大小: {} 字节 (尝试 {}/{})", audioData.length, attempt, maxRetries);
+                        return new SynthesisResult(true, "合成成功", audioData);
+                    } else if (response.code() >= 500 && attempt < maxRetries) {
+                        // 5xx错误且还有重试机会
+                        logger.warn("服务器错误 HTTP {}, 将在 {}ms 后重试 (尝试 {}/{})", 
+                                   response.code(), baseDelayMs * (1L << (attempt - 1)), attempt, maxRetries);
+                        Thread.sleep(baseDelayMs * (1L << (attempt - 1))); // 指数退避
+                        continue;
+                    } else {
+                        // 4xx错误或最后一次尝试失败
+                        logger.error("自定义说话人合成失败: HTTP {} (尝试 {}/{})", response.code(), attempt, maxRetries);
+                        return new SynthesisResult(false, "合成失败: HTTP " + response.code(), null);
+                    }
+                }
+                
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                logger.error("TTS合成被中断 (尝试 {}/{})", attempt, maxRetries);
+                return new SynthesisResult(false, "合成被中断", null);
+            } catch (Exception e) {
+                if (attempt < maxRetries) {
+                    logger.warn("TTS合成异常，将重试 (尝试 {}/{}): {}", attempt, maxRetries, e.getMessage());
+                    try {
+                        Thread.sleep(baseDelayMs * (1L << (attempt - 1))); // 指数退避
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return new SynthesisResult(false, "合成被中断", null);
+                    }
+                } else {
+                    logger.error("自定义说话人合成异常 (最终失败，尝试 {}/{})", attempt, maxRetries, e);
+                    return new SynthesisResult(false, "合成异常: " + e.getMessage(), null);
+                }
+            }
+        }
+        
+        return new SynthesisResult(false, "合成失败：超过最大重试次数", null);
     }
     
     /**
