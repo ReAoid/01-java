@@ -34,7 +34,13 @@ public class SessionHistoryService {
     
     public SessionHistoryService(AppConfig appConfig) {
         this.resourceConfig = appConfig.getResource();
+        
+        // 调试信息：检查配置是否正确加载
+        logger.info("SessionHistoryService初始化 - basePath: {}, sessionsPath: {}", 
+                   resourceConfig.getBasePath(), resourceConfig.getSessionsPath());
+        
         initializeSessionsDirectory();
+        // 单用户单日会话模式，不需要清理重复文件
     }
     
     /**
@@ -57,14 +63,39 @@ public class SessionHistoryService {
      * 获取sessions目录路径
      */
     private String getSessionsDir() {
-        return resourceConfig.getSessionsPath();
+        String sessionsPath = resourceConfig.getSessionsPath();
+        
+        // 强制检查并修正异常路径
+        if (sessionsPath == null || sessionsPath.contains("null")) {
+            logger.warn("检测到sessions路径异常: {}, 强制使用正确路径", sessionsPath);
+            sessionsPath = "src/main/resources/data/sessions";
+        }
+        
+        logger.debug("使用sessions路径: {}", sessionsPath);
+        return sessionsPath;
     }
     
     /**
      * 获取指定会话的历史文件路径
      */
     private String getHistoryFilePath(String sessionId) {
-        return getSessionsDir() + File.separator + sessionId + "_history.json";
+        String sessionsDir = getSessionsDir();
+        
+        // 确保sessionId不为null
+        if (sessionId == null || sessionId.trim().isEmpty()) {
+            sessionId = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+            logger.warn("sessionId为空，使用默认值: {}", sessionId);
+        }
+        
+        String filePath = sessionsDir + File.separator + sessionId + "_history.json";
+        
+        // 最后检查：确保路径不包含null
+        if (filePath.contains("null")) {
+            logger.error("生成的文件路径包含null: {}, 强制修正", filePath);
+            filePath = "src/main/resources/data/sessions/" + sessionId + "_history.json";
+        }
+        
+        return filePath;
     }
     
     /**
@@ -118,6 +149,9 @@ public class SessionHistoryService {
      */
     public void saveSessionHistory(String sessionId, List<ChatMessage> messages) {
         String filePath = getHistoryFilePath(sessionId);
+        
+        // 调试信息：记录保存路径
+        logger.info("保存会话历史 - sessionId: {}, filePath: {}", sessionId, filePath);
         
         try {
             List<SimpleMessage> simpleMessages = new ArrayList<>();

@@ -7,6 +7,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.InitializingBean;
 
 /**
  * 统一应用配置类
@@ -14,7 +16,10 @@ import org.springframework.context.annotation.Primary;
  */
 @Configuration
 @ConfigurationProperties(prefix = "app")
-public class AppConfig {
+@Component
+public class AppConfig implements InitializingBean {
+    
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AppConfig.class);
     
     // ========== 系统配置 ==========
     private SystemConfig system = new SystemConfig();
@@ -33,6 +38,30 @@ public class AppConfig {
     
     // ========== 联网搜索配置 ==========
     private WebSearchConfig webSearch = new WebSearchConfig();
+    
+    /**
+     * 配置加载后的验证
+     */
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        logger.info("🔍 AppConfig配置验证开始...");
+        logger.info("Resource对象: {}", resource);
+        logger.info("Resource basePath: {}", resource != null ? resource.getBasePath() : "null");
+        logger.info("Resource logPath: {}", resource != null ? resource.logPath : "null");
+        logger.info("Resource data对象: {}", resource != null ? resource.getData() : "null");
+        logger.info("Resource data sessions: {}", resource != null && resource.getData() != null ? resource.getData().getSessions() : "null");
+        logger.info("System config: {}", system != null ? "已加载" : "null");
+        logger.info("AI config: {}", ai != null ? "已加载" : "null");
+        logger.info("Ollama config: {}", ollama != null ? "已加载" : "null");
+        
+        if (resource == null) {
+            logger.error("❌ ResourceConfig未加载！");
+        } else if (resource.getBasePath() == null) {
+            logger.error("❌ basePath未配置！当前resource对象: {}", resource);
+        } else {
+            logger.info("✅ 配置验证通过 - basePath: {}", resource.getBasePath());
+        }
+    }
     
     /**
      * Jackson配置 - 配置ObjectMapper支持Java 21时间类型
@@ -60,8 +89,8 @@ public class AppConfig {
      * 系统核心配置
      */
     public static class SystemConfig {
-        private int maxContextTokens = 8192;
-        private int sessionTimeout = 3600;
+        private int maxContextTokens;
+        private int sessionTimeout;
         private WebSocketConfig websocket = new WebSocketConfig();
         
         // Getters and Setters
@@ -75,8 +104,8 @@ public class AppConfig {
         public void setWebsocket(WebSocketConfig websocket) { this.websocket = websocket; }
         
         public static class WebSocketConfig {
-            private int pingInterval = 30;
-            private int maxReconnectAttempts = 5;
+            private int pingInterval;
+            private int maxReconnectAttempts;
             
             public int getPingInterval() { return pingInterval; }
             public void setPingInterval(int pingInterval) { this.pingInterval = pingInterval; }
@@ -111,9 +140,9 @@ public class AppConfig {
          * 系统提示词配置
          */
         public static class SystemPromptConfig {
-            private String base = "你是一个智能AI助手，专注于提供准确、有用的信息和建议。";
-            private String fallback = "你是一个友善的AI助手，请帮助用户解决问题。";
-            private boolean enablePersona = true;
+            private String base;
+            private String fallback;
+            private boolean enablePersona;
             
             public String getBase() { return base; }
             public void setBase(String base) { this.base = base; }
@@ -129,8 +158,8 @@ public class AppConfig {
          * 联网搜索判断配置
          */
         public static class WebSearchDecisionConfig {
-            private int timeoutSeconds = 5; // AI判断超时时间（秒）
-            private boolean enableTimeoutFallback = true; // 超时时是否采用保守策略
+            private int timeoutSeconds; // AI判断超时时间（秒）
+            private boolean enableTimeoutFallback; // 超时时是否采用保守策略
             
             public int getTimeoutSeconds() { return timeoutSeconds; }
             public void setTimeoutSeconds(int timeoutSeconds) { this.timeoutSeconds = timeoutSeconds; }
@@ -143,8 +172,8 @@ public class AppConfig {
         }
         
         public static class StreamingConfig {
-            private int chunkSize = 16;
-            private int delayMs = 50;
+            private int chunkSize;
+            private int delayMs;
             
             public int getChunkSize() { return chunkSize; }
             public void setChunkSize(int chunkSize) { this.chunkSize = chunkSize; }
@@ -154,8 +183,8 @@ public class AppConfig {
         }
         
         public static class VoiceConfig {
-            private String asrModel = "whisper-medium";
-            private String ttsVoice = "zh-CN-XiaoxiaoNeural";
+            private String asrModel;
+            private String ttsVoice;
             
             public String getAsrModel() { return asrModel; }
             public void setAsrModel(String asrModel) { this.asrModel = asrModel; }
@@ -169,12 +198,12 @@ public class AppConfig {
      * Ollama配置
      */
     public static class OllamaConfig {
-        private String baseUrl = "http://localhost:11434";
-        private String model = "qwen3:4b";
-        private int timeout = 30000;
-        private int maxTokens = 4096;
-        private double temperature = 0.7;
-        private boolean stream = true;
+        private String baseUrl;
+        private String model;
+        private int timeout;
+        private int maxTokens;
+        private double temperature;
+        private boolean stream;
         
         // Getters and Setters
         public String getBaseUrl() { return baseUrl; }
@@ -220,16 +249,16 @@ public class AppConfig {
          */
         public static class ServicesConfig {
             // ASR (语音识别) 服务
-            private String asrUrl = "http://localhost:5000/api/asr";
+            private String asrUrl;
             
             // TTS (文本转语音) 服务 - CosyVoice默认端口
-            private String ttsUrl = "http://localhost:50000";
+            private String ttsUrl;
             
             // VAD (语音活动检测) 服务
-            private String vadUrl = "http://localhost:5000/api/vad";
+            private String vadUrl;
             
             // OCR (图像识别) 服务
-            private String ocrUrl = "http://localhost:5000/api/ocr";
+            private String ocrUrl;
             
             // Getters and Setters
             public String getAsrUrl() { return asrUrl; }
@@ -270,13 +299,27 @@ public class AppConfig {
      * 资源配置
      */
     public static class ResourceConfig {
-        private String basePath = "src/main/resources";
-        private String logPath = "logs";
+        private String basePath = "src/main/resources";  // 提供默认值
+        private String logPath = "logs";                 // 提供默认值
         private DataPaths data = new DataPaths();
         
         // 辅助方法
         public String getFullPath(String relativePath) {
-            return basePath + "/" + relativePath;
+            String actualBasePath = basePath;
+            
+            // 确保basePath不为null且不包含null字符串
+            if (actualBasePath == null || actualBasePath.contains("null")) {
+                System.err.println("⚠️ WARNING: basePath异常 (" + actualBasePath + ")! 强制使用正确路径.");
+                actualBasePath = "src/main/resources";
+            }
+            
+            // 确保relativePath不为null
+            if (relativePath == null || relativePath.contains("null")) {
+                System.err.println("⚠️ WARNING: relativePath异常 (" + relativePath + ")! 使用默认值.");
+                relativePath = "data";
+            }
+            
+            return actualBasePath + "/" + relativePath;
         }
         
         public String getMemoriesPath() {
@@ -301,7 +344,10 @@ public class AppConfig {
         
         // Getters and Setters
         public String getBasePath() { return basePath; }
-        public void setBasePath(String basePath) { this.basePath = basePath; }
+        public void setBasePath(String basePath) { 
+            this.basePath = basePath;
+            logger.info("🔧 设置basePath: {}", basePath);
+        }
         
         public void setLogPath(String logPath) { this.logPath = logPath; }
         
@@ -309,9 +355,9 @@ public class AppConfig {
         public void setData(DataPaths data) { this.data = data; }
         
         public static class DataPaths {
-            private String memories = "data/memories";
-            private String personas = "data/personas";
-            private String sessions = "data/sessions";
+            private String memories = "data/memories";   // 提供默认值
+            private String personas = "data/personas";   // 提供默认值
+            private String sessions = "data/sessions";   // 提供默认值
             
             public String getMemories() { return memories; }
             public void setMemories(String memories) { this.memories = memories; }
@@ -320,7 +366,10 @@ public class AppConfig {
             public void setPersonas(String personas) { this.personas = personas; }
             
             public String getSessions() { return sessions; }
-            public void setSessions(String sessions) { this.sessions = sessions; }
+            public void setSessions(String sessions) { 
+                this.sessions = sessions;
+                logger.info("🔧 设置sessions路径: {}", sessions);
+            }
         }
     }
     
@@ -348,15 +397,15 @@ public class AppConfig {
      * 联网搜索配置
      */
     public static class WebSearchConfig {
-        private boolean enabled = false; // 默认关闭
-        private int maxResults = 5;
-        private int timeoutSeconds = 10;
-        private String defaultEngine = "duckduckgo";
-        private boolean enableFallback = true;
+        private boolean enabled;
+        private int maxResults;
+        private int timeoutSeconds;
+        private String defaultEngine;
+        private boolean enableFallback;
         
         // API Keys (如果需要)
-        private String serpApiKey = "";
-        private String bingApiKey = "";
+        private String serpApiKey;
+        private String bingApiKey;
         
         // Getters and Setters
         public boolean isEnabled() { return enabled; }
@@ -386,19 +435,19 @@ public class AppConfig {
      */
     public static class TimeoutConfig {
         // HTTP连接超时（秒）
-        private int connectTimeoutSeconds = 60;
+        private int connectTimeoutSeconds;
         
         // HTTP读取超时（秒）
-        private int readTimeoutSeconds = 60;
+        private int readTimeoutSeconds;
         
         // HTTP写入超时（秒）
-        private int writeTimeoutSeconds = 60;
+        private int writeTimeoutSeconds;
         
         // TTS任务等待超时（秒）
-        private int ttsTaskTimeoutSeconds = 60;
+        private int ttsTaskTimeoutSeconds;
         
         // Live2D TTS任务等待超时（秒）
-        private int live2dTtsTaskTimeoutSeconds = 60;
+        private int live2dTtsTaskTimeoutSeconds;
         
         public int getConnectTimeoutSeconds() { return connectTimeoutSeconds; }
         public void setConnectTimeoutSeconds(int connectTimeoutSeconds) { this.connectTimeoutSeconds = connectTimeoutSeconds; }

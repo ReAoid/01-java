@@ -52,6 +52,9 @@ public class UserPreferences {
     private ChatOutputConfig chatOutput = new ChatOutputConfig();
     private Live2DOutputConfig live2dOutput = new Live2DOutputConfig();
     
+    // ========== ASR配置 ==========
+    private ASRConfig asrConfig = new ASRConfig();
+    
     // ========== 扩展配置 ==========
     private Map<String, Object> customSettings = new HashMap<>();
     
@@ -332,11 +335,20 @@ public class UserPreferences {
         updateLastModified();
     }
     
+    public ASRConfig getAsrConfig() {
+        return asrConfig;
+    }
+    
+    public void setAsrConfig(ASRConfig asrConfig) {
+        this.asrConfig = asrConfig;
+        updateLastModified();
+    }
+    
     /**
      * 聊天窗口输出配置
      */
     public static class ChatOutputConfig {
-        private boolean enabled = true;
+        private boolean enabled = false;    // 默认禁用TTS
         private String mode = "text_only";  // "text_only", "char_stream_tts"
         private boolean autoTTS = false;    // 是否自动启用TTS
         private String speakerId = "派蒙";   // CosyVoice说话人ID
@@ -431,6 +443,112 @@ public class UserPreferences {
         
         public void setBubbleTimeout(int bubbleTimeout) {
             this.bubbleTimeout = bubbleTimeout;
+        }
+    }
+    
+    /**
+     * ASR (语音识别) 配置
+     */
+    public static class ASRConfig {
+        private boolean enabled = false;                    // 是否启用ASR
+        private String preferredLanguage = "zh-CN";         // 首选语言
+        private boolean autoStart = false;                  // 是否自动开始录音
+        private int maxRecordingTime = 60000;               // 最大录音时间(毫秒)
+        private double silenceThreshold = 2.0;              // 静音阈值
+        private boolean showStatusIndicator = true;         // 显示状态指示器
+        private boolean showRecordingIndicator = true;      // 显示录音指示器
+        private double confidenceThreshold = 0.7;           // 置信度阈值
+        private boolean enableVAD = true;                   // 启用语音活动检测
+        private String audioFormat = "wav";                 // 音频格式
+        private int sampleRate = 16000;                     // 采样率
+        
+        // Getters and Setters
+        public boolean isEnabled() {
+            return enabled;
+        }
+        
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+        
+        public String getPreferredLanguage() {
+            return preferredLanguage;
+        }
+        
+        public void setPreferredLanguage(String preferredLanguage) {
+            this.preferredLanguage = preferredLanguage;
+        }
+        
+        public boolean isAutoStart() {
+            return autoStart;
+        }
+        
+        public void setAutoStart(boolean autoStart) {
+            this.autoStart = autoStart;
+        }
+        
+        public int getMaxRecordingTime() {
+            return maxRecordingTime;
+        }
+        
+        public void setMaxRecordingTime(int maxRecordingTime) {
+            this.maxRecordingTime = maxRecordingTime;
+        }
+        
+        public double getSilenceThreshold() {
+            return silenceThreshold;
+        }
+        
+        public void setSilenceThreshold(double silenceThreshold) {
+            this.silenceThreshold = silenceThreshold;
+        }
+        
+        public boolean isShowStatusIndicator() {
+            return showStatusIndicator;
+        }
+        
+        public void setShowStatusIndicator(boolean showStatusIndicator) {
+            this.showStatusIndicator = showStatusIndicator;
+        }
+        
+        public boolean isShowRecordingIndicator() {
+            return showRecordingIndicator;
+        }
+        
+        public void setShowRecordingIndicator(boolean showRecordingIndicator) {
+            this.showRecordingIndicator = showRecordingIndicator;
+        }
+        
+        public double getConfidenceThreshold() {
+            return confidenceThreshold;
+        }
+        
+        public void setConfidenceThreshold(double confidenceThreshold) {
+            this.confidenceThreshold = confidenceThreshold;
+        }
+        
+        public boolean isEnableVAD() {
+            return enableVAD;
+        }
+        
+        public void setEnableVAD(boolean enableVAD) {
+            this.enableVAD = enableVAD;
+        }
+        
+        public String getAudioFormat() {
+            return audioFormat;
+        }
+        
+        public void setAudioFormat(String audioFormat) {
+            this.audioFormat = audioFormat;
+        }
+        
+        public int getSampleRate() {
+            return sampleRate;
+        }
+        
+        public void setSampleRate(int sampleRate) {
+            this.sampleRate = sampleRate;
         }
     }
 }

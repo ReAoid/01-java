@@ -4,6 +4,7 @@ import com.chatbot.config.AppConfig;
 import com.chatbot.model.ChatMessage;
 import com.chatbot.model.ChatSession;
 import com.chatbot.model.OllamaMessage;
+import com.chatbot.model.UserPreferences;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,7 @@ public class ChatService {
     private final SessionHistoryService sessionHistoryService;
     private final WebSearchService webSearchService;
     private final TaskManager taskManager;
+    private final UserPreferencesService userPreferencesService;
     
     public ChatService(SessionService sessionService, 
                       PersonaService personaService,
@@ -45,7 +47,8 @@ public class ChatService {
                       ConversationHistoryService conversationHistoryService,
                       SessionHistoryService sessionHistoryService,
                       WebSearchService webSearchService,
-                      TaskManager taskManager) {
+                      TaskManager taskManager,
+                      UserPreferencesService userPreferencesService) {
         this.sessionService = sessionService;
         this.personaService = personaService;
         this.memoryService = memoryService;
@@ -57,6 +60,7 @@ public class ChatService {
         this.sessionHistoryService = sessionHistoryService;
         this.webSearchService = webSearchService;
         this.taskManager = taskManager;
+        this.userPreferencesService = userPreferencesService;
     }
     
     /**
@@ -321,7 +325,10 @@ public class ChatService {
         // 流式处理状态管理
         StreamingState state = new StreamingState();
         
-        // 使用Ollama服务生成流式响应
+        // 获取用户配置
+        UserPreferences userPrefs = userPreferencesService.getUserPreferences("default");
+        
+        // 使用Ollama服务生成流式响应（传递用户配置）
         okhttp3.Call ollamaCall = ollamaService.generateStreamingResponseWithInterruptCheck(
             messages,
             // 成功处理每个chunk
@@ -368,7 +375,9 @@ public class ChatService {
                 }
             },
             // 中断检查器
-            () -> taskManager.isTaskCancelled(taskId)
+            () -> taskManager.isTaskCancelled(taskId),
+            // 用户配置
+            userPrefs
         );
         
         // 注册HTTP调用以便可以取消
@@ -402,7 +411,10 @@ public class ChatService {
         // 流式处理状态管理
         StreamingState state = new StreamingState();
         
-        // 使用Ollama服务生成流式响应
+        // 获取用户配置
+        UserPreferences userPrefs = userPreferencesService.getUserPreferences("default");
+        
+        // 使用Ollama服务生成流式响应（传递用户配置）
         okhttp3.Call ollamaCall = ollamaService.generateStreamingResponseWithInterruptCheck(
             messages,
             // 成功处理每个chunk
@@ -449,7 +461,9 @@ public class ChatService {
                 }
             },
             // 中断检查器
-            () -> taskManager.isTaskCancelled(taskId)
+            () -> taskManager.isTaskCancelled(taskId),
+            // 用户配置
+            userPrefs
         );
         
         // 立即注册HTTP调用以便可以取消
@@ -874,6 +888,9 @@ public class ChatService {
             final boolean[] completed = {false};
             final boolean[] hasError = {false};
             
+            // 获取用户配置
+            UserPreferences userPrefs = userPreferencesService.getUserPreferences("default");
+            
             ollamaService.generateStreamingResponse(
                 messages,
                 // 成功处理每个chunk
@@ -895,7 +912,9 @@ public class ChatService {
                         completed[0] = true;
                         lock.notify();
                     }
-                }
+                },
+                // 用户配置
+                userPrefs
             );
             
             // 等待响应完成，使用配置的超时时间

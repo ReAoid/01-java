@@ -118,19 +118,37 @@ public class OllamaService {
     }
     
     /**
+     * 流式生成响应（支持完整消息列表和用户配置）
+     */
+    public void generateStreamingResponse(List<OllamaMessage> messages, Consumer<String> onChunk, Consumer<Throwable> onError, Runnable onComplete, UserPreferences userPrefs) {
+        generateStreamingResponseWithInterruptCheck(messages, onChunk, onError, onComplete, null, userPrefs);
+    }
+    
+    /**
      * 流式生成响应（支持完整消息列表和中断检查）
      * @return Call对象，可用于取消请求
      */
     public okhttp3.Call generateStreamingResponseWithInterruptCheck(List<OllamaMessage> messages, Consumer<String> onChunk, Consumer<Throwable> onError, Runnable onComplete, java.util.function.Supplier<Boolean> interruptChecker) {
+        return generateStreamingResponseWithInterruptCheck(messages, onChunk, onError, onComplete, interruptChecker, null);
+    }
+    
+    /**
+     * 流式生成响应（支持完整消息列表、中断检查和用户配置）
+     * @return Call对象，可用于取消请求
+     */
+    public okhttp3.Call generateStreamingResponseWithInterruptCheck(List<OllamaMessage> messages, Consumer<String> onChunk, Consumer<Throwable> onError, Runnable onComplete, java.util.function.Supplier<Boolean> interruptChecker, UserPreferences userPrefs) {
         // 记录LLM请求基本信息
-        logger.info("🤖 发送LLM流式请求 - 消息数: {}, 模型: {}", messages.size(), extractModelFromRequest(messages));
+        String modelName = (userPrefs != null && userPrefs.getOllamaModel() != null) 
+            ? userPrefs.getOllamaModel() 
+            : extractModelFromRequest(messages);
+        logger.info("🤖 发送LLM流式请求 - 消息数: {}, 模型: {}", messages.size(), modelName);
         logger.debug("消息数量: {}", messages.size());
         
         try {
             String url = ollamaConfig.getChatUrl();
             
-            // 构建请求体
-            String requestBody = buildChatRequestFromMessages(messages, true);
+            // 构建请求体（使用用户配置）
+            String requestBody = buildChatRequestFromMessages(messages, true, userPrefs);
             logger.info("📤 LLM请求详情 - URL: {}, 请求体长度: {}字符", url, requestBody.length());
             logger.info("📋 LLM请求内容:\n{}", requestBody);
             
@@ -266,11 +284,23 @@ public class OllamaService {
      * 构建聊天请求的JSON
      */
     private String buildChatRequest(String systemPrompt, String userPrompt, boolean stream) {
+        return buildChatRequest(systemPrompt, userPrompt, stream, null);
+    }
+    
+    /**
+     * 构建聊天请求的JSON（支持用户配置）
+     */
+    private String buildChatRequest(String systemPrompt, String userPrompt, boolean stream, UserPreferences userPrefs) {
         logger.debug("开始构建Ollama聊天请求参数");
         
         try {
-            String model = ollamaConfig.getModel();
+            // 优先使用用户配置，如果没有则使用默认配置
+            String model = (userPrefs != null && userPrefs.getOllamaModel() != null) 
+                ? userPrefs.getOllamaModel() 
+                : ollamaConfig.getModel();
             double temperature = ollamaConfig.getTemperature();
+            
+            logger.debug("使用模型: {}, 温度: {}", model, temperature);
             
             OllamaChatRequest request = new OllamaChatRequest(
                     model,
@@ -293,9 +323,21 @@ public class OllamaService {
      * 从消息列表构建聊天请求的JSON
      */
     private String buildChatRequestFromMessages(List<OllamaMessage> messages, boolean stream) {
+        return buildChatRequestFromMessages(messages, stream, null);
+    }
+    
+    /**
+     * 从消息列表构建聊天请求的JSON（支持用户配置）
+     */
+    private String buildChatRequestFromMessages(List<OllamaMessage> messages, boolean stream, UserPreferences userPrefs) {
         try {
-            String model = ollamaConfig.getModel();
+            // 优先使用用户配置，如果没有则使用默认配置
+            String model = (userPrefs != null && userPrefs.getOllamaModel() != null) 
+                ? userPrefs.getOllamaModel() 
+                : ollamaConfig.getModel();
             double temperature = ollamaConfig.getTemperature();
+            
+            logger.debug("使用模型: {}, 温度: {}", model, temperature);
             
             OllamaChatRequestFromMessages request = new OllamaChatRequestFromMessages(
                     model,

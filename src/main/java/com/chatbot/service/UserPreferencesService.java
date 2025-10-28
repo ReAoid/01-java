@@ -66,12 +66,9 @@ public class UserPreferencesService {
             return preferences;
         }
         
-        // 从文件加载
-        preferences = loadUserPreferencesFromFile(userId);
-        if (preferences == null) {
-            // 创建默认配置
-            preferences = createDefaultPreferences(userId);
-        }
+        // 单用户模式：直接基于application.yml创建配置，不使用文件
+        preferences = createDefaultPreferencesFromAppConfig(userId);
+        logger.debug("单用户模式：直接从application.yml创建配置，userId: {}", userId);
         
         // 缓存配置
         userPreferencesCache.put(userId, preferences);
@@ -94,13 +91,10 @@ public class UserPreferencesService {
             preferences.setUserId(userId);
             preferences.updateLastModified();
             
-            // 保存到文件
-            saveUserPreferencesToFile(userId, preferences);
-            
-            // 更新缓存
+            // 单用户模式：只更新内存缓存，不保存到文件
             userPreferencesCache.put(userId, preferences);
             
-            logger.info("保存用户配置成功 - userId: {}", userId);
+            logger.debug("用户配置已更新到内存缓存 - userId: {}", userId);
             return true;
         } catch (Exception e) {
             logger.error("保存用户配置失败 - userId: {}", userId, e);
@@ -156,7 +150,7 @@ public class UserPreferencesService {
      */
     public boolean resetUserPreferences(String userId) {
         try {
-            UserPreferences defaultPreferences = createDefaultPreferences(userId);
+            UserPreferences defaultPreferences = createDefaultPreferencesFromAppConfig(userId);
             return saveUserPreferences(userId, defaultPreferences);
         } catch (Exception e) {
             logger.error("重置用户配置失败 - userId: {}", userId, e);
@@ -228,9 +222,9 @@ public class UserPreferencesService {
     }
     
     /**
-     * 创建默认用户配置
+     * 基于application.yml创建默认用户配置
      */
-    private UserPreferences createDefaultPreferences(String userId) {
+    private UserPreferences createDefaultPreferencesFromAppConfig(String userId) {
         UserPreferences preferences = new UserPreferences(userId);
         
         // 从系统配置中获取默认值
@@ -255,9 +249,35 @@ public class UserPreferencesService {
         preferences.setWebSearchTimeout(webSearchConfig.getTimeoutSeconds());
         preferences.setWebSearchEngine(webSearchConfig.getDefaultEngine());
         
-        // 注意：聊天相关的配置已移至聊天界面直接控制，此处不再设置
+        // 确保TTS相关配置默认为禁用状态
+        UserPreferences.ChatOutputConfig chatOutput = preferences.getChatOutput();
+        if (chatOutput == null) {
+            chatOutput = new UserPreferences.ChatOutputConfig();
+            preferences.setChatOutput(chatOutput);
+        }
+        // 强制设置为禁用状态
+        chatOutput.setEnabled(false);
+        chatOutput.setAutoTTS(false);
+        chatOutput.setMode("text_only");
         
-        logger.info("创建默认用户配置 - userId: {}", userId);
+        UserPreferences.Live2DOutputConfig live2dOutput = preferences.getLive2dOutput();
+        if (live2dOutput == null) {
+            live2dOutput = new UserPreferences.Live2DOutputConfig();
+            preferences.setLive2dOutput(live2dOutput);
+        }
+        // 确保Live2D也是禁用状态
+        live2dOutput.setEnabled(false);
+        
+        // 确保ASR配置默认为禁用状态
+        UserPreferences.ASRConfig asrConfig = preferences.getAsrConfig();
+        if (asrConfig == null) {
+            asrConfig = new UserPreferences.ASRConfig();
+            preferences.setAsrConfig(asrConfig);
+        }
+        // 强制设置为禁用状态
+        asrConfig.setEnabled(false);
+        
+        logger.info("创建默认用户配置 - userId: {}, TTS状态: 禁用, ASR状态: 禁用", userId);
         return preferences;
     }
     

@@ -294,6 +294,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
     /**
      * 生成基于日期的会话ID (格式: YYYYMMDD)
+     * 同一天内所有连接都使用相同的会话ID，实现单用户单日会话模式
      */
     private String generateSessionId() {
         return java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));

@@ -19,6 +19,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
  */
 @SpringBootApplication
 @EnableConfigurationProperties
+@org.springframework.boot.context.properties.ConfigurationPropertiesScan
 public class ChatbotApplication {
     
     private static final Logger logger = LoggerFactory.getLogger(ChatbotApplication.class);

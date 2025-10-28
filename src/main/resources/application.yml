@@ -28,7 +28,7 @@ app:
       delay-ms: 50
     voice:
       asr-model: "whisper-medium"
-      tts-voice: "zh-CN-XiaoxiaoNeural"
+      tts-voice: "派蒙"  # 使用CosyVoice的默认语音人设
 
   # Ollama配置
   ollama:
@@ -82,6 +82,16 @@ app:
       sessions: "data/sessions"
       worldbook-manual: "src/main/resources/data/worldbook/manual_worldbook.json"
       worldbook-extracted: "src/main/resources/data/worldbook/extracted_worldbook.json"
+
+  # 联网搜索配置
+  web-search:
+    enabled: false  # 默认禁用联网搜索
+    max-results: 5
+    timeout-seconds: 10
+    default-engine: "duckduckgo"
+    enable-fallback: true
+    serp-api-key: ""
+    bing-api-key: ""
 
 # 记忆系统配置（预留）
 # memory:

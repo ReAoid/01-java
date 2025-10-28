@@ -3940,6 +3940,9 @@
                 ttsSettings.chatMode = 'char_stream_tts';
                 currentTTSMode = 'char_stream_tts';
                 addMessage('system', '✅ 已启用聊天窗口TTS (模式2 - 字符流+语音)');
+                
+                // 启用TTS后加载语音人设列表
+                loadCosyVoiceSpeakers();
             } else {
                 // 禁用TTS，切换到模式1
                 ttsSettings.chatEnabled = false;
@@ -5192,11 +5195,19 @@
                 currentTTSMode = savedMode;
             }
             
+            // 强制确保TTS在程序启动时为禁用状态
+            ttsSettings.chatEnabled = false;
+            ttsSettings.chatMode = 'text_only';
+            currentTTSMode = 'text_only';
+            
+            // 保存强制重置的状态
+            saveTTSSettings();
+            
             updateTTSModeDisplay();
             updateTTSControlButton();
             
-            // 初始加载语音角色列表
-            loadCosyVoiceSpeakers();
+            // 不在初始化时加载语音角色列表，只在需要时加载
+            console.log('✅ TTS设置已初始化为禁用状态');
         }
         
         // 初始化TTS设置事件监听
@@ -5233,9 +5244,12 @@
                     }
                 });
                 
-                // 点击下拉框时自动刷新语音人设列表
+                // 点击下拉框时才加载语音人设列表（如果还没有加载过）
                 customSelect.addEventListener('focus', function() {
-                    loadCosyVoiceSpeakers();
+                    // 只在TTS启用时或用户主动点击时才加载
+                    if (ttsSettings.chatEnabled || this.children.length <= 1) {
+                        loadCosyVoiceSpeakers();
+                    }
                 });
             }
 
