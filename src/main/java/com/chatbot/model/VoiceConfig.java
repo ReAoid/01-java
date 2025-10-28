@@ -7,12 +7,12 @@ public class VoiceConfig {
     /**
      * ASR模型名称
      */
-    private String asrModel = "whisper-medium";
+    private String asrModel = "sensevoice";
     
     /**
      * TTS语音类型
      */
-    private String ttsVoice = "zh-CN-XiaoxiaoNeural";
+    private String ttsVoice = "cosyvoice";
     
     public String getAsrModel() {
         return asrModel;
