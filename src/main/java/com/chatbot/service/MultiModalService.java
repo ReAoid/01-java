@@ -31,23 +31,11 @@ public class MultiModalService {
     
     /**
      * 语音转文本 (ASR - Automatic Speech Recognition)
+     * 注意：ASR功能已通过WebSocket实时处理，此方法已废弃
      */
+    @Deprecated
     public CompletableFuture<String> speechToText(byte[] audioData, String audioFormat) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                logger.info("调用ASR服务，音频格式: {}, 数据大小: {} bytes", audioFormat, audioData.length);
-                
-                // Mock实现 - 实际应该调用Python ASR API
-                String mockResult = mockAsrProcessing(audioData, audioFormat);
-                
-                logger.debug("ASR处理完成，结果: {}", mockResult);
-                return mockResult;
-                
-            } catch (Exception e) {
-                logger.error("ASR处理失败", e);
-                throw new RuntimeException("语音识别失败", e);
-            }
-        });
+        return CompletableFuture.completedFuture("ASR功能已迁移到WebSocket实时处理");
     }
     
     /**
@@ -147,22 +135,6 @@ public class MultiModalService {
     
     // ========== Mock实现方法 ==========
     
-    /**
-     * Mock ASR处理
-     */
-    private String mockAsrProcessing(byte[] audioData, String audioFormat) {
-        // 模拟不同的语音识别结果
-        String[] mockResults = {
-            "你好，我想了解一下人工智能的发展历史。",
-            "请帮我分析一下这个问题的解决方案。",
-            "我对机器学习很感兴趣，能给我一些建议吗？",
-            "今天天气怎么样？",
-            "谢谢你的帮助，我明白了。"
-        };
-        
-        int index = Math.abs(audioData.hashCode()) % mockResults.length;
-        return mockResults[index];
-    }
     
     /**
      * 检查TTS服务健康状态

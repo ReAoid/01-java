@@ -30,6 +30,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     private final Live2DChannel live2dChannel;
     private final OllamaService ollamaService;
     private final ObjectMapper objectMapper;
+    private final ASRWebSocketHandler asrWebSocketHandler;
 
     // 存储活跃的WebSocket会话
     private final ConcurrentHashMap<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
@@ -45,12 +46,14 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                                MultiChannelDispatcher multiChannelDispatcher,
                                Live2DChannel live2dChannel,
                                OllamaService ollamaService, 
-                               ObjectMapper objectMapper) {
+                               ObjectMapper objectMapper,
+                               ASRWebSocketHandler asrWebSocketHandler) {
         this.chatService = chatService;
         this.multiChannelDispatcher = multiChannelDispatcher;
         this.live2dChannel = live2dChannel;
         this.ollamaService = ollamaService;
         this.objectMapper = objectMapper;
+        this.asrWebSocketHandler = asrWebSocketHandler;
     }
 
     @Override
@@ -99,6 +102,17 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                 if ("audio_playback_completed".equals(chatMessage.getType())) {
                     handleAudioPlaybackCompleted(chatMessage, sessionId);
                     return;
+                }
+                
+                // 检查是否是ASR音频数据
+                if ("asr_audio_chunk".equals(chatMessage.getType())) {
+                    handleASRAudioChunk(chatMessage, sessionId, session);
+                    return;
+                }
+                
+                // 检查是否是ASR相关消息
+                if (asrWebSocketHandler.handleASRMessage(session, chatMessage)) {
+                    return; // ASR消息已处理
                 }
                 
                 // 检查是否是系统命令
@@ -208,6 +222,11 @@ public class ChatWebSocketHandler implements WebSocketHandler {
         // 清理会话相关资源
         chatService.cleanupSession(sessionId);
         multiChannelDispatcher.cleanupSession(sessionId);
+        
+        // 清理ASR会话资源
+        if (asrWebSocketHandler != null) {
+            asrWebSocketHandler.cleanupSession(sessionId);
+        }
         
         // 清理任务ID映射
         sessionTasks.remove(sessionId);
@@ -481,6 +500,32 @@ public class ChatWebSocketHandler implements WebSocketHandler {
             
         } catch (Exception e) {
             logger.error("处理音频播放完成通知失败: sessionId={}", sessionId, e);
+        }
+    }
+    
+    /**
+     * 处理ASR音频数据块
+     */
+    private void handleASRAudioChunk(ChatMessage message, String sessionId, WebSocketSession session) {
+        try {
+            logger.debug("收到ASR音频数据: sessionId={}", sessionId);
+            
+            // 委托给ASRWebSocketHandler处理
+            asrWebSocketHandler.handleAudioChunk(session, message);
+            
+        } catch (Exception e) {
+            logger.error("处理ASR音频数据失败: sessionId={}", sessionId, e);
+            
+            try {
+                ChatMessage errorMessage = new ChatMessage();
+                errorMessage.setType("system");
+                errorMessage.setContent("ASR音频处理失败: " + e.getMessage());
+                errorMessage.setSessionId(sessionId);
+                
+                sendMessage(session, errorMessage);
+            } catch (IOException ex) {
+                logger.error("发送ASR错误消息失败", ex);
+            }
         }
     }
     

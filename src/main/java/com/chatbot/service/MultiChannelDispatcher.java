@@ -67,8 +67,8 @@ public class MultiChannelDispatcher {
         logger.info("开始用户选择模式的消息处理: sessionId={}", sessionId);
         
         try {
-            // 获取用户偏好 - 使用default用户配置而不是会话ID配置
-            UserPreferences prefs = userPreferencesService.getUserPreferences("default");
+            // 获取用户偏好 - 使用Taiming用户配置而不是会话ID配置
+            UserPreferences prefs = userPreferencesService.getUserPreferences("Taiming");
             
             // 根据用户选择的模式选择对应的输出通道
             ChannelSelection selection = selectChannelByUserChoice(prefs);

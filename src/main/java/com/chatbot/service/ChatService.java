@@ -326,7 +326,7 @@ public class ChatService {
         StreamingState state = new StreamingState();
         
         // 获取用户配置
-        UserPreferences userPrefs = userPreferencesService.getUserPreferences("default");
+        UserPreferences userPrefs = userPreferencesService.getUserPreferences("Taiming");
         
         // 使用Ollama服务生成流式响应（传递用户配置）
         okhttp3.Call ollamaCall = ollamaService.generateStreamingResponseWithInterruptCheck(
@@ -412,7 +412,7 @@ public class ChatService {
         StreamingState state = new StreamingState();
         
         // 获取用户配置
-        UserPreferences userPrefs = userPreferencesService.getUserPreferences("default");
+        UserPreferences userPrefs = userPreferencesService.getUserPreferences("Taiming");
         
         // 使用Ollama服务生成流式响应（传递用户配置）
         okhttp3.Call ollamaCall = ollamaService.generateStreamingResponseWithInterruptCheck(
@@ -889,7 +889,7 @@ public class ChatService {
             final boolean[] hasError = {false};
             
             // 获取用户配置
-            UserPreferences userPrefs = userPreferencesService.getUserPreferences("default");
+            UserPreferences userPrefs = userPreferencesService.getUserPreferences("Taiming");
             
             ollamaService.generateStreamingResponse(
                 messages,

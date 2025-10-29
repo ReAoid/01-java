@@ -1143,12 +1143,12 @@
             border-radius: 5px;
             background: white;
         }
-        .thinking-toggle, .tts-toggle, .web-search-toggle {
+        .thinking-toggle, .asr-toggle, .tts-toggle, .web-search-toggle {
             display: flex;
             align-items: center;
             gap: 8px;
         }
-        .thinking-toggle label, .tts-toggle label, .web-search-toggle label {
+        .thinking-toggle label, .asr-toggle label, .tts-toggle label, .web-search-toggle label {
             font-size: 14px;
             color: #666;
             margin: 0;
@@ -1906,6 +1906,10 @@
                 <label for="thinkingToggle">显示思考:</label>
                 <div class="toggle-switch" id="thinkingToggle" title="切换是否显示AI的思考过程"></div>
             </div>
+            <div class="asr-toggle">
+                <label for="asrToggle">开启ASR:</label>
+                <div class="toggle-switch" id="asrToggle" title="切换语音识别输入模式"></div>
+            </div>
             <div class="tts-toggle">
                 <label for="ttsToggle">开启TTS:</label>
                 <div class="toggle-switch" id="ttsToggle" title="切换聊天窗口语音输出模式"></div>
@@ -2228,6 +2232,7 @@
         let reconnectAttempts = 0;
         const maxReconnectAttempts = 5;
         let showThinking = true; // 思考显示状态
+        let asrEnabled = false; // ASR语音识别状态
         let useWebSearch = false; // 联网搜索状态
         let isAIResponding = false; // AI是否正在回复
         let currentStreamingMessage = null; // 当前流式消息元素
@@ -2235,6 +2240,12 @@
         let timeoutMessageShown = false; // 防止重复显示超时消息的标志
         let lastAIActivityTime = null; // 最后一次AI活动时间
         let activityCheckInterval = null; // 活动检测定时器
+        
+        // ASR相关变量
+        let asrServiceAvailable = false; // ASR服务是否可用
+        let mediaRecorder = null; // 媒体录制器
+        let audioStream = null; // 音频流
+        let isRecording = false; // 是否正在录音
         
         // TTS相关变量
         let currentTTSMode = 'text_only'; // 当前TTS模式
@@ -2266,6 +2277,7 @@
         const interruptBtn = document.getElementById('interruptBtn');
         const personaSelect = document.getElementById('personaSelect');
         const thinkingToggle = document.getElementById('thinkingToggle');
+        const asrToggle = document.getElementById('asrToggle');
         const ttsToggle = document.getElementById('ttsToggle');
         const webSearchToggle = document.getElementById('webSearchToggle');
         
@@ -3168,6 +3180,15 @@
                 } else if (message.metadata && message.metadata.interrupt_confirmed) {
                     // 处理打断确认
                     handleInterruptConfirmation(message);
+                } else if (message.metadata && message.metadata.asr_result) {
+                    // 处理ASR识别结果
+                    handleASRResult(message);
+                } else if (message.metadata && message.metadata.asr_connection_failed) {
+                    // 处理ASR连接失败
+                    handleASRConnectionFailed(message);
+                } else if (message.metadata && message.metadata.asr_session_taken_over) {
+                    // 处理ASR会话被接管
+                    handleASRSessionTakenOver(message);
                 } else {
                     addMessage('system', message.content);
                 }
@@ -3647,6 +3668,9 @@
         // 思考切换事件监听
         thinkingToggle.addEventListener('click', toggleThinkingDisplay);
         
+        // ASR切换事件监听
+        asrToggle.addEventListener('click', toggleASR);
+        
         // TTS切换事件监听
         ttsToggle.addEventListener('click', toggleChatTTS);
         
@@ -3885,6 +3909,9 @@
         // 初始化联网搜索切换UI
         updateWebSearchToggleUI(useWebSearch);
         
+        // 初始化ASR切换UI
+        updateASRToggleUI(asrEnabled);
+        
         // 初始化TTS切换UI
         updateTTSToggleUI(ttsSettings.chatEnabled);
         
@@ -3912,6 +3939,324 @@
                 console.error('TTS健康检查异常:', error);
                 return false;
             }
+        }
+        
+        // ASR切换函数
+        async function toggleASR() {
+            // 如果AI正在回复，直接返回不做任何操作
+            if (isAIResponding) {
+                return;
+            }
+            
+            // 如果要启用ASR，先检查服务健康状态
+            if (!asrEnabled) {
+                // 显示检查中的提示
+                addMessage('system', '🔍 正在检查ASR服务状态...');
+                
+                // 执行健康检查
+                const isHealthy = await checkASRHealth();
+                
+                if (!isHealthy) {
+                    // ASR服务不可用，显示警告并返回
+                    addMessage('system', '⚠️ ASR服务不可用，无法启用');
+                    // 确保UI状态正确（保持关闭状态）
+                    updateASRToggleUI(false);
+                    return;
+                }
+                
+                // 发送ASR启用消息到后端，等待后端确认
+                const backendSuccess = await sendASRToggleMessageAsync(true);
+                
+                if (!backendSuccess) {
+                    addMessage('system', '⚠️ ASR后端连接失败，无法启用');
+                    // 确保UI状态正确（保持关闭状态）
+                    updateASRToggleUI(false);
+                    return;
+                }
+                
+                // 服务可用且后端连接成功，继续启用ASR
+                asrEnabled = true;
+                addMessage('system', '✅ 已启用ASR语音识别');
+                
+                // 启动麦克风录音
+                await startMicrophoneRecording();
+            } else {
+                // 禁用ASR
+                asrEnabled = false;
+                addMessage('system', '❌ 已禁用ASR语音识别');
+                
+                // 发送ASR禁用消息到后端
+                sendASRToggleMessage(false);
+                
+                // 停止麦克风录音
+                stopMicrophoneRecording();
+            }
+            
+            // 更新UI
+            updateASRToggleUI(asrEnabled);
+            
+            console.log('ASR状态切换:', {
+                enabled: asrEnabled,
+                serviceAvailable: asrServiceAvailable,
+                isRecording: isRecording
+            });
+        }
+        
+        // 更新ASR切换按钮UI
+        function updateASRToggleUI(state) {
+            if (state) {
+                asrToggle.classList.add('active');
+            } else {
+                asrToggle.classList.remove('active');
+            }
+        }
+        
+        // 发送ASR切换消息到后端
+        function sendASRToggleMessage(enabled) {
+            if (!ws || !isConnected) {
+                console.error('WebSocket未连接，无法发送ASR切换消息');
+                return;
+            }
+            
+            const message = {
+                type: enabled ? 'asr_start_session' : 'asr_end_session',
+                sessionId: currentSessionId,
+                metadata: {
+                    enabled: enabled,
+                    timestamp: Date.now()
+                }
+            };
+            
+            console.log('发送ASR切换消息:', message);
+            ws.send(JSON.stringify(message));
+        }
+        
+        // 异步发送ASR切换消息到后端并等待确认
+        async function sendASRToggleMessageAsync(enabled) {
+            if (!ws || !isConnected) {
+                console.error('WebSocket未连接，无法发送ASR切换消息');
+                return false;
+            }
+            
+            return new Promise((resolve) => {
+                const message = {
+                    type: enabled ? 'asr_start_session' : 'asr_end_session',
+                    sessionId: currentSessionId,
+                    metadata: {
+                        enabled: enabled,
+                        timestamp: Date.now()
+                    }
+                };
+                
+                console.log('发送ASR切换消息:', message);
+                
+                // 设置超时处理
+                const timeout = setTimeout(() => {
+                    console.error('ASR后端响应超时');
+                    resolve(false);
+                }, 5000); // 5秒超时
+                
+                // 临时监听ASR响应
+                const handleASRResponse = (event) => {
+                    try {
+                        const response = JSON.parse(event.data);
+                        if (response.type === 'system' && response.metadata && 
+                            (response.metadata.asr_session_started || response.metadata.asr_session_ended)) {
+                            clearTimeout(timeout);
+                            ws.removeEventListener('message', handleASRResponse);
+                            resolve(true);
+                        }
+                    } catch (e) {
+                        // 忽略非JSON消息
+                    }
+                };
+                
+                ws.addEventListener('message', handleASRResponse);
+                ws.send(JSON.stringify(message));
+                
+                // 如果是禁用操作，直接返回成功（不需要等待确认）
+                if (!enabled) {
+                    clearTimeout(timeout);
+                    ws.removeEventListener('message', handleASRResponse);
+                    resolve(true);
+                }
+            });
+        }
+        
+        // 检查ASR服务健康状态
+        async function checkASRHealth() {
+            try {
+                const response = await fetch('http://localhost:8768/health', {
+                    method: 'GET',
+                    timeout: 5000
+                });
+                
+                if (response.ok) {
+                    const healthData = await response.json();
+                    asrServiceAvailable = healthData.server_ready === true;
+                    return asrServiceAvailable;
+                }
+                
+                asrServiceAvailable = false;
+                return false;
+            } catch (error) {
+                console.error('ASR健康检查失败:', error);
+                asrServiceAvailable = false;
+                return false;
+            }
+        }
+        
+        // 启动麦克风录音
+        async function startMicrophoneRecording() {
+            try {
+                // 请求麦克风权限
+                audioStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        sampleRate: 16000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    }
+                });
+                
+                // 创建媒体录制器
+                mediaRecorder = new MediaRecorder(audioStream, {
+                    mimeType: 'audio/webm;codecs=opus'
+                });
+                
+                // 设置录音数据处理
+                mediaRecorder.ondataavailable = function(event) {
+                    if (event.data.size > 0 && asrEnabled) {
+                        // 发送音频数据到ASR服务
+                        sendAudioToASR(event.data);
+                    }
+                };
+                
+                // 开始录音
+                mediaRecorder.start(100); // 每100ms发送一次数据
+                isRecording = true;
+                
+                console.log('麦克风录音已启动');
+                
+            } catch (error) {
+                console.error('启动麦克风录音失败:', error);
+                addMessage('system', '❌ 无法访问麦克风，请检查权限设置');
+                asrEnabled = false;
+                updateASRToggleUI(false);
+            }
+        }
+        
+        // 停止麦克风录音
+        function stopMicrophoneRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+            }
+            
+            if (audioStream) {
+                audioStream.getTracks().forEach(track => track.stop());
+                audioStream = null;
+            }
+            
+            console.log('麦克风录音已停止');
+        }
+        
+        // 发送音频数据到ASR服务
+        async function sendAudioToASR(audioBlob) {
+            try {
+                // 将音频blob转换为base64
+                const arrayBuffer = await audioBlob.arrayBuffer();
+                const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+                
+                // 通过WebSocket发送ASR消息
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    const asrMessage = {
+                        type: 'asr_audio_chunk',
+                        sessionId: currentSessionId,
+                        metadata: {
+                            audio_data: base64Audio,
+                            timestamp: Date.now()
+                        }
+                    };
+                    
+                    ws.send(JSON.stringify(asrMessage));
+                }
+                
+            } catch (error) {
+                console.error('发送音频数据失败:', error);
+            }
+        }
+        
+        // 处理ASR识别结果
+        function handleASRResult(message) {
+            const metadata = message.metadata;
+            const transcription = metadata.transcription;
+            const confidence = metadata.confidence;
+            const isFinal = metadata.is_final;
+            
+            console.log('收到ASR识别结果:', {
+                transcription,
+                confidence,
+                isFinal
+            });
+            
+            if (isFinal && transcription && transcription.trim()) {
+                // 显示识别结果
+                addMessage('system', `🎤 语音识别: "${transcription}" (置信度: ${(confidence * 100).toFixed(1)}%)`);
+                
+                // 如果置信度足够高，自动发送消息
+                if (confidence > 0.7) {
+                    // 将识别的文本设置到输入框
+                    messageInput.value = transcription;
+                    
+                    // 自动发送消息
+                    setTimeout(() => {
+                        sendMessage();
+                    }, 500);
+                }
+            }
+        }
+        
+        // 处理ASR连接失败
+        function handleASRConnectionFailed(message) {
+            console.log('收到ASR连接失败通知:', message);
+            
+            // 强制关闭ASR功能
+            asrEnabled = false;
+            updateASRToggleUI(false);
+            
+            // 停止麦克风录音
+            stopMicrophoneRecording();
+            
+            // 显示错误消息
+            addMessage('system', '❌ ' + message.content);
+            
+            console.log('ASR功能已自动关闭:', {
+                enabled: asrEnabled,
+                maxRetriesReached: message.metadata.max_retries_reached,
+                autoDisabled: message.metadata.asr_auto_disabled
+            });
+        }
+        
+        // 处理ASR会话被接管
+        function handleASRSessionTakenOver(message) {
+            console.log('收到ASR会话接管通知:', message);
+            
+            // 强制关闭当前窗口的ASR功能
+            asrEnabled = false;
+            updateASRToggleUI(false);
+            
+            // 停止麦克风录音
+            stopMicrophoneRecording();
+            
+            // 显示接管消息
+            addMessage('system', '🔄 ' + message.content);
+            
+            console.log('ASR功能已被其他窗口接管:', {
+                oldSessionId: message.metadata.old_session_id,
+                newSessionId: message.metadata.new_session_id,
+                autoDisabled: message.metadata.asr_auto_disabled
+            });
         }
         
         // TTS切换函数

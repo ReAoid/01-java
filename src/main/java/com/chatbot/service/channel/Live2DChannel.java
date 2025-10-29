@@ -263,8 +263,8 @@ public class Live2DChannel implements OutputChannel {
         String sentenceId = sentence.getId();
         
         try {
-            // 获取Live2D语音偏好 - 使用default用户配置
-            UserPreferences prefs = userPreferencesService.getUserPreferences("default");
+            // 获取Live2D语音偏好 - 使用Taiming用户配置
+            UserPreferences prefs = userPreferencesService.getUserPreferences("Taiming");
             String speakerId = (prefs.getLive2dOutput() != null) ? 
                 prefs.getLive2dOutput().getSpeakerId() : "派蒙";
             

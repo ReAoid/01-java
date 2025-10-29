@@ -44,7 +44,7 @@ app:
     # 独立服务URL配置 - 每个服务可以有不同的域名和端口
     services:
       # ASR (语音识别) 服务
-      asr-url: "http://localhost:5000"
+      asr-url: "ws://localhost:8767/asr"
       
       # TTS (文本转语音) 服务
       tts-url: "http://localhost:50000"
@@ -54,6 +54,11 @@ app:
       
       # OCR (图像识别) 服务
       ocr-url: "http://localhost:5000"
+    
+    # ASR专用配置
+    asr:
+      health-url: "http://localhost:8768/health"
+      enabled: true
     
     # 超时配置（单位：秒）
     timeout:

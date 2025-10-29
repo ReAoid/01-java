@@ -26,7 +26,7 @@ public class UserPreferencesService {
     private final AppConfig appConfig;
     private final ConcurrentHashMap<String, UserPreferences> userPreferencesCache;
     private static final String PREFERENCES_DIR = "data/user_preferences";
-    private static final String DEFAULT_USER_ID = "default";
+    private static final String DEFAULT_USER_ID = "Taiming";
     
     public UserPreferencesService(AppConfig appConfig) {
         this.appConfig = appConfig;

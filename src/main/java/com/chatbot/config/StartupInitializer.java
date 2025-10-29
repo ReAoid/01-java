@@ -79,7 +79,7 @@ public class StartupInitializer {
      */
     private void initializeTTSSettings(UserPreferencesService userPreferencesService) {
         try {
-            String defaultUserId = "default";
+            String defaultUserId = "Taiming";
             UserPreferences preferences = userPreferencesService.getUserPreferences(defaultUserId);
             
             // 检查并强制重置TTS状态

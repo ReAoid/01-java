@@ -59,8 +59,8 @@ public class ChatWindowChannel implements OutputChannel {
         String sessionId = context.getSessionId();
         
         try {
-            // 使用default用户配置获取TTS偏好
-            UserPreferences prefs = userPreferencesService.getUserPreferences("default");
+            // 使用Taiming用户配置获取TTS偏好
+            UserPreferences prefs = userPreferencesService.getUserPreferences("Taiming");
             String chatMode = getChatMode(prefs);
             
             logger.debug("聊天窗口接收新句子: order={}, mode={}, sessionId={}", 
@@ -195,8 +195,8 @@ public class ChatWindowChannel implements OutputChannel {
         String sessionId = context.getSessionId();
         
         try {
-            // 获取用户TTS偏好 - 使用default用户配置
-            UserPreferences prefs = userPreferencesService.getUserPreferences("default");
+            // 获取用户TTS偏好 - 使用Taiming用户配置
+            UserPreferences prefs = userPreferencesService.getUserPreferences("Taiming");
             String speakerId = prefs.getPreferredSpeakerId();
             
             logger.debug("开始生成TTS: order={}, speakerId={}, sessionId={}", order, speakerId, sessionId);
