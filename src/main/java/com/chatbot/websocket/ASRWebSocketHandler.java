@@ -301,11 +301,14 @@ public class ASRWebSocketHandler {
             
             // 发送识别结果到前端
             ChatMessage resultMessage = new ChatMessage();
-            resultMessage.setType("asr_result");
+            resultMessage.setType("system");
             resultMessage.setSessionId(sessionId);
+            resultMessage.setContent("ASR识别结果");
             resultMessage.setMetadata(Map.of(
-                "text", transcription,
+                "asr_result", true,
+                "transcription", transcription,
                 "confidence", confidence,
+                "is_final", true,
                 "timestamp", System.currentTimeMillis()
             ));
             
