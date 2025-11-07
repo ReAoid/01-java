@@ -23,12 +23,12 @@ app:
     web-search-decision:
       timeout-seconds: 5  # AI判断联网搜索需求的超时时间（秒）
       enable-timeout-fallback: true  # 超时时是否采用保守策略（不搜索）
-    streaming:
-      chunk-size: 16
-      delay-ms: 50
-    voice:
-      asr-model: "whisper-medium"
-      tts-voice: "派蒙"  # 使用CosyVoice的默认语音人设
+    # Streaming配置（扁平化，避免与model包重复）
+    streaming-chunk-size: 16
+    streaming-delay-ms: 50
+    # Voice配置（扁平化，避免与model包重复）
+    voice-asr-model: "whisper-medium"
+    voice-tts-voice: "派蒙"
 
   # Ollama配置
   ollama:

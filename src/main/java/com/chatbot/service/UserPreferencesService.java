@@ -235,13 +235,12 @@ public class UserPreferencesService {
         preferences.setOllamaMaxTokens(ollamaConfig.getMaxTokens());
         preferences.setOllamaStream(ollamaConfig.isStream());
         
-        AppConfig.AIConfig.StreamingConfig streamingConfig = appConfig.getAi().getStreaming();
-        preferences.setStreamingChunkSize(streamingConfig.getChunkSize());
-        preferences.setStreamingDelayMs(streamingConfig.getDelayMs());
+        AppConfig.AIConfig aiConfig = appConfig.getAi();
+        preferences.setStreamingChunkSize(aiConfig.getStreamingChunkSize());
+        preferences.setStreamingDelayMs(aiConfig.getStreamingDelayMs());
         
-        AppConfig.AIConfig.VoiceConfig voiceConfig = appConfig.getAi().getVoice();
-        preferences.setAsrModel(voiceConfig.getAsrModel());
-        preferences.setPreferredSpeakerId(voiceConfig.getTtsVoice());
+        preferences.setAsrModel(aiConfig.getVoiceAsrModel());
+        preferences.setPreferredSpeakerId(aiConfig.getVoiceTtsVoice());
         
         AppConfig.WebSearchConfig webSearchConfig = appConfig.getWebSearch();
         preferences.setWebSearchEnabled(webSearchConfig.isEnabled());

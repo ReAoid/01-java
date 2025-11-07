@@ -121,8 +121,14 @@ public class AppConfig implements InitializingBean {
     public static class AIConfig {
         private SystemPromptConfig systemPrompt = new SystemPromptConfig();
         private WebSearchDecisionConfig webSearchDecision = new WebSearchDecisionConfig();
-        private StreamingConfig streaming = new StreamingConfig();
-        private VoiceConfig voice = new VoiceConfig();
+        
+        // Streaming配置 - 直接使用基本类型，避免与model包中的StreamingConfig重复
+        private int streamingChunkSize = 16;
+        private int streamingDelayMs = 50;
+        
+        // Voice配置 - 直接使用基本类型，避免与model包中的VoiceConfig重复
+        private String voiceAsrModel = "whisper-medium";
+        private String voiceTtsVoice = "派蒙";
         
         public SystemPromptConfig getSystemPrompt() { return systemPrompt; }
         public void setSystemPrompt(SystemPromptConfig systemPrompt) { this.systemPrompt = systemPrompt; }
@@ -130,11 +136,19 @@ public class AppConfig implements InitializingBean {
         public WebSearchDecisionConfig getWebSearchDecision() { return webSearchDecision; }
         public void setWebSearchDecision(WebSearchDecisionConfig webSearchDecision) { this.webSearchDecision = webSearchDecision; }
         
-        public StreamingConfig getStreaming() { return streaming; }
-        public void setStreaming(StreamingConfig streaming) { this.streaming = streaming; }
+        // Streaming配置的getter/setter
+        public int getStreamingChunkSize() { return streamingChunkSize; }
+        public void setStreamingChunkSize(int streamingChunkSize) { this.streamingChunkSize = streamingChunkSize; }
         
-        public VoiceConfig getVoice() { return voice; }
-        public void setVoice(VoiceConfig voice) { this.voice = voice; }
+        public int getStreamingDelayMs() { return streamingDelayMs; }
+        public void setStreamingDelayMs(int streamingDelayMs) { this.streamingDelayMs = streamingDelayMs; }
+        
+        // Voice配置的getter/setter
+        public String getVoiceAsrModel() { return voiceAsrModel; }
+        public void setVoiceAsrModel(String voiceAsrModel) { this.voiceAsrModel = voiceAsrModel; }
+        
+        public String getVoiceTtsVoice() { return voiceTtsVoice; }
+        public void setVoiceTtsVoice(String voiceTtsVoice) { this.voiceTtsVoice = voiceTtsVoice; }
         
         /**
          * 系统提示词配置
@@ -169,28 +183,6 @@ public class AppConfig implements InitializingBean {
             
             // 辅助方法：获取毫秒超时时间
             public long getTimeoutMillis() { return timeoutSeconds * 1000L; }
-        }
-        
-        public static class StreamingConfig {
-            private int chunkSize;
-            private int delayMs;
-            
-            public int getChunkSize() { return chunkSize; }
-            public void setChunkSize(int chunkSize) { this.chunkSize = chunkSize; }
-            
-            public int getDelayMs() { return delayMs; }
-            public void setDelayMs(int delayMs) { this.delayMs = delayMs; }
-        }
-        
-        public static class VoiceConfig {
-            private String asrModel;
-            private String ttsVoice;
-            
-            public String getAsrModel() { return asrModel; }
-            public void setAsrModel(String asrModel) { this.asrModel = asrModel; }
-            
-            public String getTtsVoice() { return ttsVoice; }
-            public void setTtsVoice(String ttsVoice) { this.ttsVoice = ttsVoice; }
         }
     }
     

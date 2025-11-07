@@ -339,7 +339,7 @@ public class OllamaService {
             
             logger.debug("使用模型: {}, 温度: {}", model, temperature);
             
-            OllamaChatRequestFromMessages request = new OllamaChatRequestFromMessages(
+            OllamaChatRequest request = OllamaChatRequest.fromMessages(
                     model,
                     messages,
                     stream,

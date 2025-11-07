@@ -2,10 +2,11 @@ package com.chatbot.model;
 
 /**
  * Ollama消息类
+ * 用于Ollama API的消息格式
  */
 public class OllamaMessage {
-    private final String role;
-    private final String content;
+    public final String role;
+    public final String content;
     
     public OllamaMessage(String role, String content) {
         this.role = role;
