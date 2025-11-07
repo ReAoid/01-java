@@ -1,6 +1,6 @@
 package com.chatbot.controller;
 
-import com.chatbot.model.Persona;
+import com.chatbot.model.domain.Persona;
 import com.chatbot.service.PersonaService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

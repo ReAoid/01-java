@@ -1,7 +1,7 @@
 package com.chatbot.service;
 
 import com.chatbot.config.AppConfig;
-import com.chatbot.model.UserPreferences;
+import com.chatbot.model.config.UserPreferences;
 import com.chatbot.util.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

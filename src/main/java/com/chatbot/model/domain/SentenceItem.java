@@ -1,4 +1,4 @@
-package com.chatbot.model;
+package com.chatbot.model.domain;
 
 import com.chatbot.util.IdUtil;
 

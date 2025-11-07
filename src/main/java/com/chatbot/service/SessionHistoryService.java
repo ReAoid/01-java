@@ -1,7 +1,7 @@
 package com.chatbot.service;
 
 import com.chatbot.config.AppConfig;
-import com.chatbot.model.ChatMessage;
+import com.chatbot.model.domain.ChatMessage;
 import com.chatbot.util.FileUtil;
 import com.chatbot.util.JsonUtil;
 import com.fasterxml.jackson.annotation.JsonFormat;

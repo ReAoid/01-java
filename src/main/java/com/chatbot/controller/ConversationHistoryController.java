@@ -1,6 +1,7 @@
 package com.chatbot.controller;
 
-import com.chatbot.model.*;
+import com.chatbot.model.record.ConversationRecord;
+import com.chatbot.model.record.ConversationStats;
 import com.chatbot.service.ConversationHistoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,7 +1,7 @@
 package com.chatbot.service;
 
 import com.chatbot.config.AppConfig;
-import com.chatbot.model.ChatSession;
+import com.chatbot.model.domain.ChatSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;

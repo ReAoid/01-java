@@ -1,4 +1,4 @@
-package com.chatbot.model;
+package com.chatbot.model.dto;
 
 import java.util.List;
 

@@ -1,6 +1,6 @@
 package com.chatbot.websocket;
 
-import com.chatbot.model.ChatMessage;
+import com.chatbot.model.domain.ChatMessage;
 import com.chatbot.service.MultiChannelDispatcher;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

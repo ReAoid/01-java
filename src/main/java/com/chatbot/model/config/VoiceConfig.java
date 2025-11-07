@@ -1,4 +1,4 @@
-package com.chatbot.model;
+package com.chatbot.model.config;
 
 /**
  * 语音配置

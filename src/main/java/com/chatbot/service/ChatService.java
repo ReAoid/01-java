@@ -1,10 +1,10 @@
 package com.chatbot.service;
 
 import com.chatbot.config.AppConfig;
-import com.chatbot.model.ChatMessage;
-import com.chatbot.model.ChatSession;
-import com.chatbot.model.OllamaMessage;
-import com.chatbot.model.UserPreferences;
+import com.chatbot.model.domain.ChatMessage;
+import com.chatbot.model.domain.ChatSession;
+import com.chatbot.model.dto.OllamaMessage;
+import com.chatbot.model.config.UserPreferences;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;

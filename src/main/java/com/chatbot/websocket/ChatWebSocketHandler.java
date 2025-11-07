@@ -1,6 +1,6 @@
 package com.chatbot.websocket;
 
-import com.chatbot.model.ChatMessage;
+import com.chatbot.model.domain.ChatMessage;
 import com.chatbot.service.ChatService;
 import com.chatbot.service.MultiChannelDispatcher;
 import com.chatbot.service.OllamaService;

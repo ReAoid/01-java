@@ -1,9 +1,9 @@
 package com.chatbot.service.channel;
 
 import com.chatbot.config.AppConfig;
-import com.chatbot.model.ChatMessage;
-import com.chatbot.model.SentenceItem;
-import com.chatbot.model.UserPreferences;
+import com.chatbot.model.domain.ChatMessage;
+import com.chatbot.model.domain.SentenceItem;
+import com.chatbot.model.config.UserPreferences;
 import com.chatbot.service.MultiChannelContext;
 import com.chatbot.service.MultiModalService;
 import com.chatbot.service.UserPreferencesService;

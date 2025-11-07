@@ -1,4 +1,4 @@
-package com.chatbot.model;
+package com.chatbot.model.config;
 
 /**
  * 流式处理配置

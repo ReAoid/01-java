@@ -1,8 +1,8 @@
 package com.chatbot.service;
 
 import com.chatbot.config.AppConfig;
-import com.chatbot.model.VadResult;
-import com.chatbot.model.OcrResult;
+import com.chatbot.model.dto.VadResult;
+import com.chatbot.model.dto.OcrResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

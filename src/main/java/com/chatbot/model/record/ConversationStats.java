@@ -1,4 +1,4 @@
-package com.chatbot.model;
+package com.chatbot.model.record;
 
 /**
  * 对话统计信息

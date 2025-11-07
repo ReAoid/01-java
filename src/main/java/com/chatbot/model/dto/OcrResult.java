@@ -1,4 +1,4 @@
-package com.chatbot.model;
+package com.chatbot.model.dto;
 
 /**
  * OCR光学字符识别结果

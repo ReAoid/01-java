@@ -1,6 +1,6 @@
 package com.chatbot.service;
 
-import com.chatbot.model.ChatMessage;
+import com.chatbot.model.domain.ChatMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

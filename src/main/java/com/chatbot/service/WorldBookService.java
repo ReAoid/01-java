@@ -1,6 +1,6 @@
 package com.chatbot.service;
 
-import com.chatbot.model.WorldBookEntry;
+import com.chatbot.model.domain.WorldBookEntry;
 import com.chatbot.util.FileUtil;
 import com.chatbot.util.JsonUtil;
 import com.fasterxml.jackson.core.type.TypeReference;

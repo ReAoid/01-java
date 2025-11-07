@@ -1,9 +1,9 @@
 package com.chatbot.service;
 
 import com.chatbot.config.AppConfig;
-import com.chatbot.model.ChatMessage;
-import com.chatbot.model.ConversationRecord;
-import com.chatbot.model.ConversationStats;
+import com.chatbot.model.domain.ChatMessage;
+import com.chatbot.model.record.ConversationRecord;
+import com.chatbot.model.record.ConversationStats;
 import com.chatbot.util.FileUtil;
 import com.chatbot.util.JsonUtil;
 import org.slf4j.Logger;

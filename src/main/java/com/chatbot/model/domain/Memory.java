@@ -1,4 +1,4 @@
-package com.chatbot.model;
+package com.chatbot.model.domain;
 
 import java.time.LocalDateTime;
 import java.util.Map;

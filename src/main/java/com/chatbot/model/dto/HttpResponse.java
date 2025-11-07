@@ -1,4 +1,4 @@
-package com.chatbot.model;
+package com.chatbot.model.dto;
 
 import okhttp3.Headers;
 

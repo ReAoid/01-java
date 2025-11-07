@@ -1,4 +1,4 @@
-package com.chatbot.model;
+package com.chatbot.model.dto;
 
 /**
  * VAD语音活动检测结果

@@ -1,7 +1,9 @@
 package com.chatbot.service;
 
 import com.chatbot.config.AppConfig;
-import com.chatbot.model.*;
+import com.chatbot.model.dto.OllamaMessage;
+import com.chatbot.model.dto.OllamaChatRequest;
+import com.chatbot.model.config.UserPreferences;
 import com.chatbot.util.JsonUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

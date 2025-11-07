@@ -1,4 +1,4 @@
-package com.chatbot.model;
+package com.chatbot.model.record;
 
 /**
  * 记忆统计信息类

@@ -1,7 +1,7 @@
 package com.chatbot.config;
 
 import com.chatbot.service.UserPreferencesService;
-import com.chatbot.model.UserPreferences;
+import com.chatbot.model.config.UserPreferences;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationRunner;

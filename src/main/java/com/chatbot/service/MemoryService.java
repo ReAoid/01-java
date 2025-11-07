@@ -1,7 +1,7 @@
 package com.chatbot.service;
 
-import com.chatbot.model.Memory;
-import com.chatbot.model.MemoryStats;
+import com.chatbot.model.domain.Memory;
+import com.chatbot.model.record.MemoryStats;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;

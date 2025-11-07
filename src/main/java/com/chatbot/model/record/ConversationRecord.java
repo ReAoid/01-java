@@ -1,4 +1,4 @@
-package com.chatbot.model;
+package com.chatbot.model.record;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 

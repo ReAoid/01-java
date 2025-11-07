@@ -1,4 +1,6 @@
-package com.chatbot.model;
+package com.chatbot.model.domain;
+
+import com.chatbot.model.config.UserPreferences;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;

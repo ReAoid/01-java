@@ -1,6 +1,6 @@
 package com.chatbot.service;
 
-import com.chatbot.model.SentenceItem;
+import com.chatbot.model.domain.SentenceItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
