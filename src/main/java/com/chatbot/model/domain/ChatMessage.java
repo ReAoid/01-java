@@ -8,143 +8,436 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
- * 聊天消息模型
- * 支持多种消息类型和元数据
+ * 聊天消息模型（重构版 - 组合模式 + 便捷API）
+ * 
+ * 设计理念：
+ * - 内部使用组件模式实现职责分离
+ * - 对外提供便捷方法保持API简洁
+ * - 支持两种使用方式：
+ *   1. 便捷API：msg.setContentText("hello")
+ *   2. 组件API：msg.getContent().setText("hello")
+ * 
+ * @version 2.0 - 组合模式重构
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ChatMessage {
     
-    /**
-     * 消息类型：text, voice, image, system, error
-     */
+    // ========== 核心字段 ==========
+    
+    private String messageId;
+    private String sessionId;
+    private String role;
     private String type;
     
-    /**
-     * 消息内容
-     */
-    private String content;
-    
-    /**
-     * 会话ID
-     */
-    private String sessionId;
-    
-    /**
-     * 消息ID
-     */
-    private String messageId;
-    
-    /**
-     * 角色：user, assistant, system
-     */
-    private String role;
-    
-    /**
-     * 时间戳
-     */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime timestamp;
     
-    /**
-     * 是否为流式消息的一部分
-     */
-    private boolean streaming;
+    // ========== 功能组件（内部实现） ==========
     
-    /**
-     * 流式消息是否完成
-     */
-    private boolean streamComplete;
+    private ChatMessageContent content;
+    private ChatMessageStreaming streaming;
+    private ChatMessageThinking thinking;
+    private ChatMessageAudio audio;
+    private ChatMessageOutput output;
+    private ChatMessageSync sync;
     
-    /**
-     * 是否为思考内容
-     */
-    private boolean thinking;
+    // ========== 扩展元数据 ==========
     
-    /**
-     * 思考内容（如果是思考消息）
-     */
-    private String thinkingContent;
-    
-    /**
-     * 是否显示思考过程（用户设置）
-     */
-    private Boolean showThinking;
-    
-    /**
-     * TTS模式：none, char_stream, sentence_sync
-     */
-    private String ttsMode;
-    
-    /**
-     * 输出通道类型：chat_window, live2d
-     */
-    private String channelType;
-    
-    /**
-     * 句子唯一标识
-     */
-    private String sentenceId;
-    
-    /**
-     * 句子在会话中的顺序
-     */
-    private Integer sentenceOrder;
-    
-    /**
-     * 是否为句子结束
-     */
-    private Boolean sentenceComplete;
-    
-    /**
-     * 音频数据（Base64编码或二进制）
-     */
-    private byte[] audioData;
-    
-    /**
-     * 音频URL（可选，用于大文件）
-     */
-    private String audioUrl;
-    
-    /**
-     * 文本是否准备就绪
-     */
-    private Boolean textReady;
-    
-    /**
-     * 音频是否准备就绪
-     */
-    private Boolean audioReady;
-    
-    /**
-     * 文本和音频是否都准备就绪
-     */
-    private Boolean bothReady;
-    
-    /**
-     * 额外元数据
-     */
     private Map<String, Object> metadata;
+    
+    // ========== 构造函数 ==========
     
     public ChatMessage() {
         this.timestamp = LocalDateTime.now();
         this.messageId = generateMessageId();
     }
     
-    // Getters and Setters
-    public String getType() {
-        return type;
+    private String generateMessageId() {
+        return IdUtil.messageId();
     }
     
-    public void setType(String type) {
-        this.type = type;
-    }
+    // ========== 便捷API - 内容操作 ==========
     
+    /**
+     * 获取消息文本内容
+     */
     public String getContent() {
+        return content != null ? content.getText() : null;
+    }
+    
+    /**
+     * 设置消息文本内容
+     */
+    public void setContent(String text) {
+        if (content == null) {
+            content = new ChatMessageContent();
+        }
+        content.setText(text);
+    }
+    
+    // ========== 便捷API - 流式控制 ==========
+    
+    /**
+     * 是否为流式消息
+     */
+    public boolean isStreaming() {
+        return streaming != null && streaming.isStreaming();
+    }
+    
+    /**
+     * 设置流式状态
+     */
+    public void setStreaming(boolean value) {
+        if (streaming == null) {
+            streaming = new ChatMessageStreaming();
+        }
+        streaming.setStreaming(value);
+    }
+    
+    /**
+     * 流式是否完成
+     */
+    public boolean isStreamComplete() {
+        return streaming != null && streaming.isStreamComplete();
+    }
+    
+    /**
+     * 设置流式完成状态
+     */
+    public void setStreamComplete(boolean complete) {
+        if (streaming == null) {
+            streaming = new ChatMessageStreaming();
+        }
+        streaming.setStreamComplete(complete);
+    }
+    
+    /**
+     * 获取句子ID
+     */
+    public String getSentenceId() {
+        return streaming != null ? streaming.getSentenceId() : null;
+    }
+    
+    /**
+     * 设置句子ID
+     */
+    public void setSentenceId(String sentenceId) {
+        if (streaming == null) {
+            streaming = new ChatMessageStreaming();
+        }
+        streaming.setSentenceId(sentenceId);
+    }
+    
+    /**
+     * 获取句子顺序
+     */
+    public Integer getSentenceOrder() {
+        return streaming != null ? streaming.getSentenceOrder() : null;
+    }
+    
+    /**
+     * 设置句子顺序
+     */
+    public void setSentenceOrder(Integer order) {
+        if (streaming == null) {
+            streaming = new ChatMessageStreaming();
+        }
+        streaming.setSentenceOrder(order);
+    }
+    
+    /**
+     * 获取句子完成状态
+     */
+    public Boolean getSentenceComplete() {
+        return streaming != null ? streaming.getSentenceComplete() : null;
+    }
+    
+    /**
+     * 设置句子完成状态
+     */
+    public void setSentenceComplete(Boolean complete) {
+        if (streaming == null) {
+            streaming = new ChatMessageStreaming();
+        }
+        streaming.setSentenceComplete(complete);
+    }
+    
+    // ========== 便捷API - 思考数据 ==========
+    
+    /**
+     * 是否有思考内容
+     */
+    public boolean isThinking() {
+        return thinking != null;
+    }
+    
+    /**
+     * 设置思考状态
+     */
+    public void setThinking(boolean value) {
+        if (value && thinking == null) {
+            thinking = new ChatMessageThinking();
+        } else if (!value) {
+            thinking = null;
+        }
+    }
+    
+    /**
+     * 获取思考内容
+     */
+    public String getThinkingContent() {
+        return thinking != null ? thinking.getThinkingContent() : null;
+    }
+    
+    /**
+     * 设置思考内容
+     */
+    public void setThinkingContent(String content) {
+        if (thinking == null) {
+            thinking = new ChatMessageThinking();
+        }
+        thinking.setThinkingContent(content);
+    }
+    
+    /**
+     * 获取是否显示思考
+     */
+    public Boolean getShowThinking() {
+        return thinking != null ? thinking.getShowThinking() : null;
+    }
+    
+    /**
+     * 设置是否显示思考
+     */
+    public void setShowThinking(Boolean show) {
+        if (thinking == null) {
+            thinking = new ChatMessageThinking();
+        }
+        thinking.setShowThinking(show);
+    }
+    
+    // ========== 便捷API - 输出配置 ==========
+    
+    /**
+     * 获取TTS模式
+     */
+    public String getTtsMode() {
+        return output != null ? output.getTtsMode() : null;
+    }
+    
+    /**
+     * 设置TTS模式
+     */
+    public void setTtsMode(String mode) {
+        if (output == null) {
+            output = new ChatMessageOutput();
+        }
+        output.setTtsMode(mode);
+    }
+    
+    /**
+     * 获取通道类型
+     */
+    public String getChannelType() {
+        return output != null ? output.getChannelType() : null;
+    }
+    
+    /**
+     * 设置通道类型
+     */
+    public void setChannelType(String channelType) {
+        if (output == null) {
+            output = new ChatMessageOutput();
+        }
+        output.setChannelType(channelType);
+    }
+    
+    // ========== 便捷API - 音频数据 ==========
+    
+    /**
+     * 获取音频数据
+     */
+    public byte[] getAudioData() {
+        return audio != null ? audio.getAudioBytes() : null;
+    }
+    
+    /**
+     * 设置音频数据
+     */
+    public void setAudioData(byte[] audioData) {
+        if (audio == null) {
+            audio = new ChatMessageAudio();
+        }
+        audio.setAudioBytes(audioData);
+    }
+    
+    /**
+     * 获取音频URL
+     */
+    public String getAudioUrl() {
+        return audio != null ? audio.getAudioUrl() : null;
+    }
+    
+    /**
+     * 设置音频URL
+     */
+    public void setAudioUrl(String url) {
+        if (audio == null) {
+            audio = new ChatMessageAudio();
+        }
+        audio.setAudioUrl(url);
+    }
+    
+    // ========== 便捷API - 同步状态 ==========
+    
+    /**
+     * 获取文本就绪状态
+     */
+    public Boolean getTextReady() {
+        return sync != null ? sync.getTextReady() : null;
+    }
+    
+    /**
+     * 设置文本就绪状态
+     */
+    public void setTextReady(Boolean ready) {
+        if (sync == null) {
+            sync = new ChatMessageSync();
+        }
+        sync.setTextReady(ready);
+    }
+    
+    /**
+     * 获取音频就绪状态
+     */
+    public Boolean getAudioReady() {
+        return sync != null ? sync.getAudioReady() : null;
+    }
+    
+    /**
+     * 设置音频就绪状态
+     */
+    public void setAudioReady(Boolean ready) {
+        if (sync == null) {
+            sync = new ChatMessageSync();
+        }
+        sync.setAudioReady(ready);
+    }
+    
+    /**
+     * 检查文本和音频是否都就绪
+     */
+    public Boolean getBothReady() {
+        return sync != null ? sync.isBothReady() : null;
+    }
+    
+    /**
+     * 设置双重就绪状态
+     */
+    public void setBothReady(Boolean ready) {
+        if (Boolean.TRUE.equals(ready)) {
+            if (sync == null) {
+                sync = new ChatMessageSync();
+            }
+            sync.setTextReady(true);
+            sync.setAudioReady(true);
+        }
+    }
+    
+    // ========== 组件API - 高级访问 ==========
+    
+    /**
+     * 获取内容组件（高级API）
+     */
+    public ChatMessageContent getContentObject() {
         return content;
     }
     
-    public void setContent(String content) {
+    /**
+     * 设置内容组件（高级API）
+     */
+    public void setContentObject(ChatMessageContent content) {
         this.content = content;
+    }
+    
+    /**
+     * 获取流式控制组件（高级API）
+     */
+    public ChatMessageStreaming getStreamingObject() {
+        return streaming;
+    }
+    
+    /**
+     * 设置流式控制组件（高级API）
+     */
+    public void setStreamingObject(ChatMessageStreaming streaming) {
+        this.streaming = streaming;
+    }
+    
+    /**
+     * 获取思考数据组件（高级API）
+     */
+    public ChatMessageThinking getThinkingObject() {
+        return thinking;
+    }
+    
+    /**
+     * 设置思考数据组件（高级API）
+     */
+    public void setThinkingObject(ChatMessageThinking thinking) {
+        this.thinking = thinking;
+    }
+    
+    /**
+     * 获取音频数据组件（高级API）
+     */
+    public ChatMessageAudio getAudioObject() {
+        return audio;
+    }
+    
+    /**
+     * 设置音频数据组件（高级API）
+     */
+    public void setAudioObject(ChatMessageAudio audio) {
+        this.audio = audio;
+    }
+    
+    /**
+     * 获取输出配置组件（高级API）
+     */
+    public ChatMessageOutput getOutputObject() {
+        return output;
+    }
+    
+    /**
+     * 设置输出配置组件（高级API）
+     */
+    public void setOutputObject(ChatMessageOutput output) {
+        this.output = output;
+    }
+    
+    /**
+     * 获取同步状态组件（高级API）
+     */
+    public ChatMessageSync getSyncObject() {
+        return sync;
+    }
+    
+    /**
+     * 设置同步状态组件（高级API）
+     */
+    public void setSyncObject(ChatMessageSync sync) {
+        this.sync = sync;
+    }
+    
+    // ========== 标准 Getters & Setters ==========
+    
+    public String getMessageId() {
+        return messageId;
+    }
+    
+    public void setMessageId(String messageId) {
+        this.messageId = messageId;
     }
     
     public String getSessionId() {
@@ -155,20 +448,20 @@ public class ChatMessage {
         this.sessionId = sessionId;
     }
     
-    public String getMessageId() {
-        return messageId;
-    }
-    
-    public void setMessageId(String messageId) {
-        this.messageId = messageId;
-    }
-    
     public String getRole() {
         return role;
     }
     
     public void setRole(String role) {
         this.role = role;
+    }
+    
+    public String getType() {
+        return type;
+    }
+    
+    public void setType(String type) {
+        this.type = type;
     }
     
     public LocalDateTime getTimestamp() {
@@ -179,22 +472,6 @@ public class ChatMessage {
         this.timestamp = timestamp;
     }
     
-    public boolean isStreaming() {
-        return streaming;
-    }
-    
-    public void setStreaming(boolean streaming) {
-        this.streaming = streaming;
-    }
-    
-    public boolean isStreamComplete() {
-        return streamComplete;
-    }
-    
-    public void setStreamComplete(boolean streamComplete) {
-        this.streamComplete = streamComplete;
-    }
-    
     public Map<String, Object> getMetadata() {
         return metadata;
     }
@@ -203,147 +480,15 @@ public class ChatMessage {
         this.metadata = metadata;
     }
     
-    public boolean isThinking() {
-        return thinking;
-    }
-    
-    public void setThinking(boolean thinking) {
-        this.thinking = thinking;
-    }
-    
-    public String getThinkingContent() {
-        return thinkingContent;
-    }
-    
-    public void setThinkingContent(String thinkingContent) {
-        this.thinkingContent = thinkingContent;
-    }
-    
-    public Boolean getShowThinking() {
-        return showThinking;
-    }
-    
-    public void setShowThinking(Boolean showThinking) {
-        this.showThinking = showThinking;
-    }
-    
-    public String getTtsMode() {
-        return ttsMode;
-    }
-    
-    public void setTtsMode(String ttsMode) {
-        this.ttsMode = ttsMode;
-    }
-    
-    public String getChannelType() {
-        return channelType;
-    }
-    
-    public void setChannelType(String channelType) {
-        this.channelType = channelType;
-    }
-    
-    public String getSentenceId() {
-        return sentenceId;
-    }
-    
-    public void setSentenceId(String sentenceId) {
-        this.sentenceId = sentenceId;
-    }
-    
-    public Integer getSentenceOrder() {
-        return sentenceOrder;
-    }
-    
-    public void setSentenceOrder(Integer sentenceOrder) {
-        this.sentenceOrder = sentenceOrder;
-    }
-    
-    public Boolean getSentenceComplete() {
-        return sentenceComplete;
-    }
-    
-    public void setSentenceComplete(Boolean sentenceComplete) {
-        this.sentenceComplete = sentenceComplete;
-    }
-    
-    /**
-     * 隐藏原始byte[]字段，避免JSON序列化
-     */
-    @com.fasterxml.jackson.annotation.JsonIgnore
-    public byte[] getAudioData() {
-        return audioData;
-    }
-    
-    @com.fasterxml.jackson.annotation.JsonIgnore
-    public void setAudioData(byte[] audioData) {
-        this.audioData = audioData;
-    }
-    
-    /**
-     * 获取Base64编码的音频数据（用于JSON序列化）
-     */
-    @com.fasterxml.jackson.annotation.JsonProperty("audioData")
-    public String getAudioDataBase64() {
-        if (audioData == null) {
-            return null;
-        }
-        return java.util.Base64.getEncoder().encodeToString(audioData);
-    }
-    
-    /**
-     * 设置Base64编码的音频数据（用于JSON反序列化）
-     */
-    @com.fasterxml.jackson.annotation.JsonProperty("audioData")
-    public void setAudioDataBase64(String base64AudioData) {
-        if (base64AudioData == null) {
-            this.audioData = null;
-        } else {
-            this.audioData = java.util.Base64.getDecoder().decode(base64AudioData);
-        }
-    }
-    
-    public String getAudioUrl() {
-        return audioUrl;
-    }
-    
-    public void setAudioUrl(String audioUrl) {
-        this.audioUrl = audioUrl;
-    }
-    
-    public Boolean getTextReady() {
-        return textReady;
-    }
-    
-    public void setTextReady(Boolean textReady) {
-        this.textReady = textReady;
-    }
-    
-    public Boolean getAudioReady() {
-        return audioReady;
-    }
-    
-    public void setAudioReady(Boolean audioReady) {
-        this.audioReady = audioReady;
-    }
-    
-    public Boolean getBothReady() {
-        return bothReady;
-    }
-    
-    public void setBothReady(Boolean bothReady) {
-        this.bothReady = bothReady;
-    }
-    
-    /**
-     * 生成唯一消息ID (使用IdUtil工具类)
-     */
-    private String generateMessageId() {
-        return IdUtil.messageId();
-    }
-    
     @Override
     public String toString() {
-        return "ChatMessage{type='" + type + "', content='" + content + "', sessionId='" + sessionId + "', role='" + role + "', timestamp=" + timestamp + "}";
+        return "ChatMessage{" +
+               "type='" + type + '\'' +
+               ", content='" + getContent() + '\'' +
+               ", sessionId='" + sessionId + '\'' +
+               ", role='" + role + '\'' +
+               ", streaming=" + isStreaming() +
+               ", timestamp=" + timestamp +
+               '}';
     }
 }
