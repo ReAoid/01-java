@@ -16,7 +16,7 @@ public class ConversationRecord {
     private String sessionId;
     
     @JsonProperty("messages")
-    private List<SimpleMessage> messages;
+    private List<SimpleChatMessageRecord> messages;
     
     // 构造函数
     public ConversationRecord() {
@@ -37,11 +37,11 @@ public class ConversationRecord {
         this.sessionId = sessionId; 
     }
     
-    public List<SimpleMessage> getMessages() { 
+    public List<SimpleChatMessageRecord> getMessages() {
         return messages; 
     }
     
-    public void setMessages(List<SimpleMessage> messages) { 
+    public void setMessages(List<SimpleChatMessageRecord> messages) {
         this.messages = messages; 
     }
     
@@ -49,7 +49,7 @@ public class ConversationRecord {
      * 添加消息到记录中
      */
     public void addMessage(String role, String content) {
-        SimpleMessage message = new SimpleMessage();
+        SimpleChatMessageRecord message = new SimpleChatMessageRecord();
         message.setTimestamp(LocalDateTime.now());
         message.setRole(role);
         message.setContent(content);
@@ -60,7 +60,7 @@ public class ConversationRecord {
      * 添加消息到记录中（指定时间戳）
      */
     public void addMessage(LocalDateTime timestamp, String role, String content) {
-        SimpleMessage message = new SimpleMessage();
+        SimpleChatMessageRecord message = new SimpleChatMessageRecord();
         message.setTimestamp(timestamp);
         message.setRole(role);
         message.setContent(content);

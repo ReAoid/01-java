@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 /**
  * 简单消息类
  */
-public class SimpleMessage {
+public class SimpleChatMessageRecord {
     @JsonProperty("timestamp")
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
     private LocalDateTime timestamp;
@@ -20,9 +20,9 @@ public class SimpleMessage {
     private String content;
     
     // 构造函数
-    public SimpleMessage() {}
+    public SimpleChatMessageRecord() {}
     
-    public SimpleMessage(LocalDateTime timestamp, String role, String content) {
+    public SimpleChatMessageRecord(LocalDateTime timestamp, String role, String content) {
         this.timestamp = timestamp;
         this.role = role;
         this.content = content;
