@@ -143,17 +143,8 @@ public class ChatWindowChannel implements OutputChannel {
      * 获取聊天模式
      */
     private String getChatMode(UserPreferences prefs) {
-        // 优先使用新的配置结构
-        if (prefs.getChatOutput() != null) {
-            return prefs.getChatOutput().getMode();
-        }
-        
-        // 降级到旧的配置方式
-        if (prefs.isEnableVoice()) {
-            return "char_stream_tts";
-        } else {
-            return "text_only";
-        }
+        // 使用新的模块化配置
+        return prefs.getOutputChannel().getChatWindow().getMode();
     }
     
     /**
@@ -197,7 +188,7 @@ public class ChatWindowChannel implements OutputChannel {
         try {
             // 获取用户TTS偏好 - 使用Taiming用户配置
             UserPreferences prefs = userPreferencesService.getUserPreferences("Taiming");
-            String speakerId = prefs.getPreferredSpeakerId();
+            String speakerId = prefs.getTts().getPreferredSpeaker();
             
             logger.debug("开始生成TTS: order={}, speakerId={}, sessionId={}", order, speakerId, sessionId);
             

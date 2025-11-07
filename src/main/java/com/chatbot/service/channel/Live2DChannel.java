@@ -104,7 +104,7 @@ public class Live2DChannel implements OutputChannel {
             }
             
             // 检查Live2D功能是否启用
-            return prefs.getLive2dOutput() != null && prefs.getLive2dOutput().isEnabled();
+            return prefs.getOutputChannel().getLive2d().isEnabled();
             
         } catch (Exception e) {
             logger.error("检查Live2D通道启用状态失败: sessionId={}", 
@@ -265,8 +265,7 @@ public class Live2DChannel implements OutputChannel {
         try {
             // 获取Live2D语音偏好 - 使用Taiming用户配置
             UserPreferences prefs = userPreferencesService.getUserPreferences("Taiming");
-            String speakerId = (prefs.getLive2dOutput() != null) ? 
-                prefs.getLive2dOutput().getSpeakerId() : "派蒙";
+            String speakerId = prefs.getOutputChannel().getLive2d().getSpeakerId();
             
             logger.debug("开始生成Live2D TTS: id={}, speakerId={}, sessionId={}", 
                         sentenceId, speakerId, sessionId);

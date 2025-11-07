@@ -1,5 +1,6 @@
 package com.chatbot.controller;
 
+import com.chatbot.model.config.OutputChannelConfig;
 import com.chatbot.model.config.UserPreferences;
 import com.chatbot.service.UserPreferencesService;
 import org.slf4j.Logger;
@@ -280,12 +281,12 @@ public class UserPreferencesController {
             
             UserPreferences preferences = userPreferencesService.getUserPreferences(userId);
             
-            // 更新ChatOutputConfig
-            if (preferences.getChatOutput() == null) {
-                preferences.setChatOutput(new UserPreferences.ChatOutputConfig());
+            // 使用新版API：更新ChatOutputConfig
+            OutputChannelConfig.ChatWindowOutput chatOutput = preferences.getOutputChannel().getChatWindow();
+            if (chatOutput == null) {
+                chatOutput = new OutputChannelConfig.ChatWindowOutput();
+                preferences.getOutputChannel().setChatWindow(chatOutput);
             }
-            
-            UserPreferences.ChatOutputConfig chatOutput = preferences.getChatOutput();
             
             // 更新配置字段
             if (ttsConfig.containsKey("chatEnabled")) {
@@ -303,13 +304,13 @@ public class UserPreferencesController {
                 String speakerId = (String) ttsConfig.get("speakerId");
                 if (speakerId != null && !speakerId.isEmpty()) {
                     chatOutput.setSpeakerId(speakerId);
-                    preferences.setPreferredSpeakerId(speakerId); // 同时更新全局配置
+                    preferences.getTts().setPreferredSpeaker(speakerId); // 同时更新全局TTS配置
                 }
             }
             
             if (ttsConfig.containsKey("speed")) {
                 Double speed = ((Number) ttsConfig.get("speed")).doubleValue();
-                preferences.setResponseSpeed(speed);
+                preferences.getTts().setSpeed(speed);
             }
             
             // 保存配置

@@ -1,6 +1,8 @@
 package com.chatbot.config;
 
 import com.chatbot.service.UserPreferencesService;
+import com.chatbot.model.config.ASRConfig;
+import com.chatbot.model.config.OutputChannelConfig;
 import com.chatbot.model.config.UserPreferences;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,11 +87,11 @@ public class StartupInitializer {
             // 检查并强制重置TTS状态
             boolean needsSave = false;
             
-            // 检查ChatOutput配置
-            UserPreferences.ChatOutputConfig chatOutput = preferences.getChatOutput();
+            // 检查ChatOutput配置（使用新版API）
+            OutputChannelConfig.ChatWindowOutput chatOutput = preferences.getOutputChannel().getChatWindow();
             if (chatOutput == null) {
-                chatOutput = new UserPreferences.ChatOutputConfig();
-                preferences.setChatOutput(chatOutput);
+                chatOutput = new OutputChannelConfig.ChatWindowOutput();
+                preferences.getOutputChannel().setChatWindow(chatOutput);
                 needsSave = true;
             }
             
@@ -101,11 +103,11 @@ public class StartupInitializer {
                 logger.info("🔧 重置聊天窗口TTS状态为禁用");
             }
             
-            // 检查Live2D配置
-            UserPreferences.Live2DOutputConfig live2dOutput = preferences.getLive2dOutput();
+            // 检查Live2D配置（使用新版API）
+            OutputChannelConfig.Live2DOutput live2dOutput = preferences.getOutputChannel().getLive2d();
             if (live2dOutput == null) {
-                live2dOutput = new UserPreferences.Live2DOutputConfig();
-                preferences.setLive2dOutput(live2dOutput);
+                live2dOutput = new OutputChannelConfig.Live2DOutput();
+                preferences.getOutputChannel().setLive2d(live2dOutput);
                 needsSave = true;
             }
             
@@ -115,18 +117,18 @@ public class StartupInitializer {
                 logger.info("🔧 重置Live2D TTS状态为禁用");
             }
             
-            // 检查全局语音设置
-            if (preferences.isEnableVoice()) {
-                preferences.setEnableVoice(false);
+            // 检查全局语音设置（使用新版API）
+            if (preferences.getTts().isEnabled()) {
+                preferences.getTts().setEnabled(false);
                 needsSave = true;
                 logger.info("🔧 重置全局语音设置为禁用");
             }
             
-            // 检查ASR配置
-            UserPreferences.ASRConfig asrConfig = preferences.getAsrConfig();
+            // 检查ASR配置（使用新版API）
+            ASRConfig asrConfig = preferences.getAsr();
             if (asrConfig == null) {
-                asrConfig = new UserPreferences.ASRConfig();
-                preferences.setAsrConfig(asrConfig);
+                asrConfig = new ASRConfig();
+                preferences.setAsr(asrConfig);
                 needsSave = true;
             }
             

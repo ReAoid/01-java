@@ -102,14 +102,17 @@ public class MultiChannelDispatcher {
      */
     private ChannelSelection selectChannelByUserChoice(UserPreferences prefs) {
         // 获取用户的TTS设置
-        boolean chatTTSEnabled = prefs.getChatOutput().isEnabled() && prefs.getChatOutput().isAutoTTS();
-        String chatTTSMode = prefs.getChatOutput().getMode(); // "text_only", "char_stream_tts"
-        boolean live2dEnabled = prefs.getLive2dOutput().isEnabled();
+        boolean chatTTSEnabled = prefs.getOutputChannel().getChatWindow().isEnabled() 
+            && prefs.getOutputChannel().getChatWindow().isAutoTTS();
+        String chatTTSMode = prefs.getOutputChannel().getChatWindow().getMode(); // "text_only", "char_stream_tts"
+        boolean live2dEnabled = prefs.getOutputChannel().getLive2d().isEnabled();
         
         logger.info("用户TTS设置: chatTTSEnabled={}, chatTTSMode={}, live2dEnabled={}", 
                     chatTTSEnabled, chatTTSMode, live2dEnabled);
         logger.info("详细TTS配置: enabled={}, autoTTS={}, mode={}", 
-                    prefs.getChatOutput().isEnabled(), prefs.getChatOutput().isAutoTTS(), prefs.getChatOutput().getMode());
+                    prefs.getOutputChannel().getChatWindow().isEnabled(), 
+                    prefs.getOutputChannel().getChatWindow().isAutoTTS(), 
+                    prefs.getOutputChannel().getChatWindow().getMode());
         
         // 模式选择逻辑：
         // 1. 如果Live2D启用 → 句级TTS模式 (Live2D通道)

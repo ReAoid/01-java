@@ -227,138 +227,125 @@ public class UserPreferencesService {
     private UserPreferences createDefaultPreferencesFromAppConfig(String userId) {
         UserPreferences preferences = new UserPreferences(userId);
         
-        // 从系统配置中获取默认值
+        // LLM配置（从Ollama配置迁移）
         AppConfig.OllamaConfig ollamaConfig = appConfig.getOllama();
-        preferences.setOllamaBaseUrl(ollamaConfig.getBaseUrl());
-        preferences.setOllamaModel(ollamaConfig.getModel());
-        preferences.setOllamaTimeout(ollamaConfig.getTimeout());
-        preferences.setOllamaMaxTokens(ollamaConfig.getMaxTokens());
-        preferences.setOllamaStream(ollamaConfig.isStream());
+        preferences.getLlm().setProvider("ollama");
+        preferences.getLlm().setBaseUrl(ollamaConfig.getBaseUrl());
+        preferences.getLlm().setModel(ollamaConfig.getModel());
+        preferences.getLlm().setTimeout(ollamaConfig.getTimeout());
+        preferences.getLlm().setMaxTokens(ollamaConfig.getMaxTokens());
+        preferences.getLlm().setStream(ollamaConfig.isStream());
         
+        // 流式输出配置
         AppConfig.AIConfig aiConfig = appConfig.getAi();
-        preferences.setStreamingChunkSize(aiConfig.getStreamingChunkSize());
-        preferences.setStreamingDelayMs(aiConfig.getStreamingDelayMs());
+        preferences.getStreaming().setChunkSize(aiConfig.getStreamingChunkSize());
+        preferences.getStreaming().setDelayMs(aiConfig.getStreamingDelayMs());
         
-        preferences.setAsrModel(aiConfig.getVoiceAsrModel());
-        preferences.setPreferredSpeakerId(aiConfig.getVoiceTtsVoice());
+        // ASR配置
+        preferences.getAsr().setModel(aiConfig.getVoiceAsrModel());
+        preferences.getAsr().setEnabled(false);  // 默认禁用
         
+        // TTS配置
+        preferences.getTts().setPreferredSpeaker(aiConfig.getVoiceTtsVoice());
+        preferences.getTts().setEnabled(false);  // 默认禁用
+        
+        // 联网搜索配置
         AppConfig.WebSearchConfig webSearchConfig = appConfig.getWebSearch();
-        preferences.setWebSearchEnabled(webSearchConfig.isEnabled());
-        preferences.setWebSearchMaxResults(webSearchConfig.getMaxResults());
-        preferences.setWebSearchTimeout(webSearchConfig.getTimeoutSeconds());
-        preferences.setWebSearchEngine(webSearchConfig.getDefaultEngine());
+        preferences.getWebSearch().setEnabled(webSearchConfig.isEnabled());
+        preferences.getWebSearch().setMaxResults(webSearchConfig.getMaxResults());
+        preferences.getWebSearch().setTimeout(webSearchConfig.getTimeoutSeconds());
+        preferences.getWebSearch().setEngine(webSearchConfig.getDefaultEngine());
         
-        // 确保TTS相关配置默认为禁用状态
-        UserPreferences.ChatOutputConfig chatOutput = preferences.getChatOutput();
-        if (chatOutput == null) {
-            chatOutput = new UserPreferences.ChatOutputConfig();
-            preferences.setChatOutput(chatOutput);
-        }
-        // 强制设置为禁用状态
-        chatOutput.setEnabled(false);
-        chatOutput.setAutoTTS(false);
-        chatOutput.setMode("text_only");
+        // 输出通道配置 - 聊天窗口
+        preferences.getOutputChannel().getChatWindow().setEnabled(false);
+        preferences.getOutputChannel().getChatWindow().setAutoTTS(false);
+        preferences.getOutputChannel().getChatWindow().setMode("text_only");
         
-        UserPreferences.Live2DOutputConfig live2dOutput = preferences.getLive2dOutput();
-        if (live2dOutput == null) {
-            live2dOutput = new UserPreferences.Live2DOutputConfig();
-            preferences.setLive2dOutput(live2dOutput);
-        }
-        // 确保Live2D也是禁用状态
-        live2dOutput.setEnabled(false);
-        
-        // 确保ASR配置默认为禁用状态
-        UserPreferences.ASRConfig asrConfig = preferences.getAsrConfig();
-        if (asrConfig == null) {
-            asrConfig = new UserPreferences.ASRConfig();
-            preferences.setAsrConfig(asrConfig);
-        }
-        // 强制设置为禁用状态
-        asrConfig.setEnabled(false);
+        // 输出通道配置 - Live2D
+        preferences.getOutputChannel().getLive2d().setEnabled(false);
         
         logger.info("创建默认用户配置 - userId: {}, TTS状态: 禁用, ASR状态: 禁用", userId);
         return preferences;
     }
     
     /**
-     * 更新配置字段
+     * 更新配置字段（使用新的模块化API）
      */
     private boolean updatePreferenceField(UserPreferences preferences, String key, Object value) {
         try {
             switch (key) {
                 // 基础设置
                 case "language":
-                    preferences.setLanguage((String) value);
+                    preferences.getBasic().setLanguage((String) value);
                     return true;
                     
-                // 语音设置
+                // 语音设置 - TTS
                 case "enableVoice":
-                    preferences.setEnableVoice((Boolean) value);
+                    preferences.getTts().setEnabled((Boolean) value);
                     return true;
                 case "preferredSpeakerId":
-                    preferences.setPreferredSpeakerId((String) value);
+                    preferences.getTts().setPreferredSpeaker((String) value);
                     return true;
                 case "responseSpeed":
-                    preferences.setResponseSpeed(((Number) value).doubleValue());
+                    preferences.getTts().setSpeed(((Number) value).doubleValue());
                     return true;
+                    
+                // 语音设置 - ASR
                 case "asrModel":
-                    preferences.setAsrModel((String) value);
+                    preferences.getAsr().setModel((String) value);
                     return true;
                     
                 // 界面设置
                 case "darkMode":
-                    preferences.setDarkMode((Boolean) value);
+                    preferences.getUi().setDarkMode((Boolean) value);
                     return true;
                 case "enableAnimations":
-                    preferences.setEnableAnimations((Boolean) value);
+                    preferences.getUi().setEnableAnimations((Boolean) value);
                     return true;
                 case "autoScroll":
-                    preferences.setAutoScroll((Boolean) value);
+                    preferences.getUi().setAutoScroll((Boolean) value);
                     return true;
                 case "soundNotification":
-                    preferences.setSoundNotification((Boolean) value);
+                    preferences.getUi().setSoundNotification((Boolean) value);
                     return true;
                     
-                // 聊天设置 - 这些设置已移至聊天界面直接控制
-                // 此处不再处理 showThinking, useWebSearch, defaultPersona, maxContextTokens, temperature
-                    
-                // Ollama设置
+                // LLM设置
                 case "ollamaBaseUrl":
-                    preferences.setOllamaBaseUrl((String) value);
+                    preferences.getLlm().setBaseUrl((String) value);
                     return true;
                 case "ollamaModel":
-                    preferences.setOllamaModel((String) value);
+                    preferences.getLlm().setModel((String) value);
                     return true;
                 case "ollamaTimeout":
-                    preferences.setOllamaTimeout(((Number) value).intValue());
+                    preferences.getLlm().setTimeout(((Number) value).intValue());
                     return true;
                 case "ollamaMaxTokens":
-                    preferences.setOllamaMaxTokens(((Number) value).intValue());
+                    preferences.getLlm().setMaxTokens(((Number) value).intValue());
                     return true;
                 case "ollamaStream":
-                    preferences.setOllamaStream((Boolean) value);
+                    preferences.getLlm().setStream((Boolean) value);
                     return true;
                     
                 // 联网搜索设置
                 case "webSearchEnabled":
-                    preferences.setWebSearchEnabled((Boolean) value);
+                    preferences.getWebSearch().setEnabled((Boolean) value);
                     return true;
                 case "webSearchMaxResults":
-                    preferences.setWebSearchMaxResults(((Number) value).intValue());
+                    preferences.getWebSearch().setMaxResults(((Number) value).intValue());
                     return true;
                 case "webSearchTimeout":
-                    preferences.setWebSearchTimeout(((Number) value).intValue());
+                    preferences.getWebSearch().setTimeout(((Number) value).intValue());
                     return true;
                 case "webSearchEngine":
-                    preferences.setWebSearchEngine((String) value);
+                    preferences.getWebSearch().setEngine((String) value);
                     return true;
                     
                 // 流式输出设置
                 case "streamingChunkSize":
-                    preferences.setStreamingChunkSize(((Number) value).intValue());
+                    preferences.getStreaming().setChunkSize(((Number) value).intValue());
                     return true;
                 case "streamingDelayMs":
-                    preferences.setStreamingDelayMs(((Number) value).intValue());
+                    preferences.getStreaming().setDelayMs(((Number) value).intValue());
                     return true;
                     
                 // 自定义设置
@@ -373,46 +360,45 @@ public class UserPreferencesService {
     }
     
     /**
-     * 获取配置字段值
+     * 获取配置字段值（使用新的模块化API）
      */
     private Object getPreferenceField(UserPreferences preferences, String key) {
         switch (key) {
             // 基础设置
             case "userId": return preferences.getUserId();
-            case "language": return preferences.getLanguage();
+            case "language": return preferences.getBasic().getLanguage();
             case "lastUpdated": return preferences.getLastUpdated();
             
-            // 语音设置
-            case "enableVoice": return preferences.isEnableVoice();
-            case "preferredSpeakerId": return preferences.getPreferredSpeakerId();
-            case "responseSpeed": return preferences.getResponseSpeed();
-            case "asrModel": return preferences.getAsrModel();
+            // 语音设置 - TTS
+            case "enableVoice": return preferences.getTts().isEnabled();
+            case "preferredSpeakerId": return preferences.getTts().getPreferredSpeaker();
+            case "responseSpeed": return preferences.getTts().getSpeed();
+            
+            // 语音设置 - ASR
+            case "asrModel": return preferences.getAsr().getModel();
             
             // 界面设置
-            case "darkMode": return preferences.isDarkMode();
-            case "enableAnimations": return preferences.isEnableAnimations();
-            case "autoScroll": return preferences.isAutoScroll();
-            case "soundNotification": return preferences.isSoundNotification();
+            case "darkMode": return preferences.getUi().isDarkMode();
+            case "enableAnimations": return preferences.getUi().isEnableAnimations();
+            case "autoScroll": return preferences.getUi().isAutoScroll();
+            case "soundNotification": return preferences.getUi().isSoundNotification();
             
-            // 聊天设置 - 这些设置已移至聊天界面直接控制
-            // 此处不再处理相关字段
-            
-            // Ollama设置
-            case "ollamaBaseUrl": return preferences.getOllamaBaseUrl();
-            case "ollamaModel": return preferences.getOllamaModel();
-            case "ollamaTimeout": return preferences.getOllamaTimeout();
-            case "ollamaMaxTokens": return preferences.getOllamaMaxTokens();
-            case "ollamaStream": return preferences.isOllamaStream();
+            // LLM设置
+            case "ollamaBaseUrl": return preferences.getLlm().getBaseUrl();
+            case "ollamaModel": return preferences.getLlm().getModel();
+            case "ollamaTimeout": return preferences.getLlm().getTimeout();
+            case "ollamaMaxTokens": return preferences.getLlm().getMaxTokens();
+            case "ollamaStream": return preferences.getLlm().isStream();
             
             // 联网搜索设置
-            case "webSearchEnabled": return preferences.isWebSearchEnabled();
-            case "webSearchMaxResults": return preferences.getWebSearchMaxResults();
-            case "webSearchTimeout": return preferences.getWebSearchTimeout();
-            case "webSearchEngine": return preferences.getWebSearchEngine();
+            case "webSearchEnabled": return preferences.getWebSearch().isEnabled();
+            case "webSearchMaxResults": return preferences.getWebSearch().getMaxResults();
+            case "webSearchTimeout": return preferences.getWebSearch().getTimeout();
+            case "webSearchEngine": return preferences.getWebSearch().getEngine();
             
             // 流式输出设置
-            case "streamingChunkSize": return preferences.getStreamingChunkSize();
-            case "streamingDelayMs": return preferences.getStreamingDelayMs();
+            case "streamingChunkSize": return preferences.getStreaming().getChunkSize();
+            case "streamingDelayMs": return preferences.getStreaming().getDelayMs();
             
             // 自定义设置
             default: return preferences.getCustomSetting(key);

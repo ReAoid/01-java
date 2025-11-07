@@ -140,8 +140,8 @@ public class OllamaService {
      */
     public okhttp3.Call generateStreamingResponseWithInterruptCheck(List<OllamaMessage> messages, Consumer<String> onChunk, Consumer<Throwable> onError, Runnable onComplete, java.util.function.Supplier<Boolean> interruptChecker, UserPreferences userPrefs) {
         // 记录LLM请求基本信息
-        String modelName = (userPrefs != null && userPrefs.getOllamaModel() != null) 
-            ? userPrefs.getOllamaModel() 
+        String modelName = (userPrefs != null && userPrefs.getLlm().getModel() != null) 
+            ? userPrefs.getLlm().getModel() 
             : extractModelFromRequest(messages);
         logger.info("🤖 发送LLM流式请求 - 消息数: {}, 模型: {}", messages.size(), modelName);
         logger.debug("消息数量: {}", messages.size());
@@ -297,8 +297,8 @@ public class OllamaService {
         
         try {
             // 优先使用用户配置，如果没有则使用默认配置
-            String model = (userPrefs != null && userPrefs.getOllamaModel() != null) 
-                ? userPrefs.getOllamaModel() 
+            String model = (userPrefs != null && userPrefs.getLlm().getModel() != null) 
+                ? userPrefs.getLlm().getModel() 
                 : ollamaConfig.getModel();
             double temperature = ollamaConfig.getTemperature();
             
@@ -334,8 +334,8 @@ public class OllamaService {
     private String buildChatRequestFromMessages(List<OllamaMessage> messages, boolean stream, UserPreferences userPrefs) {
         try {
             // 优先使用用户配置，如果没有则使用默认配置
-            String model = (userPrefs != null && userPrefs.getOllamaModel() != null) 
-                ? userPrefs.getOllamaModel() 
+            String model = (userPrefs != null && userPrefs.getLlm().getModel() != null) 
+                ? userPrefs.getLlm().getModel() 
                 : ollamaConfig.getModel();
             double temperature = ollamaConfig.getTemperature();
             
