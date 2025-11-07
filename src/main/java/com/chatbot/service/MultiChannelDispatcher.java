@@ -3,6 +3,7 @@ package com.chatbot.service;
 import com.chatbot.model.domain.ChatMessage;
 import com.chatbot.model.config.UserPreferences;
 import com.chatbot.service.channel.OutputChannel;
+import com.chatbot.service.channel.SentenceProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
@@ -26,9 +27,6 @@ public class MultiChannelDispatcher {
     private final List<OutputChannel> availableChannels;
     private final UserPreferencesService userPreferencesService;
     private final ChatService chatService;
-    
-    // 会话级别的队列管理
-    private final Map<String, SharedSentenceQueue> sessionQueues = new ConcurrentHashMap<>();
     
     /**
      * 通道选择结果
@@ -243,31 +241,31 @@ public class MultiChannelDispatcher {
         String content = chatMessage.getContent();
         
         if (content != null && !content.isEmpty()) {
-            // 获取或创建句子队列（用于TTS）
-            SharedSentenceQueue queue = getOrCreateSharedQueue(sessionId);
+            // 获取或创建句子处理器（用于TTS）
+            SentenceProcessor processor = SentenceProcessor.getOrCreate(sessionId);
             
             // 累积文本到句子缓冲区
-            queue.addTextChunk(content);
+            processor.addTextChunk(content);
             logger.debug("异步TTS - 累积文本块: '{}', sessionId={}", content, sessionId);
             
             // 检查是否有完整句子可以生成TTS
-            while (queue.hasPendingSentence()) {
-                String completeSentence = queue.extractSentence();
+            while (processor.hasPendingSentence()) {
+                String completeSentence = processor.extractSentence();
                 if (completeSentence != null && !completeSentence.trim().isEmpty()) {
                     logger.info("异步TTS - 生成语音: '{}', sessionId={}", completeSentence, sessionId);
                     
                     // 异步生成TTS（不阻塞文字显示）
-                    generateAsyncTTS(chatChannel, completeSentence, queue.getNextOrder(), originalCallback, sessionId);
+                    generateAsyncTTS(chatChannel, completeSentence, processor.getNextOrder(), originalCallback, sessionId);
                 }
             }
             
             // 如果流式完成，处理剩余文本
             if (chatMessage.isStreamComplete()) {
                 logger.debug("异步TTS - 流式完成，处理剩余文本: sessionId={}", sessionId);
-                String remainingText = queue.getRemainingText();
+                String remainingText = processor.getRemainingText();
                 if (remainingText != null && !remainingText.trim().isEmpty()) {
                     logger.info("异步TTS - 处理剩余文本: '{}', sessionId={}", remainingText, sessionId);
-                    generateAsyncTTS(chatChannel, remainingText, queue.getNextOrder(), originalCallback, sessionId);
+                    generateAsyncTTS(chatChannel, remainingText, processor.getNextOrder(), originalCallback, sessionId);
                 }
             }
         }
@@ -280,9 +278,10 @@ public class MultiChannelDispatcher {
     public void generateAsyncTTS(OutputChannel chatChannel, String sentence, int order, 
                                Consumer<ChatMessage> callback, String sessionId) {
         try {
-            // 创建临时上下文用于TTS生成
-            SharedSentenceQueue tempQueue = getOrCreateSharedQueue(sessionId);
-            MultiChannelContext context = new MultiChannelContext(sessionId, callback, tempQueue);
+            // 获取句子处理器
+            SentenceProcessor processor = SentenceProcessor.getOrCreate(sessionId);
+            // 创建上下文用于TTS生成
+            MultiChannelContext context = new MultiChannelContext(sessionId, callback, processor);
             
             // 调用ChatWindow通道生成TTS
             chatChannel.onNewSentence(sentence, order, context);
@@ -308,24 +307,24 @@ public class MultiChannelDispatcher {
             // 先转发消息给前端（立即显示文本）
             originalCallback.accept(chatMessage);
             
-            // 获取或创建句子队列进行累积处理
-            SharedSentenceQueue queue = getOrCreateSharedQueue(sessionId);
+            // 获取或创建句子处理器进行累积处理
+            SentenceProcessor processor = SentenceProcessor.getOrCreate(sessionId);
             String content = chatMessage.getContent();
             
             if (content != null && !content.isEmpty()) {
                 // 累积文本到句子缓冲区
-                queue.addTextChunk(content);
+                processor.addTextChunk(content);
                 logger.debug("累积文本块: '{}', sessionId={}", content, sessionId);
                 
                 // 检查是否有完整句子
-                while (queue.hasPendingSentence()) {
-                    String completeSentence = queue.extractSentence();
+                while (processor.hasPendingSentence()) {
+                    String completeSentence = processor.extractSentence();
                     if (completeSentence != null && !completeSentence.trim().isEmpty()) {
                         logger.info("提取完整句子进行TTS: '{}', sessionId={}", completeSentence, sessionId);
                         
                         // 创建上下文并处理完整句子
-                        MultiChannelContext context = new MultiChannelContext(sessionId, originalCallback, queue);
-                        channel.onNewSentence(completeSentence, queue.getNextOrder(), context);
+                        MultiChannelContext context = new MultiChannelContext(sessionId, originalCallback, processor);
+                        channel.onNewSentence(completeSentence, processor.getNextOrder(), context);
                     }
                 }
             }
@@ -333,15 +332,15 @@ public class MultiChannelDispatcher {
             // 如果流式完成，处理剩余文本
             if (chatMessage.isStreamComplete()) {
                 logger.debug("流式完成，处理剩余文本: sessionId={}", sessionId);
-                String remainingText = queue.getRemainingText();
+                String remainingText = processor.getRemainingText();
                 if (remainingText != null && !remainingText.trim().isEmpty()) {
                     logger.info("处理剩余文本: '{}', sessionId={}", remainingText, sessionId);
-                    MultiChannelContext context = new MultiChannelContext(sessionId, originalCallback, queue);
-                    channel.onNewSentence(remainingText, queue.getNextOrder(), context);
+                    MultiChannelContext context = new MultiChannelContext(sessionId, originalCallback, processor);
+                    channel.onNewSentence(remainingText, processor.getNextOrder(), context);
                 }
                 
                 // 通知通道处理完成
-                MultiChannelContext context = new MultiChannelContext(sessionId, originalCallback, queue);
+                MultiChannelContext context = new MultiChannelContext(sessionId, originalCallback, processor);
                 channel.onProcessingComplete(context);
             }
         } else {
@@ -356,9 +355,9 @@ public class MultiChannelDispatcher {
     private void handleLive2DMode(OutputChannel live2dChannel, ChatMessage chatMessage, 
                                  Consumer<ChatMessage> originalCallback, String sessionId) {
         if ("text".equals(chatMessage.getType()) && chatMessage.isStreaming()) {
-            // 创建上下文
-            SharedSentenceQueue queue = getOrCreateSharedQueue(sessionId);
-            MultiChannelContext context = new MultiChannelContext(sessionId, originalCallback, queue);
+            // 获取或创建句子处理器
+            SentenceProcessor processor = SentenceProcessor.getOrCreate(sessionId);
+            MultiChannelContext context = new MultiChannelContext(sessionId, originalCallback, processor);
             
             String content = chatMessage.getContent();
             if (content != null && !content.isEmpty()) {
@@ -387,30 +386,20 @@ public class MultiChannelDispatcher {
     public void cleanupSession(String sessionId) {
         logger.info("清理用户选择模式会话资源: sessionId={}", sessionId);
         
-        SharedSentenceQueue queue = sessionQueues.remove(sessionId);
-        if (queue != null) {
-            queue.clear();
-        }
+        // 移除句子处理器
+        SentenceProcessor.remove(sessionId);
         
         // 通知所有通道清理会话资源
         for (OutputChannel channel : availableChannels) {
             try {
-                MultiChannelContext context = new MultiChannelContext(sessionId, null, queue);
+                SentenceProcessor processor = SentenceProcessor.getOrCreate(sessionId);
+                MultiChannelContext context = new MultiChannelContext(sessionId, null, processor);
                 channel.cleanup(context);
             } catch (Exception e) {
                 logger.error("通道清理失败: channelType={}, sessionId={}", 
                            channel.getChannelType(), sessionId, e);
             }
         }
-    }
-    
-    /**
-     * 获取或创建共享句子队列
-     * @param sessionId 会话ID
-     * @return 共享句子队列
-     */
-    private SharedSentenceQueue getOrCreateSharedQueue(String sessionId) {
-        return sessionQueues.computeIfAbsent(sessionId, SharedSentenceQueue::new);
     }
     
     /**
@@ -438,7 +427,8 @@ public class MultiChannelDispatcher {
      * @return 会话数量
      */
     public int getActiveSessionCount() {
-        return sessionQueues.size();
+        // TODO: 实现会话计数逻辑
+        return 0;
     }
     
     /**

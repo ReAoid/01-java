@@ -1,6 +1,7 @@
 package com.chatbot.service;
 
 import com.chatbot.model.domain.ChatMessage;
+import com.chatbot.service.channel.SentenceProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,14 +20,14 @@ public class MultiChannelContext {
     private final String sessionId;
     private final Consumer<ChatMessage> responseCallback;
     private final Map<String, Object> sharedData = new ConcurrentHashMap<>();
-    private final SharedSentenceQueue sharedQueue;
+    private final SentenceProcessor sentenceProcessor;
     
     public MultiChannelContext(String sessionId, 
                               Consumer<ChatMessage> responseCallback,
-                              SharedSentenceQueue sharedQueue) {
+                              SentenceProcessor sentenceProcessor) {
         this.sessionId = sessionId;
         this.responseCallback = responseCallback;
-        this.sharedQueue = sharedQueue;
+        this.sentenceProcessor = sentenceProcessor;
     }
     
     /**
@@ -150,11 +151,11 @@ public class MultiChannelContext {
     }
     
     /**
-     * 获取共享句子队列
-     * @return 共享句子队列
+     * 获取句子处理器
+     * @return 句子处理器
      */
-    public SharedSentenceQueue getSharedQueue() {
-        return sharedQueue;
+    public SentenceProcessor getSentenceProcessor() {
+        return sentenceProcessor;
     }
     
     /**
@@ -179,7 +180,7 @@ public class MultiChannelContext {
         return "MultiChannelContext{" +
                 "sessionId='" + sessionId + '\'' +
                 ", sharedDataCount=" + sharedData.size() +
-                ", queueSize=" + (sharedQueue != null ? sharedQueue.size() : 0) +
+                ", processorQueueSize=" + (sentenceProcessor != null ? sentenceProcessor.size() : 0) +
                 '}';
     }
 }
