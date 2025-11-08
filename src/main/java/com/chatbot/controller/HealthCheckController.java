@@ -3,6 +3,7 @@ package com.chatbot.controller;
 import com.chatbot.model.dto.common.HealthCheckResult;
 import com.chatbot.service.MultiModalService;
 import com.chatbot.service.asr.ASRService;
+import com.chatbot.service.llm.LLMService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -17,7 +18,7 @@ import java.util.Map;
 
 /**
  * 统一健康检查控制器
- * 提供所有服务的健康检查端点（TTS、ASR、System）
+ * 提供所有服务的健康检查端点（LLM、TTS、ASR、System）
  */
 @RestController
 @RequestMapping("/api/health")
@@ -27,11 +28,14 @@ public class HealthCheckController {
     
     private final MultiModalService multiModalService;
     private final ASRService asrService;
+    private final LLMService llmService;
     
     public HealthCheckController(MultiModalService multiModalService,
-                                @Qualifier("funASRService") ASRService asrService) {
+                                @Qualifier("funASRService") ASRService asrService,
+                                @Qualifier("ollamaLLMService") LLMService llmService) {
         this.multiModalService = multiModalService;
         this.asrService = asrService;
+        this.llmService = llmService;
     }
     
     /**
@@ -60,6 +64,15 @@ public class HealthCheckController {
         long startTime = System.currentTimeMillis();
         
         Map<String, Object> results = new HashMap<>();
+        
+        // LLM服务健康检查
+        try {
+            HealthCheckResult llmHealth = llmService.healthCheck();
+            results.put("llm", convertToMap(llmHealth));
+        } catch (Exception e) {
+            logger.error("LLM健康检查异常", e);
+            results.put("llm", createErrorResult("LLM", e.getMessage()));
+        }
         
         // TTS服务健康检查
         try {
@@ -103,6 +116,30 @@ public class HealthCheckController {
                    allHealthy ? "健康" : "降级", responseTime);
         
         return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * LLM服务专用健康检查
+     * @return LLM服务健康状态
+     */
+    @GetMapping("/llm")
+    public ResponseEntity<Map<String, Object>> checkLLM() {
+        logger.debug("接收到LLM健康检查请求");
+        
+        try {
+            HealthCheckResult result = llmService.healthCheck();
+            Map<String, Object> response = convertToMap(result);
+            
+            if (result.isHealthy()) {
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.status(503).body(response); // 503 Service Unavailable
+            }
+        } catch (Exception e) {
+            logger.error("LLM健康检查异常", e);
+            Map<String, Object> errorResponse = createErrorResult("LLM", e.getMessage());
+            return ResponseEntity.status(500).body(errorResponse);
+        }
     }
     
     /**

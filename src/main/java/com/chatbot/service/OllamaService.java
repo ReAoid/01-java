@@ -20,7 +20,12 @@ import java.util.function.Consumer;
 /**
  * Ollama服务
  * 负责与本地Ollama API进行通信，支持流式和非流式对话
+ * 
+ * @deprecated 请使用新的 {@link com.chatbot.service.llm.impl.OllamaLLMServiceImpl} 替代
+ *             该类将在未来版本中移除
+ *             新的实现遵循统一的LLMService接口，支持更好的扩展性和维护性
  */
+@Deprecated
 @Service
 public class OllamaService {
     
