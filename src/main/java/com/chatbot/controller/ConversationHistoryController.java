@@ -2,7 +2,7 @@ package com.chatbot.controller;
 
 import com.chatbot.model.record.ConversationRecord;
 import com.chatbot.model.record.ConversationStats;
-import com.chatbot.service.ConversationHistoryService;
+import com.chatbot.service.ChatHistoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -24,10 +24,10 @@ public class ConversationHistoryController {
     
     private static final Logger logger = LoggerFactory.getLogger(ConversationHistoryController.class);
     
-    private final ConversationHistoryService conversationHistoryService;
+    private final ChatHistoryService chatHistoryService;
     
-    public ConversationHistoryController(ConversationHistoryService conversationHistoryService) {
-        this.conversationHistoryService = conversationHistoryService;
+    public ConversationHistoryController(ChatHistoryService chatHistoryService) {
+        this.chatHistoryService = chatHistoryService;
     }
     
     /**
@@ -38,7 +38,7 @@ public class ConversationHistoryController {
         logger.info("查询对话记录，sessionId: {}", sessionId);
         
         try {
-            ConversationRecord record = conversationHistoryService.getConversationBySessionId(sessionId);
+            ConversationRecord record = chatHistoryService.getConversationBySessionId(sessionId);
             
             Map<String, Object> response = new HashMap<>();
             if (record != null) {
@@ -74,7 +74,7 @@ public class ConversationHistoryController {
         logger.info("查询指定日期的对话记录，date: {}", date);
         
         try {
-            List<ConversationRecord> records = conversationHistoryService.getConversationsByDate(date);
+            List<ConversationRecord> records = chatHistoryService.getConversationsByDate(date);
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -103,8 +103,8 @@ public class ConversationHistoryController {
         logger.info("获取对话统计信息");
         
         try {
-            ConversationStats stats = conversationHistoryService.getConversationStats();
-            int activeCount = conversationHistoryService.getActiveConversationCount();
+            ConversationStats stats = chatHistoryService.getConversationStats();
+            int activeCount = chatHistoryService.getActiveConversationCount();
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -146,7 +146,7 @@ public class ConversationHistoryController {
         logger.info("手动结束对话记录，sessionId: {}", sessionId);
         
         try {
-            String filePath = conversationHistoryService.endConversation(sessionId);
+            String filePath = chatHistoryService.endConversation(sessionId);
             
             Map<String, Object> response = new HashMap<>();
             if (filePath != null) {

@@ -2,6 +2,9 @@ package com.chatbot.service;
 
 import com.chatbot.config.AppConfig;
 import com.chatbot.model.domain.ChatMessage;
+import com.chatbot.model.record.ConversationRecord;
+import com.chatbot.model.record.ConversationStats;
+import com.chatbot.model.record.SimpleChatMessageRecord;
 import com.chatbot.util.FileUtil;
 import com.chatbot.util.JsonUtil;
 import com.fasterxml.jackson.annotation.JsonFormat;
@@ -19,8 +22,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 
 /**
  * 统一的聊天历史管理服务
@@ -578,6 +581,182 @@ public class ChatHistoryService {
             return String.format("HistoryStats{sessions=%d, messages=%d, fileSize=%d bytes, active=%d}",
                                totalSessions, totalMessages, totalFileSize, activeConversations);
         }
+    }
+    
+    // ==================== ConversationHistoryService 兼容API ====================
+    
+    /**
+     * 根据sessionId查询对话记录（ConversationHistoryService兼容）
+     * @param sessionId 会话ID
+     * @return 对话记录
+     */
+    public ConversationRecord getConversationBySessionId(String sessionId) {
+        try {
+            // 首先检查活跃对话
+            List<ChatMessage> activeMessages = activeConversations.get(sessionId);
+            if (activeMessages != null && !activeMessages.isEmpty()) {
+                return convertToConversationRecord(sessionId, activeMessages);
+            }
+            
+            // 在历史文件中搜索
+            List<ChatMessage> historyMessages = loadHistory(sessionId);
+            if (!historyMessages.isEmpty()) {
+                return convertToConversationRecord(sessionId, historyMessages);
+            }
+            
+            return null;
+        } catch (Exception e) {
+            logger.error("查询对话记录失败，sessionId: {}", sessionId, e);
+            return null;
+        }
+    }
+    
+    /**
+     * 查询指定日期的对话记录列表（ConversationHistoryService兼容）
+     * @param date 日期
+     * @return 对话记录列表
+     */
+    public List<ConversationRecord> getConversationsByDate(LocalDateTime date) {
+        List<ConversationRecord> conversations = new ArrayList<>();
+        
+        String dateDir = date.format(DIR_DATE_FORMAT);
+        String fullDir = getConversationsBaseDir() + File.separator + dateDir;
+        Path dirPath = Paths.get(fullDir);
+        
+        if (!Files.exists(dirPath)) {
+            logger.debug("指定日期的对话记录目录不存在: {}", fullDir);
+            return conversations;
+        }
+        
+        try (Stream<Path> files = Files.list(dirPath)) {
+            files.filter(path -> path.toString().endsWith(".json"))
+                 .forEach(path -> {
+                     try {
+                         String content = Files.readString(path);
+                         List<SimpleMessage> messages = JsonUtil.fromJsonToList(content, SimpleMessage.class);
+                         if (messages != null && !messages.isEmpty()) {
+                             // 从文件名提取sessionId
+                             String fileName = path.getFileName().toString();
+                             String sessionId = fileName.substring(0, fileName.indexOf('_'));
+                             
+                             ConversationRecord record = new ConversationRecord(sessionId);
+                             for (SimpleMessage msg : messages) {
+                                 SimpleChatMessageRecord chatMsg = new SimpleChatMessageRecord();
+                                 try {
+                                     chatMsg.setTimestamp(LocalDateTime.parse(msg.getTimestamp(), TIMESTAMP_FORMAT));
+                                 } catch (Exception e) {
+                                     chatMsg.setTimestamp(LocalDateTime.now());
+                                 }
+                                 chatMsg.setRole(msg.getRole());
+                                 chatMsg.setContent(msg.getContent());
+                                 record.getMessages().add(chatMsg);
+                             }
+                             conversations.add(record);
+                         }
+                     } catch (Exception e) {
+                         logger.warn("读取对话记录文件失败: {}", path, e);
+                     }
+                 });
+        } catch (IOException e) {
+            logger.error("列出对话记录目录失败: {}", fullDir, e);
+        }
+        
+        return conversations;
+    }
+    
+    /**
+     * 获取对话统计信息（ConversationHistoryService兼容）
+     * @return 统计信息
+     */
+    public ConversationStats getConversationStats() {
+        ConversationStats stats = new ConversationStats();
+        
+        try {
+            // 统计会话文件
+            String sessionsDir = getSessionsDir();
+            Path sessionsPath = Paths.get(sessionsDir);
+            if (Files.exists(sessionsPath)) {
+                Files.walk(sessionsPath, 1)
+                     .filter(path -> path.toString().endsWith(".json"))
+                     .forEach(path -> {
+                         try {
+                             stats.setTotalConversations(stats.getTotalConversations() + 1);
+                             stats.setTotalFileSize(stats.getTotalFileSize() + Files.size(path));
+                             
+                             String content = Files.readString(path);
+                             List<SimpleMessage> messages = JsonUtil.fromJsonToList(content, SimpleMessage.class);
+                             if (messages != null) {
+                                 stats.setTotalMessages(stats.getTotalMessages() + messages.size());
+                             }
+                         } catch (Exception e) {
+                             logger.warn("读取统计信息失败: {}", path, e);
+                         }
+                     });
+            }
+        } catch (Exception e) {
+            logger.error("获取对话统计信息失败", e);
+        }
+        
+        return stats;
+    }
+    
+    // ==================== SessionHistoryService 兼容API ====================
+    
+    /**
+     * 加载指定会话的历史记录（SessionHistoryService兼容）
+     * @param sessionId 会话ID
+     * @return 消息列表
+     */
+    public List<ChatMessage> loadSessionHistory(String sessionId) {
+        return loadHistory(sessionId);
+    }
+    
+    /**
+     * 保存会话历史到文件（SessionHistoryService兼容）
+     * @param sessionId 会话ID
+     * @param messages 消息列表
+     */
+    public void saveSessionHistory(String sessionId, List<ChatMessage> messages) {
+        saveHistory(sessionId, messages, StorageStrategy.BY_SESSION);
+    }
+    
+    /**
+     * 检查会话历史文件是否存在（SessionHistoryService兼容）
+     * @param sessionId 会话ID
+     * @return 是否存在
+     */
+    public boolean hasSessionHistory(String sessionId) {
+        return hasHistory(sessionId);
+    }
+    
+    /**
+     * 删除会话历史文件（SessionHistoryService兼容）
+     * @param sessionId 会话ID
+     * @return 是否删除成功
+     */
+    public boolean deleteSessionHistory(String sessionId) {
+        return deleteHistory(sessionId);
+    }
+    
+    // ==================== 辅助方法 ====================
+    
+    /**
+     * 将ChatMessage列表转换为ConversationRecord
+     */
+    private ConversationRecord convertToConversationRecord(String sessionId, List<ChatMessage> messages) {
+        ConversationRecord record = new ConversationRecord(sessionId);
+        
+        for (ChatMessage msg : messages) {
+            if (msg.getContent() != null && !msg.getContent().trim().isEmpty()) {
+                SimpleChatMessageRecord chatMsg = new SimpleChatMessageRecord();
+                chatMsg.setTimestamp(msg.getTimestamp() != null ? msg.getTimestamp() : LocalDateTime.now());
+                chatMsg.setRole(msg.getRole() != null ? msg.getRole() : "unknown");
+                chatMsg.setContent(msg.getContent());
+                record.getMessages().add(chatMsg);
+            }
+        }
+        
+        return record;
     }
 }
 

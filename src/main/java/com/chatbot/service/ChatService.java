@@ -33,8 +33,7 @@ public class ChatService {
     private final MultiModalService multiModalService;
     private final AppConfig.AIConfig aiConfig;
     private final OllamaLLMServiceImpl llmService;  // 使用新的 LLM 服务
-    private final ConversationHistoryService conversationHistoryService;
-    private final SessionHistoryService sessionHistoryService;
+    private final ChatHistoryService chatHistoryService;  // 统一历史服务（替代 ConversationHistoryService 和 SessionHistoryService）
     private final WebSearchService webSearchService;
     private final TaskManager taskManager;
     private final UserPreferencesService userPreferencesService;
@@ -46,8 +45,7 @@ public class ChatService {
                       MultiModalService multiModalService,
                       AppConfig appConfig,
                       @Qualifier("ollamaLLMService") OllamaLLMServiceImpl llmService,
-                      ConversationHistoryService conversationHistoryService,
-                      SessionHistoryService sessionHistoryService,
+                      ChatHistoryService chatHistoryService,  // 使用统一的历史服务
                       WebSearchService webSearchService,
                       TaskManager taskManager,
                       UserPreferencesService userPreferencesService) {
@@ -58,8 +56,7 @@ public class ChatService {
         this.multiModalService = multiModalService;
         this.aiConfig = appConfig.getAi();
         this.llmService = llmService;  // 使用新的 LLM 服务
-        this.conversationHistoryService = conversationHistoryService;
-        this.sessionHistoryService = sessionHistoryService;
+        this.chatHistoryService = chatHistoryService;  // 使用统一的历史服务
         this.webSearchService = webSearchService;
         this.taskManager = taskManager;
         this.userPreferencesService = userPreferencesService;
@@ -1180,15 +1177,15 @@ public class ChatService {
                 logger.debug("💾 保存用户消息 - sessionId: {}, 内容长度: {}", 
                            sessionId, userMessage.getContent().length());
                 session.addMessage(userMessage);
-                conversationHistoryService.addMessage(sessionId, userMessage);
-                sessionHistoryService.addMessageAndSave(sessionId, userMessage);
+                chatHistoryService.addMessage(sessionId, userMessage);
+                chatHistoryService.addMessageAndSave(sessionId, userMessage);
                 
                 // 2. 再保存AI回答
                 logger.debug("💾 保存AI回答 - sessionId: {}, 内容长度: {}", 
                            sessionId, aiMessage.getContent().length());
                 session.addMessage(aiMessage);
-                conversationHistoryService.addMessage(sessionId, aiMessage);
-                sessionHistoryService.addMessageAndSave(sessionId, aiMessage);
+                chatHistoryService.addMessage(sessionId, aiMessage);
+                chatHistoryService.addMessageAndSave(sessionId, aiMessage);
                 
                 // 3. 更新记忆和世界书（使用用户输入内容，而不是AI回答）
                 memoryService.updateMemory(sessionId, userMessage.getContent());
@@ -1286,7 +1283,7 @@ public class ChatService {
             dialogueMessages.addAll(existingDialogue);
         } else {
             // 从文件加载历史记录
-            List<ChatMessage> historyMessages = sessionHistoryService.loadSessionHistory(sessionId);
+            List<ChatMessage> historyMessages = chatHistoryService.loadSessionHistory(sessionId);
             
             if (historyMessages != null && !historyMessages.isEmpty()) {
                 // 过滤掉系统提示词部分，只保留AI和用户的对话历史
@@ -1529,7 +1526,7 @@ public class ChatService {
                 
                 if (!allMessages.isEmpty()) {
                     // 保存完整的会话历史到文件
-                    sessionHistoryService.saveSessionHistory(sessionId, allMessages);
+                    chatHistoryService.saveSessionHistory(sessionId, allMessages);
                     logger.info("会话历史已保存到文件，sessionId: {}, 消息数量: {}", sessionId, allMessages.size());
                 } else {
                     logger.debug("会话没有消息，跳过保存，sessionId: {}", sessionId);
