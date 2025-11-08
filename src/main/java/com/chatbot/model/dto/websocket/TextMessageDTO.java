@@ -1,5 +1,7 @@
 package com.chatbot.model.dto.websocket;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * 文本消息DTO
  * 用于文本内容的传输（包括字符流模式）
@@ -40,7 +42,9 @@ public class TextMessageDTO extends ChatMessageDTO {
     
     /**
      * 是否完成（流式消息）
+     * 映射为前端期望的 streamComplete 字段
      */
+    @JsonProperty("streamComplete")
     private Boolean done;
     
     public TextMessageDTO() {

@@ -1,5 +1,7 @@
 package com.chatbot.model.dto.websocket;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * 思考过程消息DTO
  * 用于传输AI的思考过程（可选显示）
@@ -25,7 +27,9 @@ public class ThinkingMessageDTO extends ChatMessageDTO {
     
     /**
      * 是否完成
+     * 映射为前端期望的 streamComplete 字段
      */
+    @JsonProperty("streamComplete")
     private Boolean done;
     
     public ThinkingMessageDTO() {
