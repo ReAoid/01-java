@@ -5,9 +5,10 @@ import com.chatbot.model.domain.ChatMessage;
 import com.chatbot.model.dto.websocket.ChatMessageDTO;
 import com.chatbot.service.ChatService;
 import com.chatbot.service.MultiChannelDispatcher;
-import com.chatbot.service.OllamaService;
+import com.chatbot.service.llm.impl.OllamaLLMServiceImpl;
 import com.chatbot.service.channel.Live2DChannel;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -30,7 +31,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     private final ChatService chatService;
     private final MultiChannelDispatcher multiChannelDispatcher;
     private final Live2DChannel live2dChannel;
-    private final OllamaService ollamaService;
+    private final OllamaLLMServiceImpl llmService;  // 使用新的 LLM 服务
     private final ObjectMapper objectMapper;
     private final ASRWebSocketHandler asrWebSocketHandler;
     private final ChatMessageMapper chatMessageMapper;  // ✅ DTO转换器
@@ -48,14 +49,14 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     public ChatWebSocketHandler(ChatService chatService, 
                                MultiChannelDispatcher multiChannelDispatcher,
                                Live2DChannel live2dChannel,
-                               OllamaService ollamaService, 
+                               @Qualifier("ollamaLLMService") OllamaLLMServiceImpl llmService,
                                ObjectMapper objectMapper,
                                ASRWebSocketHandler asrWebSocketHandler,
                                ChatMessageMapper chatMessageMapper) {  // ✅ 注入Mapper
         this.chatService = chatService;
         this.multiChannelDispatcher = multiChannelDispatcher;
         this.live2dChannel = live2dChannel;
-        this.ollamaService = ollamaService;
+        this.llmService = llmService;  // 使用新的 LLM 服务
         this.objectMapper = objectMapper;
         this.asrWebSocketHandler = asrWebSocketHandler;
         this.chatMessageMapper = chatMessageMapper;
@@ -320,7 +321,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
      */
     private void handleOllamaStatusCheck(WebSocketSession session, String sessionId) {
         try {
-            boolean isAvailable = ollamaService.isServiceAvailable();
+            boolean isAvailable = llmService.isServiceAvailable();
 
             ChatMessage statusMessage = new ChatMessage();
             statusMessage.setType("system");

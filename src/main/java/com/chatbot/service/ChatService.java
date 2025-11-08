@@ -5,8 +5,10 @@ import com.chatbot.model.domain.ChatMessage;
 import com.chatbot.model.domain.ChatSession;
 import com.chatbot.model.dto.OllamaMessage;
 import com.chatbot.model.config.UserPreferences;
+import com.chatbot.service.llm.impl.OllamaLLMServiceImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -30,7 +32,7 @@ public class ChatService {
     @SuppressWarnings("unused")
     private final MultiModalService multiModalService;
     private final AppConfig.AIConfig aiConfig;
-    private final OllamaService ollamaService;
+    private final OllamaLLMServiceImpl llmService;  // 使用新的 LLM 服务
     private final ConversationHistoryService conversationHistoryService;
     private final SessionHistoryService sessionHistoryService;
     private final WebSearchService webSearchService;
@@ -43,7 +45,7 @@ public class ChatService {
                       WorldBookService worldBookService,
                       MultiModalService multiModalService,
                       AppConfig appConfig,
-                      OllamaService ollamaService,
+                      @Qualifier("ollamaLLMService") OllamaLLMServiceImpl llmService,
                       ConversationHistoryService conversationHistoryService,
                       SessionHistoryService sessionHistoryService,
                       WebSearchService webSearchService,
@@ -55,7 +57,7 @@ public class ChatService {
         this.worldBookService = worldBookService;
         this.multiModalService = multiModalService;
         this.aiConfig = appConfig.getAi();
-        this.ollamaService = ollamaService;
+        this.llmService = llmService;  // 使用新的 LLM 服务
         this.conversationHistoryService = conversationHistoryService;
         this.sessionHistoryService = sessionHistoryService;
         this.webSearchService = webSearchService;
@@ -308,8 +310,8 @@ public class ChatService {
     private void generateStreamingResponse(List<OllamaMessage> messages, String sessionId, String taskId, Consumer<ChatMessage> callback, 
                                          long messageStartTime, long aiCallStartTime, ChatMessage userMessage) {
         
-        // 检查Ollama服务是否可用
-        if (!ollamaService.isServiceAvailable()) {
+        // 检查LLM服务是否可用
+        if (!llmService.isServiceAvailable()) {
             logger.error("Ollama服务不可用，无法生成响应，sessionId: {}", sessionId);
             
             ChatMessage errorMessage = new ChatMessage();
@@ -328,8 +330,8 @@ public class ChatService {
         // 获取用户配置
         UserPreferences userPrefs = userPreferencesService.getUserPreferences("Taiming");
         
-        // 使用Ollama服务生成流式响应（传递用户配置）
-        okhttp3.Call ollamaCall = ollamaService.generateStreamingResponseWithInterruptCheck(
+        // 使用LLM服务生成流式响应（传递用户配置）
+        okhttp3.Call ollamaCall = llmService.generateStreamingResponseWithInterruptCheck(
             messages,
             // 成功处理每个chunk
             chunk -> {
@@ -394,8 +396,8 @@ public class ChatService {
     private void generateStreamingResponseInTask(List<OllamaMessage> messages, String sessionId, String taskId, Consumer<ChatMessage> callback, 
                                                long messageStartTime, long aiCallStartTime, ChatMessage userMessage) {
         
-        // 检查Ollama服务是否可用
-        if (!ollamaService.isServiceAvailable()) {
+        // 检查LLM服务是否可用
+        if (!llmService.isServiceAvailable()) {
             logger.error("Ollama服务不可用，无法生成响应，sessionId: {}", sessionId);
             
             ChatMessage errorMessage = new ChatMessage();
@@ -414,8 +416,8 @@ public class ChatService {
         // 获取用户配置
         UserPreferences userPrefs = userPreferencesService.getUserPreferences("Taiming");
         
-        // 使用Ollama服务生成流式响应（传递用户配置）
-        okhttp3.Call ollamaCall = ollamaService.generateStreamingResponseWithInterruptCheck(
+        // 使用LLM服务生成流式响应（传递用户配置）
+        okhttp3.Call ollamaCall = llmService.generateStreamingResponseWithInterruptCheck(
             messages,
             // 成功处理每个chunk
             chunk -> {
@@ -891,7 +893,7 @@ public class ChatService {
             // 获取用户配置
             UserPreferences userPrefs = userPreferencesService.getUserPreferences("Taiming");
             
-            ollamaService.generateStreamingResponse(
+            llmService.generateStreamingResponse(
                 messages,
                 // 成功处理每个chunk
                 chunk -> {

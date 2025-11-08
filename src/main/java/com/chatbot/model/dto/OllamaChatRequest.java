@@ -64,29 +64,7 @@ public class OllamaChatRequest {
         return new OllamaChatRequest(model, messages, stream, temperature);
     }
     
-    /**
-     * 兼容旧代码的构造函数 - 推荐使用 fromPrompts 静态方法
-     * @deprecated 使用 {@link #fromPrompts(String, String, String, boolean, double)} 代替
-     */
-    @Deprecated
-    public OllamaChatRequest(String model, String systemPrompt, String userPrompt, boolean stream, double temperature) {
-        this.model = model;
-        
-        // 构建消息数组
-        if (systemPrompt != null && !systemPrompt.trim().isEmpty()) {
-            this.messages = new OllamaMessage[] { 
-                new OllamaMessage("system", systemPrompt.trim()),
-                new OllamaMessage("user", userPrompt) 
-            };
-        } else {
-            this.messages = new OllamaMessage[] { 
-                new OllamaMessage("user", userPrompt) 
-            };
-        }
-        
-        this.stream = stream;
-        this.options = new OllamaOptions(temperature);
-    }
+    // 废弃的构造函数已删除，请使用 fromPrompts() 或 fromMessages() 静态工厂方法
     
     // Getters for Jackson serialization
     public String getModel() {

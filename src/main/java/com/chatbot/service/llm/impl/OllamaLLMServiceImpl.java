@@ -363,6 +363,69 @@ public class OllamaLLMServiceImpl implements LLMService {
         return ApiResult.success(estimatedTokens);
     }
 
+    // ========== 兼容旧 OllamaService 的桥接方法 ==========
+
+    /**
+     * 兼容旧代码：流式生成响应（直接接受String的Consumer）
+     * 用于 ChatService 和 ChatWebSocketHandler 的迁移
+     */
+    public okhttp3.Call generateStreamingResponseWithInterruptCheck(
+            List<com.chatbot.model.dto.OllamaMessage> messages,
+            Consumer<String> onChunk,
+            Consumer<Throwable> onError,
+            Runnable onComplete,
+            java.util.function.Supplier<Boolean> interruptChecker,
+            com.chatbot.model.config.UserPreferences userPrefs) {
+
+        // 构建 LLMRequest
+        String model = (userPrefs != null && userPrefs.getLlm().getModel() != null)
+                ? userPrefs.getLlm().getModel()
+                : ollamaConfig.getModel();
+
+        // 使用配置的temperature，默认0.7
+        Double temperature = ollamaConfig.getTemperature();
+
+        LLMRequest request = new LLMRequest.Builder()
+                .messages(messages)
+                .model(model)
+                .temperature(temperature)
+                .stream(true)
+                .build();
+
+        // 调用新的方法，但将 LLMStreamChunk 转换为 String
+        return (okhttp3.Call) generateStreamWithInterruptCheck(
+                request,
+                chunk -> onChunk.accept(chunk.getContent()),  // 转换：LLMStreamChunk -> String
+                onError,
+                onComplete,
+                interruptChecker
+        );
+    }
+
+    /**
+     * 兼容旧代码：流式生成响应（不带用户配置）
+     */
+    public okhttp3.Call generateStreamingResponseWithInterruptCheck(
+            List<com.chatbot.model.dto.OllamaMessage> messages,
+            Consumer<String> onChunk,
+            Consumer<Throwable> onError,
+            Runnable onComplete,
+            java.util.function.Supplier<Boolean> interruptChecker) {
+        return generateStreamingResponseWithInterruptCheck(messages, onChunk, onError, onComplete, interruptChecker, null);
+    }
+
+    /**
+     * 兼容旧代码：流式生成响应（带用户配置，不带中断检查）
+     */
+    public void generateStreamingResponse(
+            List<com.chatbot.model.dto.OllamaMessage> messages,
+            Consumer<String> onChunk,
+            Consumer<Throwable> onError,
+            Runnable onComplete,
+            com.chatbot.model.config.UserPreferences userPrefs) {
+        generateStreamingResponseWithInterruptCheck(messages, onChunk, onError, onComplete, null, userPrefs);
+    }
+
     // ========== 私有辅助方法 ==========
 
     /**

@@ -29,14 +29,7 @@ public class MultiModalService {
         logger.info("多模态服务初始化完成，TTS引擎: {}", ttsService.getEngineName());
     }
     
-    /**
-     * 语音转文本 (ASR - Automatic Speech Recognition)
-     * 注意：ASR功能已通过WebSocket实时处理，此方法已废弃
-     */
-    @Deprecated
-    public CompletableFuture<String> speechToText(byte[] audioData, String audioFormat) {
-        return CompletableFuture.completedFuture("ASR功能已迁移到WebSocket实时处理");
-    }
+    // ASR功能已迁移到 ASRService 接口和 WebSocket 实时处理
     
     /**
      * 文本转语音 (TTS - Text To Speech)
@@ -163,14 +156,7 @@ public class MultiModalService {
         }
     }
     
-    /**
-     * 检查TTS服务健康状态（向后兼容）
-     * @deprecated 使用 checkTTSHealth() 代替
-     */
-    @Deprecated
-    public boolean isTTSServiceHealthy() {
-        return checkTTSHealth().isHealthy();
-    }
+    // 已移除废弃的 isTTSServiceHealthy() 方法，请使用 checkTTSHealth()
     
     /**
      * Mock VAD处理
