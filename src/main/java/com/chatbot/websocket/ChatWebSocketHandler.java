@@ -17,7 +17,6 @@ import org.springframework.web.socket.*;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 聊天WebSocket处理器
@@ -41,10 +40,6 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     
     // 存储会话的当前任务ID
     private final ConcurrentHashMap<String, String> sessionTasks = new ConcurrentHashMap<>();
-
-    // 生成唯一会话ID (备用，当前使用IdUtil工具类)
-    @SuppressWarnings("unused")
-    private final AtomicLong sessionIdGenerator = new AtomicLong(0);
 
     public ChatWebSocketHandler(ChatService chatService, 
                                MultiChannelDispatcher multiChannelDispatcher,
@@ -296,17 +291,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
         }
     }
     
-    /**
-     * 转义JSON字符串
-     */
-    private String escapeJson(String input) {
-        if (input == null) return "";
-        return input.replace("\\", "\\\\")
-                   .replace("\"", "\\\"")
-                   .replace("\n", "\\n")
-                   .replace("\r", "\\r")
-                   .replace("\t", "\\t");
-    }
+    // JSON转义功能已由ObjectMapper自动处理
 
     /**
      * 生成基于日期的会话ID (格式: YYYYMMDD)

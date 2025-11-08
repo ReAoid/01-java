@@ -29,8 +29,6 @@ public class ChatService {
     private final PersonaService personaService;
     private final MemoryService memoryService;
     private final WorldBookService worldBookService;
-    @SuppressWarnings("unused")
-    private final MultiModalService multiModalService;
     private final AppConfig.AIConfig aiConfig;
     private final OllamaLLMServiceImpl llmService;  // 使用新的 LLM 服务
     private final ChatHistoryService chatHistoryService;  // 统一历史服务（替代 ConversationHistoryService 和 SessionHistoryService）
@@ -42,7 +40,6 @@ public class ChatService {
                       PersonaService personaService,
                       MemoryService memoryService,
                       WorldBookService worldBookService,
-                      MultiModalService multiModalService,
                       AppConfig appConfig,
                       @Qualifier("ollamaLLMService") OllamaLLMServiceImpl llmService,
                       ChatHistoryService chatHistoryService,  // 使用统一的历史服务
@@ -53,7 +50,6 @@ public class ChatService {
         this.personaService = personaService;
         this.memoryService = memoryService;
         this.worldBookService = worldBookService;
-        this.multiModalService = multiModalService;
         this.aiConfig = appConfig.getAi();
         this.llmService = llmService;  // 使用新的 LLM 服务
         this.chatHistoryService = chatHistoryService;  // 使用统一的历史服务

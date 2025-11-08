@@ -18,7 +18,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * ASR WebSocket处理器
@@ -587,14 +586,7 @@ public class ASRWebSocketHandler {
         }
     }
     
-    /**
-     * 启动定期健康检查（已禁用，改为按需检查）
-     */
-    @SuppressWarnings("unused")
-    private void startHealthCheck() {
-        // 不再启动定期健康检查，改为在用户启用ASR时进行实时检查
-        logger.info("ASR健康检查已改为按需模式，不进行定期检查");
-    }
+    // 健康检查已改为按需模式（在用户启用ASR时进行实时检查）
     
     /**
      * 清理会话资源 - 只清理当前会话，保持全局ASR连接
