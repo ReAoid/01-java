@@ -2,8 +2,10 @@ package com.chatbot.controller;
 
 import com.chatbot.model.dto.common.HealthCheckResult;
 import com.chatbot.service.MultiModalService;
+import com.chatbot.service.asr.ASRService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,7 +17,7 @@ import java.util.Map;
 
 /**
  * 统一健康检查控制器
- * 提供所有服务的健康检查端点
+ * 提供所有服务的健康检查端点（TTS、ASR、System）
  */
 @RestController
 @RequestMapping("/api/health")
@@ -24,9 +26,12 @@ public class HealthCheckController {
     private static final Logger logger = LoggerFactory.getLogger(HealthCheckController.class);
     
     private final MultiModalService multiModalService;
+    private final ASRService asrService;
     
-    public HealthCheckController(MultiModalService multiModalService) {
+    public HealthCheckController(MultiModalService multiModalService,
+                                @Qualifier("funASRService") ASRService asrService) {
         this.multiModalService = multiModalService;
+        this.asrService = asrService;
     }
     
     /**
@@ -63,6 +68,15 @@ public class HealthCheckController {
         } catch (Exception e) {
             logger.error("TTS健康检查异常", e);
             results.put("tts", createErrorResult("TTS", e.getMessage()));
+        }
+        
+        // ASR服务健康检查
+        try {
+            HealthCheckResult asrHealth = asrService.healthCheck();
+            results.put("asr", convertToMap(asrHealth));
+        } catch (Exception e) {
+            logger.error("ASR健康检查异常", e);
+            results.put("asr", createErrorResult("ASR", e.getMessage()));
         }
         
         // 系统服务健康检查
@@ -111,6 +125,30 @@ public class HealthCheckController {
         } catch (Exception e) {
             logger.error("TTS健康检查异常", e);
             Map<String, Object> errorResponse = createErrorResult("TTS", e.getMessage());
+            return ResponseEntity.status(500).body(errorResponse);
+        }
+    }
+    
+    /**
+     * ASR服务专用健康检查
+     * @return ASR服务健康状态
+     */
+    @GetMapping("/asr")
+    public ResponseEntity<Map<String, Object>> checkASR() {
+        logger.debug("接收到ASR健康检查请求");
+        
+        try {
+            HealthCheckResult result = asrService.healthCheck();
+            Map<String, Object> response = convertToMap(result);
+            
+            if (result.isHealthy()) {
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.status(503).body(response); // 503 Service Unavailable
+            }
+        } catch (Exception e) {
+            logger.error("ASR健康检查异常", e);
+            Map<String, Object> errorResponse = createErrorResult("ASR", e.getMessage());
             return ResponseEntity.status(500).body(errorResponse);
         }
     }
