@@ -1,8 +1,14 @@
 package com.chatbot.controller;
 
-import com.chatbot.service.CosyVoiceTTSService;
+import com.chatbot.model.dto.common.ApiResult;
+import com.chatbot.model.dto.common.HealthCheckResult;
+import com.chatbot.model.dto.tts.SpeakerInfo;
+import com.chatbot.model.dto.tts.TTSRequest;
+import com.chatbot.model.dto.tts.TTSResult;
+import com.chatbot.service.tts.TTSService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +20,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * CosyVoice TTS 控制器
@@ -25,25 +35,41 @@ public class CosyVoiceController {
     
     private static final Logger logger = LoggerFactory.getLogger(CosyVoiceController.class);
     
-    private final CosyVoiceTTSService cosyVoiceService;
+    private final TTSService ttsService;
     
-    public CosyVoiceController(CosyVoiceTTSService cosyVoiceService) {
-        this.cosyVoiceService = cosyVoiceService;
+    public CosyVoiceController(@Qualifier("cosyVoiceTTSService") TTSService ttsService) {
+        this.ttsService = ttsService;
     }
     
     /**
      * 健康检查接口
      */
     @GetMapping("/health")
-    public ResponseEntity<?> healthCheck() {
+    public ResponseEntity<Map<String, Object>> healthCheck() {
         logger.info("收到健康检查请求");
         
-        CosyVoiceTTSService.HealthCheckResult result = cosyVoiceService.healthCheck();
+        HealthCheckResult result = ttsService.healthCheck();
         
-        if (result.isSuccess()) {
-            return ResponseEntity.ok(result);
+        // 转换为Map格式以添加前端需要的success字段
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", result.isHealthy());
+        response.put("healthy", result.isHealthy());
+        response.put("serviceName", result.getServiceName());
+        response.put("status", result.getStatus());
+        response.put("responseTime", result.getResponseTime());
+        response.put("timestamp", result.getTimestamp());
+        
+        if (result.getVersion() != null) {
+            response.put("version", result.getVersion());
+        }
+        if (result.getDetails() != null && !result.getDetails().isEmpty()) {
+            response.put("details", result.getDetails());
+        }
+        
+        if (result.isHealthy()) {
+            return ResponseEntity.ok(response);
         } else {
-            return ResponseEntity.status(500).body(result);
+            return ResponseEntity.status(503).body(response); // 503 Service Unavailable
         }
     }
     
@@ -61,18 +87,25 @@ public class CosyVoiceController {
         try {
             byte[] audioData = referenceAudio.getBytes();
             
-            CosyVoiceTTSService.SpeakerRegistrationResult result = 
-                cosyVoiceService.registerCustomSpeaker(speakerName, referenceText, audioData);
+            ApiResult<SpeakerInfo> result = 
+                ttsService.registerSpeaker(speakerName, referenceText, audioData);
             
             if (result.isSuccess()) {
                 return ResponseEntity.ok(result);
             } else {
-                return ResponseEntity.status(400).body(result);
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", result.getMessage());
+                errorResponse.put("errorCode", result.getErrorCode());
+                return ResponseEntity.status(400).body(errorResponse);
             }
             
         } catch (IOException e) {
             logger.error("读取音频文件失败", e);
-            return ResponseEntity.status(400).body("音频文件读取失败: " + e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "音频文件读取失败: " + e.getMessage());
+            return ResponseEntity.status(400).body(errorResponse);
         }
     }
     
@@ -88,8 +121,14 @@ public class CosyVoiceController {
         
         logger.info("收到自定义说话人合成请求: 说话人={}, 文本长度={}", speakerName, text.length());
         
-        CosyVoiceTTSService.SynthesisResult result = 
-            cosyVoiceService.customSpeakerSynthesis(text, speakerName, speed, format);
+        TTSRequest request = new TTSRequest.Builder()
+                .text(text)
+                .speakerId(speakerName)
+                .speed(speed != null ? speed : 1.0)
+                .format(format)
+                .build();
+        
+        ApiResult<TTSResult> result = ttsService.synthesize(request);
         
         if (result.isSuccess()) {
             // 返回音频数据
@@ -99,9 +138,13 @@ public class CosyVoiceController {
             
             return ResponseEntity.ok()
                     .headers(headers)
-                    .body(result.getAudioData());
+                    .body(result.getData().getAudioData());
         } else {
-            return ResponseEntity.status(400).body(result);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", result.getMessage());
+            errorResponse.put("errorCode", result.getErrorCode());
+            return ResponseEntity.status(400).body(errorResponse);
         }
     }
     
@@ -112,12 +155,29 @@ public class CosyVoiceController {
     public ResponseEntity<?> getSpeakers() {
         logger.info("收到获取说话人列表请求");
         
-        CosyVoiceTTSService.SpeakerListResult result = cosyVoiceService.getSpeakers();
+        ApiResult<List<SpeakerInfo>> result = ttsService.listSpeakers();
         
         if (result.isSuccess()) {
-            return ResponseEntity.ok(result);
+            // 转换为兼容格式
+            List<SpeakerInfo> speakers = result.getData();
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", result.getMessage());
+            response.put("builtin_speakers", speakers.stream()
+                    .filter(SpeakerInfo::isBuiltin)
+                    .map(SpeakerInfo::getName)
+                    .collect(Collectors.toList()));
+            response.put("custom_speakers", speakers.stream()
+                    .filter(SpeakerInfo::isCustom)
+                    .map(SpeakerInfo::getName)
+                    .collect(Collectors.toList()));
+            
+            return ResponseEntity.ok(response);
         } else {
-            return ResponseEntity.status(500).body(result);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", result.getMessage());
+            return ResponseEntity.status(500).body(errorResponse);
         }
     }
     
@@ -145,19 +205,25 @@ public class CosyVoiceController {
                 return ResponseEntity.status(400).body("默认语音人设不能删除");
             }
             
-            // 调用CosyVoice服务删除语音人设
-            CosyVoiceTTSService.SpeakerDeletionResult result = 
-                cosyVoiceService.deleteCustomSpeaker(cleanSpeakerName);
+            // 调用TTS服务删除语音人设
+            ApiResult<Void> result = ttsService.deleteSpeaker(cleanSpeakerName);
             
             if (result.isSuccess()) {
                 // 删除本地文件（user_audio目录中的文件）
                 deleteLocalSpeakerFiles(cleanSpeakerName);
                 
                 logger.info("语音人设删除成功: {}", cleanSpeakerName);
-                return ResponseEntity.ok(result);
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", true);
+                response.put("message", result.getMessage());
+                response.put("speakerName", cleanSpeakerName);
+                return ResponseEntity.ok(response);
             } else {
-                logger.warn("CosyVoice服务删除失败: {}", result.getMessage());
-                return ResponseEntity.status(400).body(result);
+                logger.warn("TTS服务删除失败: {}", result.getMessage());
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", result.getMessage());
+                return ResponseEntity.status(400).body(errorResponse);
             }
             
         } catch (Exception e) {
@@ -260,14 +326,20 @@ public class CosyVoiceController {
             Files.write(textFilePath, referenceText.trim().getBytes("UTF-8"));
             logger.info("文本文件已保存: {}", textFilePath.toAbsolutePath());
             
-            // 调用CosyVoice服务注册语音人设
+            // 调用TTS服务注册语音人设
             byte[] audioData = referenceAudio.getBytes();
-            CosyVoiceTTSService.SpeakerRegistrationResult result = 
-                cosyVoiceService.registerCustomSpeaker(cleanSpeakerName, referenceText.trim(), audioData);
+            ApiResult<SpeakerInfo> result = 
+                ttsService.registerSpeaker(cleanSpeakerName, referenceText.trim(), audioData);
             
             if (result.isSuccess()) {
                 logger.info("语音人设创建成功: {}", cleanSpeakerName);
-                return ResponseEntity.ok(result);
+                SpeakerInfo speaker = result.getData();
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", true);
+                response.put("message", result.getMessage());
+                response.put("speakerName", speaker.getName()); // 前端兼容字段
+                response.put("speaker", speaker); // 完整的说话人信息
+                return ResponseEntity.ok(response);
             } else {
                 // 如果注册失败，删除已保存的文件
                 try {
@@ -277,7 +349,10 @@ public class CosyVoiceController {
                 } catch (IOException cleanupError) {
                     logger.error("清理文件失败", cleanupError);
                 }
-                return ResponseEntity.status(400).body(result);
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", result.getMessage());
+                return ResponseEntity.status(400).body(errorResponse);
             }
             
         } catch (IOException e) {
@@ -314,11 +389,19 @@ public class CosyVoiceController {
             // 清理output_audio目录
             clearOutputAudioDirectory();
             
-            // 调用CosyVoice服务进行语音合成
-            CosyVoiceTTSService.SynthesisResult result = 
-                cosyVoiceService.customSpeakerSynthesis(text.trim(), speakerName.trim(), speed, format);
+            // 调用TTS服务进行语音合成
+            TTSRequest ttsRequest = new TTSRequest.Builder()
+                    .text(text.trim())
+                    .speakerId(speakerName.trim())
+                    .speed(speed != null ? speed : 1.0)
+                    .format(format)
+                    .build();
+            ApiResult<TTSResult> result = ttsService.synthesize(ttsRequest);
             
             if (result.isSuccess()) {
+                TTSResult ttsResult = result.getData();
+                byte[] audioData = ttsResult.getAudioData();
+                
                 // 保存音频文件到output_audio目录
                 String fileName = "test_" + System.currentTimeMillis() + "." + format;
                 Path outputDir = Paths.get("src/main/resources/data/tts_data/output_audio");
@@ -330,7 +413,7 @@ public class CosyVoiceController {
                 }
                 
                 Path audioFilePath = outputDir.resolve(fileName);
-                Files.write(audioFilePath, result.getAudioData());
+                Files.write(audioFilePath, audioData);
                 logger.info("测试音频已保存: {}", audioFilePath.toAbsolutePath());
                 
                 // 返回音频数据
@@ -340,7 +423,7 @@ public class CosyVoiceController {
                 
                 return ResponseEntity.ok()
                         .headers(headers)
-                        .body(result.getAudioData());
+                        .body(audioData);
             } else {
                 logger.warn("测试语音合成失败: {}", result.getMessage());
                 return ResponseEntity.status(400).body(result.getMessage());

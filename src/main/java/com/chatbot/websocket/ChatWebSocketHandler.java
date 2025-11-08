@@ -1,6 +1,8 @@
 package com.chatbot.websocket;
 
+import com.chatbot.mapper.ChatMessageMapper;
 import com.chatbot.model.domain.ChatMessage;
+import com.chatbot.model.dto.websocket.ChatMessageDTO;
 import com.chatbot.service.ChatService;
 import com.chatbot.service.MultiChannelDispatcher;
 import com.chatbot.service.OllamaService;
@@ -31,6 +33,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     private final OllamaService ollamaService;
     private final ObjectMapper objectMapper;
     private final ASRWebSocketHandler asrWebSocketHandler;
+    private final ChatMessageMapper chatMessageMapper;  // ✅ DTO转换器
 
     // 存储活跃的WebSocket会话
     private final ConcurrentHashMap<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
@@ -47,13 +50,15 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                                Live2DChannel live2dChannel,
                                OllamaService ollamaService, 
                                ObjectMapper objectMapper,
-                               ASRWebSocketHandler asrWebSocketHandler) {
+                               ASRWebSocketHandler asrWebSocketHandler,
+                               ChatMessageMapper chatMessageMapper) {  // ✅ 注入Mapper
         this.chatService = chatService;
         this.multiChannelDispatcher = multiChannelDispatcher;
         this.live2dChannel = live2dChannel;
         this.ollamaService = ollamaService;
         this.objectMapper = objectMapper;
         this.asrWebSocketHandler = asrWebSocketHandler;
+        this.chatMessageMapper = chatMessageMapper;
     }
 
     @Override
@@ -92,7 +97,9 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                 // 解析收到的消息
                 String payload = textMessage.getPayload();
 
-                ChatMessage chatMessage = objectMapper.readValue(payload, ChatMessage.class);
+                // ✅ 先反序列化为DTO，再转换为领域模型
+                ChatMessageDTO dto = objectMapper.readValue(payload, ChatMessageDTO.class);
+                ChatMessage chatMessage = chatMessageMapper.fromDTO(dto);
                 chatMessage.setSessionId(sessionId);
 
                 // 记录用户消息接收时间戳
@@ -238,13 +245,17 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     }
 
     /**
-     * 发送消息到客户端
+     * 发送消息到客户端（使用DTO层）
      */
     private void sendMessage(WebSocketSession session, ChatMessage message) throws IOException {
         if (session != null && session.isOpen()) {
             try {
-                String messageJson = objectMapper.writeValueAsString(message);
+                // ✅ 转换为DTO再序列化
+                ChatMessageDTO dto = chatMessageMapper.toDTO(message);
+                String messageJson = objectMapper.writeValueAsString(dto);
                 session.sendMessage(new TextMessage(messageJson));
+                
+                logger.trace("消息发送成功: type={}, sessionId={}", dto.getType(), dto.getSessionId());
             } catch (IOException e) {
                 // 检查是否是连接关闭相关的错误
                 if (e.getMessage() != null && 
@@ -263,7 +274,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     }
     
     /**
-     * 优化的流式消息发送
+     * 优化的流式消息发送（使用DTO层）
      */
     private void sendStreamingMessage(WebSocketSession session, ChatMessage message, String sessionId) throws IOException {
         if (!session.isOpen()) {
@@ -272,24 +283,9 @@ public class ChatWebSocketHandler implements WebSocketHandler {
         }
         
         try {
-            // 对于流式消息，优化JSON序列化
-            String messageJson;
-            if (message.isStreaming() && message.getContent() != null) {
-                // 使用简化的JSON结构减少序列化开销，包含thinking字段
-                messageJson = String.format(
-                    "{\"type\":\"%s\",\"content\":\"%s\",\"role\":\"%s\",\"sessionId\":\"%s\",\"streaming\":%s,\"streamComplete\":%s,\"thinking\":%s}",
-                    message.getType(),
-                    escapeJson(message.getContent()),
-                    message.getRole(),
-                    message.getSessionId(),
-                    message.isStreaming(),
-                    message.isStreamComplete(),
-                    message.isThinking()
-                );
-            } else {
-                // 非流式消息使用正常序列化
-                messageJson = objectMapper.writeValueAsString(message);
-            }
+            // ✅ 统一使用DTO层（流式消息也通过DTO）
+            ChatMessageDTO dto = chatMessageMapper.toDTO(message);
+            String messageJson = objectMapper.writeValueAsString(dto);
             
             session.sendMessage(new TextMessage(messageJson));
             

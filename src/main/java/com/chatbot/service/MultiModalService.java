@@ -1,32 +1,32 @@
 package com.chatbot.service;
 
-import com.chatbot.config.AppConfig;
+import com.chatbot.model.dto.common.HealthCheckResult;
+import com.chatbot.model.dto.tts.TTSRequest;
+import com.chatbot.model.dto.tts.TTSResult;
 import com.chatbot.model.dto.VadResult;
 import com.chatbot.model.dto.OcrResult;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.chatbot.service.tts.TTSService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.CompletableFuture;
 
 /**
- * 多模态处理服务
- * 集成CosyVoice TTS服务和其他多媒体处理功能
+ * 多模态处理服务 - 统一门面
+ * 提供TTS、ASR、OCR等多模态能力的统一访问入口
  */
 @Service
 public class MultiModalService {
     
     private static final Logger logger = LoggerFactory.getLogger(MultiModalService.class);
     
-    private final AppConfig.PythonApiConfig pythonApiConfig;
-    private final ObjectMapper objectMapper;
-    private final CosyVoiceTTSService cosyVoiceTTSService;
+    private final TTSService ttsService;
     
-    public MultiModalService(AppConfig appConfig, CosyVoiceTTSService cosyVoiceTTSService) {
-        this.pythonApiConfig = appConfig.getPython();
-        this.objectMapper = new ObjectMapper();
-        this.cosyVoiceTTSService = cosyVoiceTTSService;
+    public MultiModalService(@Qualifier("cosyVoiceTTSService") TTSService ttsService) {
+        this.ttsService = ttsService;
+        logger.info("多模态服务初始化完成，TTS引擎: {}", ttsService.getEngineName());
     }
     
     /**
@@ -40,31 +40,39 @@ public class MultiModalService {
     
     /**
      * 文本转语音 (TTS - Text To Speech)
-     * 使用CosyVoice服务进行语音合成
+     * 使用配置的TTS引擎进行语音合成
+     * 
+     * @param text 要合成的文本
+     * @param speakerId 说话人ID
+     * @param format 音频格式
+     * @return CompletableFuture包含音频数据
      */
     public CompletableFuture<byte[]> textToSpeech(String text, String speakerId, String format) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                logger.info("调用CosyVoice TTS服务，文本长度: {}, 说话人: {}, 格式: {}", 
-                           text.length(), speakerId, format);
-                
-                // 调用CosyVoice TTS服务
-                CosyVoiceTTSService.SynthesisResult result = 
-                    cosyVoiceTTSService.customSpeakerSynthesis(text, speakerId, 1.0, format);
-                
-                if (result.isSuccess()) {
-                    logger.debug("CosyVoice TTS处理完成，生成音频大小: {} bytes", result.getAudioData().length);
-                    return result.getAudioData();
-                } else {
-                    logger.error("CosyVoice TTS合成失败: {}", result.getMessage());
-                    throw new RuntimeException("CosyVoice语音合成失败: " + result.getMessage());
-                }
-                
-            } catch (Exception e) {
-                logger.error("TTS处理失败", e);
-                throw new RuntimeException("语音合成失败: " + e.getMessage(), e);
-            }
-        });
+        logger.info("调用TTS服务，引擎: {}, 文本长度: {}, 说话人: {}, 格式: {}", 
+                   ttsService.getEngineName(), text.length(), speakerId, format);
+        
+        TTSRequest request = new TTSRequest.Builder()
+                .text(text)
+                .speakerId(speakerId)
+                .speed(1.0)
+                .format(format)
+                .build();
+        
+        return ttsService.synthesizeAsync(request)
+                .thenApply(result -> {
+                    if (result.isSuccess()) {
+                        TTSResult ttsResult = result.getData();
+                        logger.debug("TTS处理完成，生成音频大小: {} bytes", ttsResult.getAudioSize());
+                        return ttsResult.getAudioData();
+                    } else {
+                        logger.error("TTS合成失败: {}", result.getMessage());
+                        throw new RuntimeException("TTS语音合成失败: " + result.getMessage());
+                    }
+                })
+                .exceptionally(e -> {
+                    logger.error("TTS处理失败", e);
+                    throw new RuntimeException("语音合成失败: " + e.getMessage(), e);
+                });
     }
     
     /**
@@ -138,15 +146,30 @@ public class MultiModalService {
     
     /**
      * 检查TTS服务健康状态
+     * @return 健康检查结果
      */
-    public boolean isTTSServiceHealthy() {
+    public HealthCheckResult checkTTSHealth() {
         try {
-            CosyVoiceTTSService.HealthCheckResult result = cosyVoiceTTSService.healthCheck();
-            return result.isSuccess() && result.isHealthy();
+            return ttsService.healthCheck();
         } catch (Exception e) {
             logger.error("TTS健康检查失败", e);
-            return false;
+            return new HealthCheckResult.Builder()
+                    .serviceName(ttsService.getEngineName())
+                    .healthy(false)
+                    .status("DOWN")
+                    .responseTime(0)
+                    .detail("error", e.getMessage())
+                    .build();
         }
+    }
+    
+    /**
+     * 检查TTS服务健康状态（向后兼容）
+     * @deprecated 使用 checkTTSHealth() 代替
+     */
+    @Deprecated
+    public boolean isTTSServiceHealthy() {
+        return checkTTSHealth().isHealthy();
     }
     
     /**

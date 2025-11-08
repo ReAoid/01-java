@@ -11,10 +11,17 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 
 /**
- * CosyVoice TTS服务实现
- * 提供健康检查、自定义说话人管理和语音合成功能
+ * CosyVoice TTS服务实现（已废弃）
+ * 
+ * @deprecated 请使用 {@link com.chatbot.service.tts.impl.CosyVoiceTTSServiceImpl} 
+ *             和 {@link com.chatbot.service.tts.TTSService} 接口代替
+ * 
+ * 此类保留用于向后兼容，将在未来版本中删除。
+ * 内部类（HealthCheckResult等）仍在Controller中临时使用，
+ * 请尽快迁移到统一的 ApiResult 和 HealthCheckResult。
  */
-@Service
+@Deprecated
+@Service("legacyCosyVoiceTTSService")
 public class CosyVoiceTTSService {
     
     private static final Logger logger = LoggerFactory.getLogger(CosyVoiceTTSService.class);
