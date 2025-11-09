@@ -1,4 +1,4 @@
-package com.chatbot.service;
+package com.chatbot.util.stream;
 
 import com.chatbot.model.domain.SentenceItem;
 import org.slf4j.Logger;
@@ -162,3 +162,4 @@ public class SharedSentenceQueue {
                 '}';
     }
 }
+

@@ -1,4 +1,4 @@
-package com.chatbot.service;
+package com.chatbot.util.stream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -219,3 +219,4 @@ public class SentenceBuffer {
                 '}';
     }
 }
+

@@ -5,6 +5,8 @@ import com.chatbot.model.domain.ChatMessage;
 import com.chatbot.model.domain.ChatSession;
 import com.chatbot.model.dto.llm.Message;
 import com.chatbot.model.config.UserPreferences;
+import com.chatbot.service.chat.ChatContextBuilder;
+import com.chatbot.service.chat.ChatMessageProcessor;
 import com.chatbot.service.llm.impl.OllamaLLMServiceImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +38,10 @@ public class ChatService {
     private final TaskManager taskManager;
     private final UserPreferencesService userPreferencesService;
     
+    // Phase 1 重构：新增的子服务
+    private final ChatMessageProcessor messageProcessor;
+    private final ChatContextBuilder contextBuilder;
+    
     public ChatService(SessionService sessionService, 
                       PersonaService personaService,
                       MemoryService memoryService,
@@ -45,7 +51,9 @@ public class ChatService {
                       ChatHistoryService chatHistoryService,  // 使用统一的历史服务
                       WebSearchService webSearchService,
                       TaskManager taskManager,
-                      UserPreferencesService userPreferencesService) {
+                      UserPreferencesService userPreferencesService,
+                      ChatMessageProcessor messageProcessor,  // 新增
+                      ChatContextBuilder contextBuilder) {    // 新增
         this.sessionService = sessionService;
         this.personaService = personaService;
         this.memoryService = memoryService;
@@ -56,6 +64,10 @@ public class ChatService {
         this.webSearchService = webSearchService;
         this.taskManager = taskManager;
         this.userPreferencesService = userPreferencesService;
+        this.messageProcessor = messageProcessor;
+        this.contextBuilder = contextBuilder;
+        
+        logger.info("ChatService 初始化完成，使用重构后的消息处理器和上下文构建器");
     }
     
     /**
@@ -101,17 +113,17 @@ public class ChatService {
                 ChatSession session = sessionService.getOrCreateSession(sessionId);
                 logger.debug("会话准备完成，sessionId: {}，消息数: {}", session.getSessionId(), session.getMessageHistory().size());
                 
-                // 2. 获取系统提示词和人设提示词
-                List<ChatMessage> systemPrompts = getSystemPrompts(session);
+                // 2. 获取系统提示词和人设提示词（使用重构后的 contextBuilder）
+                List<ChatMessage> systemPrompts = contextBuilder.getSystemPrompts(session);
                 
-                // 3. 获取历史对话记录
-                List<ChatMessage> dialogueHistory = getDialogueHistory(session);
+                // 3. 获取历史对话记录（使用重构后的 contextBuilder）
+                List<ChatMessage> dialogueHistory = contextBuilder.getDialogueHistory(session);
                 
-                // 4. 预处理用户输入
-                String processedInput = preprocessInput(userMessage.getContent());
+                // 4. 预处理用户输入（使用重构后的 messageProcessor）
+                String processedInput = messageProcessor.preprocessInput(userMessage.getContent());
                 
-                // 5. 获取世界书设定（长期记忆）
-                ChatMessage worldBookSetting = getWorldBookSetting(session, processedInput);
+                // 5. 获取世界书设定（使用重构后的 contextBuilder）
+                ChatMessage worldBookSetting = contextBuilder.getWorldBookSetting(session, processedInput);
                 
                 // 6. 智能判断是否需要联网搜索并准备用户消息
                 long step6Start = System.currentTimeMillis();
@@ -148,10 +160,10 @@ public class ChatService {
                 long step6Time = System.currentTimeMillis() - step6Start;
                 logger.debug("用户消息准备完成（含智能联网搜索），耗时: {}ms", step6Time);
                 
-                // 7. 构建完整的消息列表（带 token 限制）
+                // 7. 构建完整的消息列表（使用重构后的 contextBuilder）
                 logger.debug("步骤7：构建完整的消息列表");
                 long step7Start = System.currentTimeMillis();
-                List<Message> messages = buildMessagesListWithTokenLimit(
+                List<Message> messages = contextBuilder.buildMessagesListWithTokenLimit(
                     systemPrompts, dialogueHistory, worldBookSetting, webSearchMessage, userMessage);
                 long step7Time = System.currentTimeMillis() - step7Start;
                 logger.debug("消息列表构建完成，耗时: {}ms，消息数量: {}", step7Time, messages.size());
@@ -1192,8 +1204,8 @@ public class ChatService {
                        sessionId, aiResponse.length(), 
                        aiResponse.length() > 100 ? aiResponse.substring(0, 100) + "..." : aiResponse);
             
-            // 过滤AI回答中的思考内容，只保存干净的回答
-            String filteredResponse = filterThinkingContent(aiResponse);
+            // 过滤AI回答中的思考内容（使用重构后的 messageProcessor）
+            String filteredResponse = messageProcessor.filterThinkingContent(aiResponse);
             String finalResponse = (filteredResponse != null && !filteredResponse.trim().isEmpty()) 
                                   ? filteredResponse : aiResponse;
 //            logger.debug("💾 过滤思考内容后，AI回答长度: {}", finalResponse.length());
