@@ -8,8 +8,6 @@ import com.chatbot.model.config.UserPreferences;
 import com.chatbot.service.chat.ChatContextBuilder;
 import com.chatbot.service.chat.ChatMessageProcessor;
 import com.chatbot.service.llm.impl.OllamaLLMServiceImpl;
-import com.chatbot.service.search.WebSearchDecisionService;
-import com.chatbot.service.search.WebSearchDecisionService.WebSearchDecision;
 import com.chatbot.util.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,9 +32,8 @@ public class ChatService {
     private final KnowledgeService knowledgeService;  // Phase 2：统一知识管理
     private final AppConfig.AIConfig aiConfig;
     private final OllamaLLMServiceImpl llmService;  // 使用新的 LLM 服务
-    private final ChatHistoryService chatHistoryService;  // 统一历史服务（替代 ConversationHistoryService 和 SessionHistoryService）
-    private final WebSearchService webSearchService;
-    private final WebSearchDecisionService webSearchDecisionService;  // Phase 2：联网搜索决策
+    private final ChatHistoryService chatHistoryService;  // 统一历史服务
+    private final WebSearchService webSearchService;  // Phase 2：统一搜索服务（决策+执行）
     private final TaskManager taskManager;
     private final UserPreferencesService userPreferencesService;
     
@@ -45,12 +42,11 @@ public class ChatService {
     private final ChatContextBuilder contextBuilder;
     
     public ChatService(SessionService sessionService, 
-                      KnowledgeService knowledgeService,  // Phase 2：使用统一的知识服务
+                      KnowledgeService knowledgeService,  // Phase 2：统一知识管理
                       AppConfig appConfig,
                       @Qualifier("ollamaLLMService") OllamaLLMServiceImpl llmService,
-                      ChatHistoryService chatHistoryService,  // 使用统一的历史服务
-                      WebSearchService webSearchService,
-                      WebSearchDecisionService webSearchDecisionService,  // Phase 2：联网搜索决策
+                      ChatHistoryService chatHistoryService,
+                      WebSearchService webSearchService,  // Phase 2：统一搜索服务
                       TaskManager taskManager,
                       UserPreferencesService userPreferencesService,
                       ChatMessageProcessor messageProcessor,  // Phase 1：消息处理
@@ -58,16 +54,15 @@ public class ChatService {
         this.sessionService = sessionService;
         this.knowledgeService = knowledgeService;
         this.aiConfig = appConfig.getAi();
-        this.llmService = llmService;  // 使用新的 LLM 服务
-        this.chatHistoryService = chatHistoryService;  // 使用统一的历史服务
+        this.llmService = llmService;
+        this.chatHistoryService = chatHistoryService;
         this.webSearchService = webSearchService;
-        this.webSearchDecisionService = webSearchDecisionService;
         this.taskManager = taskManager;
         this.userPreferencesService = userPreferencesService;
         this.messageProcessor = messageProcessor;
         this.contextBuilder = contextBuilder;
         
-        logger.info("ChatService 初始化完成 - Phase 2 优化完成（统一知识管理 + 联网搜索决策）");
+        logger.info("ChatService 初始化完成 - Phase 2+ 优化（统一知识管理 + 统一搜索服务）");
     }
     
     /**
@@ -128,30 +123,18 @@ public class ChatService {
                 // 6. 智能判断是否需要联网搜索并准备用户消息
                 long step6Start = System.currentTimeMillis();
                 
-                // 检查用户是否启用了联网搜索
+                // 6. 智能联网搜索（如果用户启用）
                 boolean userEnabledWebSearch = getUserWebSearchPreference(sessionId);
                 ChatMessage webSearchMessage = null;
                 
                 if (userEnabledWebSearch) {
-                    logger.info("用户启用了联网搜索功能，开始智能判断搜索需求");
-                    
-                    // 使用 WebSearchDecisionService 判断是否需要联网搜索并提取搜索关键词
-                    WebSearchDecision searchDecision = webSearchDecisionService.makeDecision(
+                    logger.info("用户启用了联网搜索功能，开始智能搜索");
+                    // 使用统一的 WebSearchService.intelligentSearch() 方法
+                    // 它会自动判断是否需要搜索、执行搜索并格式化结果
+                    webSearchMessage = webSearchService.intelligentSearch(
                         processedInput, dialogueHistory, worldBookSetting, sessionId);
-                    
-                    if (searchDecision.needsWebSearch()) {
-                        logger.info("联网搜索决策: 需要搜索 | 来源: {} | 关键词: '{}' | 原因: {}", 
-                                  searchDecision.getSource(), 
-                                  searchDecision.getSearchQuery(), 
-                                  searchDecision.getReason());
-                        webSearchMessage = performWebSearch(searchDecision.getSearchQuery(), sessionId);
-                    } else {
-                        logger.info("联网搜索决策: 无需搜索 | 来源: {} | 原因: {}", 
-                                  searchDecision.getSource(), 
-                                  searchDecision.getReason());
-                    }
                 } else {
-                    logger.debug("用户未启用联网搜索功能");
+                    logger.debug("用户未启用联网搜索功能，跳过搜索步骤");
                 }
                 
                 userMessage.setRole("user");
@@ -663,92 +646,11 @@ public class ChatService {
         }
     }
     
-    // Phase 2 重构：联网搜索决策逻辑已迁移到 WebSearchDecisionService
-    // - intelligentWebSearchDecision() → webSearchDecisionService.makeDecision()
-    // - buildWebSearchDecisionPrompt() → WebSearchDecisionService 内部
-    // - getAIDecisionSync() → WebSearchDecisionService 内部
-    // - parseWebSearchDecision() → WebSearchDecisionService 内部
-    // - extractSearchKeywords() → WebSearchDecisionService 内部
-    // - simplifyQuery() → WebSearchDecisionService 内部
-    // - WebSearchDecision 类 → WebSearchDecisionService.WebSearchDecision
-    // - AIDecisionResult 类 → WebSearchDecisionService 内部
+    // Phase 2+ 重构：搜索功能完全整合到 WebSearchService
+    // - 搜索决策、执行、结果处理全部在 WebSearchService 中
+    // - ChatService 只需调用 webSearchService.intelligentSearch() 一个方法
+    // - 删除了约 100 行搜索相关的私有方法
     
-    /**
-     * 执行联网搜索
-     */
-    private ChatMessage performWebSearch(String query, String sessionId) {
-        try {
-            logger.info("开始执行联网搜索 - sessionId: {}, query: '{}'", sessionId, query);
-            
-            // 检查搜索服务是否可用
-            if (!webSearchService.isSearchAvailable()) {
-                logger.warn("联网搜索服务不可用 - sessionId: {}", sessionId);
-                return createWebSearchUnavailableMessage(sessionId);
-            }
-            
-            // 执行搜索
-            var searchResults = webSearchService.search(query);
-            
-            if (searchResults.isEmpty()) {
-                logger.info("联网搜索无结果 - sessionId: {}, query: '{}'", sessionId, query);
-                return createNoSearchResultsMessage(sessionId, query);
-            }
-            
-            // 格式化搜索结果
-            String formattedResults = webSearchService.formatSearchResults(searchResults);
-            
-            // 创建搜索结果消息
-            ChatMessage webSearchMessage = new ChatMessage();
-            webSearchMessage.setRole("system");
-            webSearchMessage.setContent(formattedResults);
-            webSearchMessage.setSessionId(sessionId);
-            webSearchMessage.setType("text");
-            
-            logger.info("联网搜索完成 - sessionId: {}, 找到{}个结果", sessionId, searchResults.size());
-            return webSearchMessage;
-            
-        } catch (Exception e) {
-            logger.error("执行联网搜索时发生错误 - sessionId: {}, query: '{}'", sessionId, query, e);
-            return createWebSearchErrorMessage(sessionId, e.getMessage());
-        }
-    }
-    
-    /**
-     * 创建搜索服务不可用消息
-     */
-    private ChatMessage createWebSearchUnavailableMessage(String sessionId) {
-        ChatMessage message = new ChatMessage();
-        message.setRole("system");
-        message.setContent("联网搜索服务暂时不可用，请基于已有知识回答用户问题。");
-        message.setSessionId(sessionId);
-        message.setType("text");
-        return message;
-    }
-    
-    /**
-     * 创建无搜索结果消息
-     */
-    private ChatMessage createNoSearchResultsMessage(String sessionId, String query) {
-        ChatMessage message = new ChatMessage();
-        message.setRole("system");
-        message.setContent("联网搜索未找到相关结果（搜索关键词：" + query + "），请基于已有知识回答用户问题。");
-        message.setSessionId(sessionId);
-        message.setType("text");
-        return message;
-    }
-    
-    /**
-     * 创建搜索错误消息
-     */
-    private ChatMessage createWebSearchErrorMessage(String sessionId, String errorMessage) {
-        ChatMessage message = new ChatMessage();
-        message.setRole("system");
-        message.setContent("联网搜索时发生错误（" + errorMessage + "），请基于已有知识回答用户问题。");
-        message.setSessionId(sessionId);
-        message.setType("text");
-        return message;
-    }
-
     /**
      * 处理流式错误
      */
