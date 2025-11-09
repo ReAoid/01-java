@@ -29,9 +29,7 @@ public class ChatService {
     private static final Logger logger = LoggerFactory.getLogger(ChatService.class);
     
     private final SessionService sessionService;
-    private final PersonaService personaService;
-    private final MemoryService memoryService;
-    private final WorldBookService worldBookService;
+    private final KnowledgeService knowledgeService;  // Phase 2：统一知识管理
     private final AppConfig.AIConfig aiConfig;
     private final OllamaLLMServiceImpl llmService;  // 使用新的 LLM 服务
     private final ChatHistoryService chatHistoryService;  // 统一历史服务（替代 ConversationHistoryService 和 SessionHistoryService）
@@ -44,21 +42,17 @@ public class ChatService {
     private final ChatContextBuilder contextBuilder;
     
     public ChatService(SessionService sessionService, 
-                      PersonaService personaService,
-                      MemoryService memoryService,
-                      WorldBookService worldBookService,
+                      KnowledgeService knowledgeService,  // Phase 2：使用统一的知识服务
                       AppConfig appConfig,
                       @Qualifier("ollamaLLMService") OllamaLLMServiceImpl llmService,
                       ChatHistoryService chatHistoryService,  // 使用统一的历史服务
                       WebSearchService webSearchService,
                       TaskManager taskManager,
                       UserPreferencesService userPreferencesService,
-                      ChatMessageProcessor messageProcessor,  // 新增
-                      ChatContextBuilder contextBuilder) {    // 新增
+                      ChatMessageProcessor messageProcessor,  // Phase 1：消息处理
+                      ChatContextBuilder contextBuilder) {    // Phase 1：上下文构建
         this.sessionService = sessionService;
-        this.personaService = personaService;
-        this.memoryService = memoryService;
-        this.worldBookService = worldBookService;
+        this.knowledgeService = knowledgeService;
         this.aiConfig = appConfig.getAi();
         this.llmService = llmService;  // 使用新的 LLM 服务
         this.chatHistoryService = chatHistoryService;  // 使用统一的历史服务
@@ -68,7 +62,7 @@ public class ChatService {
         this.messageProcessor = messageProcessor;
         this.contextBuilder = contextBuilder;
         
-        logger.info("ChatService 初始化完成，使用重构后的消息处理器和上下文构建器");
+        logger.info("ChatService 初始化完成 - Phase 2 统一知识管理完成");
     }
     
     /**
@@ -1201,11 +1195,10 @@ public class ChatService {
                 chatHistoryService.addMessage(sessionId, aiMessage);
                 chatHistoryService.addMessageAndSave(sessionId, aiMessage);
                 
-                // 3. 更新记忆和世界书（使用用户输入内容，而不是AI回答）
-                memoryService.updateMemory(sessionId, userMessage.getContent());
-                worldBookService.extractAndAddEntry(sessionId, userMessage.getContent());
+                // 3. 使用 KnowledgeService 统一更新知识库（包括短期记忆和长期知识）
+                knowledgeService.updateKnowledge(sessionId, userMessage.getContent());
                 
-                logger.info("💾 对话保存完成 - sessionId: {}, 用户消息和AI回答已保存", sessionId);
+                logger.info("💾 对话保存完成 - sessionId: {}, 用户消息、AI回答和知识库已更新", sessionId);
             }
         } catch (Exception e) {
             logger.error("保存完整对话时发生错误", e);

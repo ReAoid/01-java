@@ -5,8 +5,7 @@ import com.chatbot.model.domain.ChatMessage;
 import com.chatbot.model.domain.ChatSession;
 import com.chatbot.model.dto.llm.Message;
 import com.chatbot.service.ChatHistoryService;
-import com.chatbot.service.PersonaService;
-import com.chatbot.service.WorldBookService;
+import com.chatbot.service.KnowledgeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -23,8 +22,7 @@ public class ChatContextBuilder {
     
     private static final Logger logger = LoggerFactory.getLogger(ChatContextBuilder.class);
     
-    private final PersonaService personaService;
-    private final WorldBookService worldBookService;
+    private final KnowledgeService knowledgeService;
     private final ChatHistoryService chatHistoryService;
     private final ChatMessageProcessor messageProcessor;
     private final AppConfig.AIConfig aiConfig;
@@ -33,58 +31,42 @@ public class ChatContextBuilder {
     private static final int DEFAULT_MAX_TOKENS = 4000;
     private static final int DEFAULT_TOKENS_PER_CHAR = 4;  // 中文字符估算
     
-    public ChatContextBuilder(PersonaService personaService,
-                             WorldBookService worldBookService,
+    public ChatContextBuilder(KnowledgeService knowledgeService,
                              ChatHistoryService chatHistoryService,
                              ChatMessageProcessor messageProcessor,
                              AppConfig appConfig) {
-        this.personaService = personaService;
-        this.worldBookService = worldBookService;
+        this.knowledgeService = knowledgeService;
         this.chatHistoryService = chatHistoryService;
         this.messageProcessor = messageProcessor;
         this.aiConfig = appConfig.getAi();
+        
+        logger.info("ChatContextBuilder 初始化完成，使用 KnowledgeService 统一知识管理");
     }
     
     /**
      * 获取系统提示词和人设提示词
-     * 优先使用人设提示词，只有在人设加载失败时才使用系统提示词
+     * 使用 KnowledgeService 统一获取人设信息
      */
     public List<ChatMessage> getSystemPrompts(ChatSession session) {
         List<ChatMessage> systemPrompts = new ArrayList<>();
         
         // 检查人设系统是否启用
         if (aiConfig.getSystemPrompt().isEnablePersona()) {
-            String personaId = session.getCurrentPersonaId();
+            // 使用 KnowledgeService 获取知识上下文（包含人设提示词）
+            KnowledgeService.KnowledgeContext context = knowledgeService.retrieveRelevantContext(
+                session.getSessionId(), "");
             
-            // 检查人设是否从外部文件成功加载
-            if (personaService.isLoadedFromExternalFile()) {
-                // 人设配置加载成功，优先使用人设提示词
-                if (personaId != null) {
-                    String personaPrompt = personaService.getPersonaPrompt(personaId);
-                    if (personaPrompt != null && !personaPrompt.isEmpty()) {
-                        ChatMessage personaMessage = createSystemMessage(
-                            session.getSessionId(), personaPrompt);
-                        systemPrompts.add(personaMessage);
-                        logger.debug("使用人设提示词，personaId: {}, 内容长度: {}", 
-                                   personaId, personaPrompt.length());
-                        return systemPrompts;
-                    }
-                }
-                
-                // 如果没有指定人设ID或人设提示词为空，使用默认人设
-                String defaultPersonaPrompt = personaService.getPersonaPrompt(
-                    personaService.getDefaultPersonaId());
-                if (defaultPersonaPrompt != null && !defaultPersonaPrompt.isEmpty()) {
-                    ChatMessage personaMessage = createSystemMessage(
-                        session.getSessionId(), defaultPersonaPrompt);
-                    systemPrompts.add(personaMessage);
-                    logger.debug("使用默认人设提示词，内容长度: {}", defaultPersonaPrompt.length());
-                    return systemPrompts;
-                }
+            // 如果有人设提示词，则使用人设提示词
+            if (context.hasPersonaPrompt()) {
+                ChatMessage personaMessage = createSystemMessage(
+                    session.getSessionId(), context.getPersonaPrompt());
+                systemPrompts.add(personaMessage);
+                logger.debug("使用人设提示词，内容长度: {}", context.getPersonaPrompt().length());
+                return systemPrompts;
             }
             
-            // 人设加载失败或人设提示词为空，使用系统提示词作为备用
-            logger.warn("人设配置加载失败或人设提示词为空，使用系统提示词作为备用");
+            // 人设提示词为空，使用系统提示词作为备用
+            logger.warn("人设提示词为空，使用系统提示词作为备用");
         } else {
             logger.debug("人设系统已禁用，使用系统提示词");
         }
@@ -142,29 +124,48 @@ public class ChatContextBuilder {
     }
     
     /**
-     * 获取世界书设定（按相关性排序并设置阈值）
+     * 获取世界书设定和记忆内容
+     * 使用 KnowledgeService 统一获取长期知识和短期记忆
      */
     public ChatMessage getWorldBookSetting(ChatSession session, String userInput) {
         try {
-            // 从世界书中获取相关设定
-            String worldBookContent = worldBookService.retrieveRelevantContent(
+            // 使用 KnowledgeService 获取知识上下文
+            KnowledgeService.KnowledgeContext context = knowledgeService.retrieveRelevantContext(
                 session.getSessionId(), userInput);
             
-            if (worldBookContent != null && !worldBookContent.trim().isEmpty()) {
-                // 创建世界书消息
-                ChatMessage worldBookMessage = createSystemMessage(
+            StringBuilder knowledgeContent = new StringBuilder();
+            
+            // 添加短期记忆
+            if (context.hasShortTermMemory()) {
+                knowledgeContent.append("【近期记忆】\n");
+                knowledgeContent.append(context.getShortTermMemory());
+            }
+            
+            // 添加长期知识（世界书）
+            if (context.hasLongTermKnowledge()) {
+                if (knowledgeContent.length() > 0) {
+                    knowledgeContent.append("\n\n");
+                }
+                knowledgeContent.append("【相关知识】\n");
+                knowledgeContent.append(context.getLongTermKnowledge());
+            }
+            
+            if (knowledgeContent.length() > 0) {
+                // 创建知识消息
+                ChatMessage knowledgeMessage = createSystemMessage(
                     session.getSessionId(),
-                    "为了回答用户的问题，你需要知道：\n" + worldBookContent
+                    "为了回答用户的问题，你需要知道：\n" + knowledgeContent.toString()
                 );
                 
-                logger.debug("创建世界书设定消息，内容长度: {}", worldBookContent.length());
-                return worldBookMessage;
+                logger.debug("创建知识上下文消息，内容长度: {}, 包含短期记忆: {}, 长期知识: {}", 
+                           knowledgeContent.length(), context.hasShortTermMemory(), context.hasLongTermKnowledge());
+                return knowledgeMessage;
             } else {
-                logger.debug("没有找到相关的世界书设定");
+                logger.debug("没有找到相关的知识上下文");
                 return null;
             }
         } catch (Exception e) {
-            logger.error("获取世界书设定时发生错误", e);
+            logger.error("获取知识上下文时发生错误", e);
             return null;
         }
     }
