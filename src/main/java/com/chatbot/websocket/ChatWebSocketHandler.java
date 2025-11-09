@@ -6,7 +6,7 @@ import com.chatbot.model.dto.websocket.ChatMessageDTO;
 import com.chatbot.service.ChatService;
 import com.chatbot.service.MultiChannelDispatcher;
 import com.chatbot.service.llm.impl.OllamaLLMServiceImpl;
-import com.chatbot.service.channel.Live2DChannel;
+import com.chatbot.service.channel.SentenceSyncStrategy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.slf4j.Logger;
@@ -29,7 +29,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
     private final ChatService chatService;
     private final MultiChannelDispatcher multiChannelDispatcher;
-    private final Live2DChannel live2dChannel;
+    private final SentenceSyncStrategy sentenceSyncStrategy;
     private final OllamaLLMServiceImpl llmService;  // 使用新的 LLM 服务
     private final ObjectMapper objectMapper;
     private final ASRWebSocketHandler asrWebSocketHandler;
@@ -43,14 +43,14 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
     public ChatWebSocketHandler(ChatService chatService, 
                                MultiChannelDispatcher multiChannelDispatcher,
-                               Live2DChannel live2dChannel,
+                               SentenceSyncStrategy sentenceSyncStrategy,
                                @Qualifier("ollamaLLMService") OllamaLLMServiceImpl llmService,
                                ObjectMapper objectMapper,
                                ASRWebSocketHandler asrWebSocketHandler,
                                ChatMessageMapper chatMessageMapper) {  // ✅ 注入Mapper
         this.chatService = chatService;
         this.multiChannelDispatcher = multiChannelDispatcher;
-        this.live2dChannel = live2dChannel;
+        this.sentenceSyncStrategy = sentenceSyncStrategy;
         this.llmService = llmService;  // 使用新的 LLM 服务
         this.objectMapper = objectMapper;
         this.asrWebSocketHandler = asrWebSocketHandler;
@@ -474,8 +474,8 @@ public class ChatWebSocketHandler implements WebSocketHandler {
             if (sentenceId != null) {
                 logger.debug("收到音频播放完成通知: sentenceId={}, sessionId={}", sentenceId, sessionId);
                 
-                // 通知Live2D通道处理下一句
-                live2dChannel.onAudioCompleted(sessionId, sentenceId);
+                // 通知句级同步策略处理下一句
+                sentenceSyncStrategy.onAudioCompleted(sessionId, sentenceId);
             } else {
                 logger.warn("音频播放完成通知缺少sentenceId: sessionId={}", sessionId);
             }
