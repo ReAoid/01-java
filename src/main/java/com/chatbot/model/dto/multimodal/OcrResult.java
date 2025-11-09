@@ -1,4 +1,4 @@
-package com.chatbot.model.dto;
+package com.chatbot.model.dto.multimodal;
 
 /**
  * OCR光学字符识别结果
@@ -20,3 +20,4 @@ public class OcrResult {
         return confidence;
     }
 }
+

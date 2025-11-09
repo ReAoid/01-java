@@ -1,4 +1,4 @@
-package com.chatbot.model.dto;
+package com.chatbot.model.dto.llm;
 
 /**
  * Ollama选项数据类
@@ -14,3 +14,4 @@ public class OllamaOptions {
         return temperature;
     }
 }
+

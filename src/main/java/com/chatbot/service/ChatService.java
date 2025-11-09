@@ -3,7 +3,7 @@ package com.chatbot.service;
 import com.chatbot.config.AppConfig;
 import com.chatbot.model.domain.ChatMessage;
 import com.chatbot.model.domain.ChatSession;
-import com.chatbot.model.dto.OllamaMessage;
+import com.chatbot.model.dto.llm.Message;
 import com.chatbot.model.config.UserPreferences;
 import com.chatbot.service.llm.impl.OllamaLLMServiceImpl;
 import org.slf4j.Logger;
@@ -151,7 +151,7 @@ public class ChatService {
                 // 7. 构建完整的消息列表（带 token 限制）
                 logger.debug("步骤7：构建完整的消息列表");
                 long step7Start = System.currentTimeMillis();
-                List<OllamaMessage> messages = buildMessagesListWithTokenLimit(
+                List<Message> messages = buildMessagesListWithTokenLimit(
                     systemPrompts, dialogueHistory, worldBookSetting, webSearchMessage, userMessage);
                 long step7Time = System.currentTimeMillis() - step7Start;
                 logger.debug("消息列表构建完成，耗时: {}ms，消息数量: {}", step7Time, messages.size());
@@ -300,7 +300,7 @@ public class ChatService {
     /**
      * 生成流式回复（使用Ollama）- 优化版
      */
-    private void generateStreamingResponse(List<OllamaMessage> messages, String sessionId, String taskId, Consumer<ChatMessage> callback, 
+    private void generateStreamingResponse(List<Message> messages, String sessionId, String taskId, Consumer<ChatMessage> callback, 
                                          long messageStartTime, long aiCallStartTime, ChatMessage userMessage) {
         
         // 检查LLM服务是否可用
@@ -323,9 +323,23 @@ public class ChatService {
         // 获取用户配置
         UserPreferences userPrefs = userPreferencesService.getUserPreferences("Taiming");
         
-        // 使用LLM服务生成流式响应（传递用户配置）
-        okhttp3.Call ollamaCall = llmService.generateStreamingResponseWithInterruptCheck(
-            messages,
+        // 构建 LLMRequest
+        String model = (userPrefs != null && userPrefs.getLlm().getModel() != null)
+                ? userPrefs.getLlm().getModel()
+                : "yi:6b"; // 默认模型
+        
+        Double temperature = 0.7; // 可以从配置读取
+        
+        com.chatbot.model.dto.llm.LLMRequest llmRequest = new com.chatbot.model.dto.llm.LLMRequest.Builder()
+                .messages(messages)
+                .model(model)
+                .temperature(temperature)
+                .stream(true)
+                .build();
+        
+        // 使用新的统一接口生成流式响应
+        Object callObj = llmService.generateStreamWithInterruptCheck(
+            llmRequest,
             // 成功处理每个chunk
             chunk -> {
                 // 检查任务是否被取消
@@ -333,7 +347,7 @@ public class ChatService {
                     logger.info("任务已被取消，停止处理流式响应，taskId: {}", taskId);
                     return;
                 }
-                handleStreamChunk(chunk, sessionId, taskId, callback, state, messageStartTime, aiCallStartTime);
+                handleStreamChunk(chunk.getContent(), sessionId, taskId, callback, state, messageStartTime, aiCallStartTime);
             },
             // 错误处理
             error -> {
@@ -370,23 +384,22 @@ public class ChatService {
                 }
             },
             // 中断检查器
-            () -> taskManager.isTaskCancelled(taskId),
-            // 用户配置
-            userPrefs
+            () -> taskManager.isTaskCancelled(taskId)
         );
         
-        // 注册HTTP调用以便可以取消
-        if (ollamaCall != null) {
+        // 注册HTTP调用以便可以取消（强制转换为okhttp3.Call）
+        if (callObj instanceof okhttp3.Call) {
+            okhttp3.Call ollamaCall = (okhttp3.Call) callObj;
             taskManager.registerHttpCall(taskId, ollamaCall);
         } else {
-            logger.warn("OllamaCall为null，无法注册HTTP调用，taskId: {}", taskId);
+            logger.warn("返回的Call对象类型不匹配，无法注册HTTP调用，taskId: {}", taskId);
         }
     }
     
     /**
      * 在任务内部生成流式回复，确保HTTP调用被正确注册
      */
-    private void generateStreamingResponseInTask(List<OllamaMessage> messages, String sessionId, String taskId, Consumer<ChatMessage> callback, 
+    private void generateStreamingResponseInTask(List<Message> messages, String sessionId, String taskId, Consumer<ChatMessage> callback, 
                                                long messageStartTime, long aiCallStartTime, ChatMessage userMessage) {
         
         // 检查LLM服务是否可用
@@ -409,9 +422,23 @@ public class ChatService {
         // 获取用户配置
         UserPreferences userPrefs = userPreferencesService.getUserPreferences("Taiming");
         
-        // 使用LLM服务生成流式响应（传递用户配置）
-        okhttp3.Call ollamaCall = llmService.generateStreamingResponseWithInterruptCheck(
-            messages,
+        // 构建 LLMRequest
+        String model = (userPrefs != null && userPrefs.getLlm().getModel() != null)
+                ? userPrefs.getLlm().getModel()
+                : "yi:6b"; // 默认模型
+        
+        Double temperature = 0.7; // 可以从配置读取
+        
+        com.chatbot.model.dto.llm.LLMRequest llmRequest = new com.chatbot.model.dto.llm.LLMRequest.Builder()
+                .messages(messages)
+                .model(model)
+                .temperature(temperature)
+                .stream(true)
+                .build();
+        
+        // 使用新的统一接口生成流式响应
+        Object callObj = llmService.generateStreamWithInterruptCheck(
+            llmRequest,
             // 成功处理每个chunk
             chunk -> {
                 // 检查任务是否被取消
@@ -419,7 +446,7 @@ public class ChatService {
                     logger.info("任务已被取消，停止处理流式响应，taskId: {}", taskId);
                     return;
                 }
-                handleStreamChunk(chunk, sessionId, taskId, callback, state, messageStartTime, aiCallStartTime);
+                handleStreamChunk(chunk.getContent(), sessionId, taskId, callback, state, messageStartTime, aiCallStartTime);
             },
             // 错误处理
             error -> {
@@ -456,17 +483,16 @@ public class ChatService {
                 }
             },
             // 中断检查器
-            () -> taskManager.isTaskCancelled(taskId),
-            // 用户配置
-            userPrefs
+            () -> taskManager.isTaskCancelled(taskId)
         );
         
-        // 立即注册HTTP调用以便可以取消
-        if (ollamaCall != null) {
+        // 立即注册HTTP调用以便可以取消（强制转换为okhttp3.Call）
+        if (callObj instanceof okhttp3.Call) {
+            okhttp3.Call ollamaCall = (okhttp3.Call) callObj;
             taskManager.registerHttpCall(taskId, ollamaCall);
             logger.info("✅ 在任务内部注册HTTP调用: {}", taskId);
         } else {
-            logger.warn("❌ OllamaCall为null，无法注册HTTP调用，taskId: {}", taskId);
+            logger.warn("❌ 返回的Call对象类型不匹配，无法注册HTTP调用，taskId: {}", taskId);
         }
     }
     
@@ -760,9 +786,9 @@ public class ChatService {
             String decisionPrompt = buildWebSearchDecisionPrompt(userInput, dialogueHistory, worldBookSetting);
             
             // 调用AI进行判断
-            List<OllamaMessage> decisionMessages = List.of(
-                new OllamaMessage("system", decisionPrompt),
-                new OllamaMessage("user", userInput)
+            List<Message> decisionMessages = List.of(
+                Message.system(decisionPrompt),
+                Message.user(userInput)
             );
             
             // 使用同步方式获取AI判断结果
@@ -870,7 +896,7 @@ public class ChatService {
     /**
      * 同步获取AI判断结果
      */
-    private AIDecisionResult getAIDecisionSync(List<OllamaMessage> messages, String sessionId) {
+    private AIDecisionResult getAIDecisionSync(List<Message> messages, String sessionId) {
         StringBuilder result = new StringBuilder();
         
         try {
@@ -886,11 +912,26 @@ public class ChatService {
             // 获取用户配置
             UserPreferences userPrefs = userPreferencesService.getUserPreferences("Taiming");
             
-            llmService.generateStreamingResponse(
-                messages,
+            // 构建 LLMRequest
+            String model = (userPrefs != null && userPrefs.getLlm().getModel() != null)
+                    ? userPrefs.getLlm().getModel()
+                    : "yi:6b"; // 默认模型
+            
+            Double temperature = 0.7; // 可以从配置读取
+            
+            com.chatbot.model.dto.llm.LLMRequest llmRequest = new com.chatbot.model.dto.llm.LLMRequest.Builder()
+                    .messages(messages)
+                    .model(model)
+                    .temperature(temperature)
+                    .stream(true)
+                    .build();
+            
+            // 使用新的统一接口
+            llmService.generateStream(
+                llmRequest,
                 // 成功处理每个chunk
                 chunk -> {
-                    result.append(chunk);
+                    result.append(chunk.getContent());
                 },
                 // 错误处理
                 error -> {
@@ -907,9 +948,7 @@ public class ChatService {
                         completed[0] = true;
                         lock.notify();
                     }
-                },
-                // 用户配置
-                userPrefs
+                }
             );
             
             // 等待响应完成，使用配置的超时时间
@@ -1351,14 +1390,14 @@ public class ChatService {
     /**
      * 构建完整的消息列表（带 token 限制和智能删除）
      */
-    private List<OllamaMessage> buildMessagesListWithTokenLimit(
+    private List<Message> buildMessagesListWithTokenLimit(
             List<ChatMessage> systemPrompts,
             List<ChatMessage> dialogueHistory, 
             ChatMessage worldBookSetting,
             ChatMessage webSearchMessage,
             ChatMessage userMessage) {
         
-        List<OllamaMessage> messages = new ArrayList<>();
+        List<Message> messages = new ArrayList<>();
         
         // 配置参数（可以从配置文件或环境变量读取）
         final int MAX_TOKENS = getMaxTokenLimit(); // 最大 token 数量限制
@@ -1370,7 +1409,7 @@ public class ChatService {
         for (ChatMessage systemMsg : systemPrompts) {
             if (systemMsg.getContent() != null && !systemMsg.getContent().trim().isEmpty()) {
                 String role = mapSenderToRole(systemMsg.getRole());
-                messages.add(new OllamaMessage(role, systemMsg.getContent()));
+                messages.add(new Message(role, systemMsg.getContent()));
                 currentTokens += estimateTokens(systemMsg.getContent(), ESTIMATED_TOKENS_PER_CHAR);
                 logger.debug("添加系统消息: role={}, tokens={}", role, estimateTokens(systemMsg.getContent(), ESTIMATED_TOKENS_PER_CHAR));
             }
@@ -1382,7 +1421,7 @@ public class ChatService {
             int webSearchTokens = estimateTokens(webSearchMessage.getContent(), ESTIMATED_TOKENS_PER_CHAR);
             
             if (currentTokens + webSearchTokens <= MAX_TOKENS) {
-                messages.add(new OllamaMessage(role, webSearchMessage.getContent()));
+                messages.add(new Message(role, webSearchMessage.getContent()));
                 currentTokens += webSearchTokens;
                 logger.debug("添加联网搜索结果: tokens={}", webSearchTokens);
             } else {
@@ -1396,7 +1435,7 @@ public class ChatService {
             int worldBookTokens = estimateTokens(worldBookSetting.getContent(), ESTIMATED_TOKENS_PER_CHAR);
             
             if (currentTokens + worldBookTokens <= MAX_TOKENS) {
-                messages.add(new OllamaMessage(role, worldBookSetting.getContent()));
+                messages.add(new Message(role, worldBookSetting.getContent()));
                 currentTokens += worldBookTokens;
                 logger.debug("添加世界书设定: tokens={}", worldBookTokens);
             } else {
@@ -1408,7 +1447,7 @@ public class ChatService {
         if (userMessage != null && userMessage.getContent() != null && !userMessage.getContent().trim().isEmpty()) {
             String role = mapSenderToRole(userMessage.getRole());
             int userTokens = estimateTokens(userMessage.getContent(), ESTIMATED_TOKENS_PER_CHAR);
-            messages.add(new OllamaMessage(role, userMessage.getContent()));
+            messages.add(new Message(role, userMessage.getContent()));
             currentTokens += userTokens;
             logger.debug("添加用户消息: tokens={}", userTokens);
         }
@@ -1429,7 +1468,7 @@ public class ChatService {
         for (ChatMessage historyMsg : filteredHistory) {
             if (historyMsg.getContent() != null && !historyMsg.getContent().trim().isEmpty()) {
                 String role = mapSenderToRole(historyMsg.getRole());
-                messages.add(insertIndex++, new OllamaMessage(role, historyMsg.getContent()));
+                messages.add(insertIndex++, new Message(role, historyMsg.getContent()));
                 logger.debug("添加历史对话: role={}, contentLength={}", role, historyMsg.getContent().length());
             }
         }

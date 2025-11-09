@@ -1,6 +1,6 @@
 package com.chatbot.util;
 
-import com.chatbot.model.dto.HttpResponse;
+import com.chatbot.model.dto.common.HttpResponse;
 import okhttp3.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

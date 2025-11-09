@@ -1,4 +1,4 @@
-package com.chatbot.model.dto;
+package com.chatbot.model.dto.llm;
 
 import java.util.List;
 
@@ -83,3 +83,4 @@ public class OllamaChatRequest {
         return options;
     }
 }
+

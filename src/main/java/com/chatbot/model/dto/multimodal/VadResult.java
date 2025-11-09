@@ -1,4 +1,4 @@
-package com.chatbot.model.dto;
+package com.chatbot.model.dto.multimodal;
 
 /**
  * VAD语音活动检测结果
@@ -20,3 +20,4 @@ public class VadResult {
         return confidence;
     }
 }
+

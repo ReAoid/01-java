@@ -1,4 +1,4 @@
-package com.chatbot.model.dto;
+package com.chatbot.model.dto.llm;
 
 /**
  * Ollama消息类
@@ -21,3 +21,4 @@ public class OllamaMessage {
         return content; 
     }
 }
+

@@ -1,4 +1,4 @@
-package com.chatbot.model.dto;
+package com.chatbot.model.dto.common;
 
 import okhttp3.Headers;
 
@@ -49,3 +49,4 @@ public class HttpResponse {
         return "HttpResponse{code=" + code + ", success=" + success + ", bodyLength=" + (body != null ? body.length() : 0) + "}";
     }
 }
+
