@@ -3,7 +3,7 @@ package com.chatbot.service;
 import com.chatbot.config.AppConfig;
 import com.chatbot.model.domain.ChatMessage;
 import com.chatbot.model.domain.ChatSession;
-import com.chatbot.model.dto.OllamaMessage;
+import com.chatbot.model.dto.llm.OllamaMessage;
 import com.chatbot.model.config.UserPreferences;
 import com.chatbot.service.llm.impl.OllamaLLMServiceImpl;
 import org.slf4j.Logger;

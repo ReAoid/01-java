@@ -1,7 +1,7 @@
 package com.chatbot.service.llm.impl;
 
 import com.chatbot.config.AppConfig;
-import com.chatbot.model.dto.OllamaChatRequest;
+import com.chatbot.model.dto.llm.OllamaChatRequest;
 import com.chatbot.model.dto.common.ApiResult;
 import com.chatbot.model.dto.common.HealthCheckResult;
 import com.chatbot.model.dto.llm.*;
@@ -370,7 +370,7 @@ public class OllamaLLMServiceImpl implements LLMService {
      * 用于 ChatService 和 ChatWebSocketHandler 的迁移
      */
     public okhttp3.Call generateStreamingResponseWithInterruptCheck(
-            List<com.chatbot.model.dto.OllamaMessage> messages,
+            List<OllamaMessage> messages,
             Consumer<String> onChunk,
             Consumer<Throwable> onError,
             Runnable onComplete,
@@ -406,7 +406,7 @@ public class OllamaLLMServiceImpl implements LLMService {
      * 兼容旧代码：流式生成响应（不带用户配置）
      */
     public okhttp3.Call generateStreamingResponseWithInterruptCheck(
-            List<com.chatbot.model.dto.OllamaMessage> messages,
+            List<OllamaMessage> messages,
             Consumer<String> onChunk,
             Consumer<Throwable> onError,
             Runnable onComplete,
@@ -418,7 +418,7 @@ public class OllamaLLMServiceImpl implements LLMService {
      * 兼容旧代码：流式生成响应（带用户配置，不带中断检查）
      */
     public void generateStreamingResponse(
-            List<com.chatbot.model.dto.OllamaMessage> messages,
+            List<OllamaMessage> messages,
             Consumer<String> onChunk,
             Consumer<Throwable> onError,
             Runnable onComplete,

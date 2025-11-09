@@ -1,7 +1,5 @@
 package com.chatbot.model.dto.llm;
 
-import com.chatbot.model.dto.OllamaMessage;
-
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
