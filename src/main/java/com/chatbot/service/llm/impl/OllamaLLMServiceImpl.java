@@ -363,79 +363,53 @@ public class OllamaLLMServiceImpl implements LLMService {
         return ApiResult.success(estimatedTokens);
     }
 
-    // ========== 兼容旧 OllamaService 的桥接方法 ==========
-
-    /**
-     * 兼容旧代码：流式生成响应（直接接受String的Consumer）
-     * 用于 ChatService 和 ChatWebSocketHandler 的迁移
-     */
-    public okhttp3.Call generateStreamingResponseWithInterruptCheck(
-            List<OllamaMessage> messages,
-            Consumer<String> onChunk,
-            Consumer<Throwable> onError,
-            Runnable onComplete,
-            java.util.function.Supplier<Boolean> interruptChecker,
-            com.chatbot.model.config.UserPreferences userPrefs) {
-
-        // 构建 LLMRequest
-        String model = (userPrefs != null && userPrefs.getLlm().getModel() != null)
-                ? userPrefs.getLlm().getModel()
-                : ollamaConfig.getModel();
-
-        // 使用配置的temperature，默认0.7
-        Double temperature = ollamaConfig.getTemperature();
-
-        LLMRequest request = new LLMRequest.Builder()
-                .messages(messages)
-                .model(model)
-                .temperature(temperature)
-                .stream(true)
-                .build();
-
-        // 调用新的方法，但将 LLMStreamChunk 转换为 String
-        return (okhttp3.Call) generateStreamWithInterruptCheck(
-                request,
-                chunk -> onChunk.accept(chunk.getContent()),  // 转换：LLMStreamChunk -> String
-                onError,
-                onComplete,
-                interruptChecker
-        );
-    }
-
-    /**
-     * 兼容旧代码：流式生成响应（不带用户配置）
-     */
-    public okhttp3.Call generateStreamingResponseWithInterruptCheck(
-            List<OllamaMessage> messages,
-            Consumer<String> onChunk,
-            Consumer<Throwable> onError,
-            Runnable onComplete,
-            java.util.function.Supplier<Boolean> interruptChecker) {
-        return generateStreamingResponseWithInterruptCheck(messages, onChunk, onError, onComplete, interruptChecker, null);
-    }
-
-    /**
-     * 兼容旧代码：流式生成响应（带用户配置，不带中断检查）
-     */
-    public void generateStreamingResponse(
-            List<OllamaMessage> messages,
-            Consumer<String> onChunk,
-            Consumer<Throwable> onError,
-            Runnable onComplete,
-            com.chatbot.model.config.UserPreferences userPrefs) {
-        generateStreamingResponseWithInterruptCheck(messages, onChunk, onError, onComplete, null, userPrefs);
-    }
-
     // ========== 私有辅助方法 ==========
+
+    /**
+     * 转换通用 Message 为 OllamaMessage
+     * 实现统一接口层到 Ollama 实现层的适配
+     */
+    private List<OllamaMessage> convertToOllamaMessages(List<Message> messages) {
+        if (messages == null) {
+            return new ArrayList<>();
+        }
+        
+        List<OllamaMessage> ollamaMessages = new ArrayList<>();
+        for (Message message : messages) {
+            ollamaMessages.add(new OllamaMessage(message.getRole(), message.getContent()));
+        }
+        
+        return ollamaMessages;
+    }
+    
+    /**
+     * 转换 OllamaMessage 为通用 Message
+     * 用于向上层返回数据时的转换
+     */
+    private List<Message> convertFromOllamaMessages(List<OllamaMessage> ollamaMessages) {
+        if (ollamaMessages == null) {
+            return new ArrayList<>();
+        }
+        
+        List<Message> messages = new ArrayList<>();
+        for (OllamaMessage ollamaMessage : ollamaMessages) {
+            messages.add(new Message(ollamaMessage.getRole(), ollamaMessage.getContent()));
+        }
+        
+        return messages;
+    }
 
     /**
      * 构建Ollama请求JSON
      */
     private String buildRequestJson(LLMRequest request) {
         try {
+            // 将统一接口层的 Message 转换为 Ollama 特定的 OllamaMessage
+            List<OllamaMessage> ollamaMessages = convertToOllamaMessages(request.getMessages());
+            
             OllamaChatRequest ollamaRequest = OllamaChatRequest.fromMessages(
                     request.getModel(),
-                    request.getMessages(),
+                    ollamaMessages,
                     request.isStream(),
                     request.getTemperature() != null ? request.getTemperature() : ollamaConfig.getTemperature()
             );

@@ -11,7 +11,7 @@ import java.util.Map;
 public class LLMRequest implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private final List<OllamaMessage> messages;
+    private final List<Message> messages;
     private final String model;           // 模型名称，如 "yi:6b", "qwen:14b"
     private final Double temperature;     // 温度参数，控制输出随机性 (0.0-2.0)
     private final Integer maxTokens;      // 最大生成token数
@@ -31,7 +31,7 @@ public class LLMRequest implements Serializable {
 
     // ========== Getters ==========
 
-    public List<OllamaMessage> getMessages() {
+    public List<Message> getMessages() {
         return messages;
     }
 
@@ -76,7 +76,7 @@ public class LLMRequest implements Serializable {
      * Builder模式构建器
      */
     public static class Builder {
-        private List<OllamaMessage> messages;
+        private List<Message> messages;
         private String model;
         private Double temperature = 0.7;
         private Integer maxTokens = 4000;
@@ -84,7 +84,7 @@ public class LLMRequest implements Serializable {
         private Map<String, Object> options = new java.util.HashMap<>();
         private Map<String, Object> metadata = new java.util.HashMap<>();
 
-        public Builder messages(List<OllamaMessage> messages) {
+        public Builder messages(List<Message> messages) {
             this.messages = messages;
             return this;
         }
