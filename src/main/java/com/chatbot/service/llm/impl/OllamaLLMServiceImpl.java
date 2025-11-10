@@ -1,6 +1,7 @@
 package com.chatbot.service.llm.impl;
 
 import com.chatbot.config.AppConfig;
+import com.chatbot.config.properties.LLMProperties;
 import com.chatbot.model.dto.llm.OllamaChatRequest;
 import com.chatbot.model.dto.common.ApiResult;
 import com.chatbot.model.dto.common.HealthCheckResult;
@@ -33,7 +34,7 @@ public class OllamaLLMServiceImpl implements LLMService {
 
     private static final Logger logger = LoggerFactory.getLogger(OllamaLLMServiceImpl.class);
 
-    private final AppConfig.OllamaConfig ollamaConfig;
+    private final LLMProperties llmConfig;
     private final OkHttpClient httpClient;
 
     // 健康检查缓存
@@ -42,7 +43,7 @@ public class OllamaLLMServiceImpl implements LLMService {
     private static final long HEALTH_CHECK_CACHE_MS = 30 * 1000; // 30秒
 
     public OllamaLLMServiceImpl(AppConfig appConfig) {
-        this.ollamaConfig = appConfig.getOllama();
+        this.llmConfig = appConfig.getLlm();
 
         // 配置HTTP客户端
         this.httpClient = new OkHttpClient.Builder()
@@ -53,7 +54,7 @@ public class OllamaLLMServiceImpl implements LLMService {
                 .retryOnConnectionFailure(true)
                 .build();
 
-        logger.info("Ollama LLM服务实现初始化完成，引擎: Ollama, URL: {}", ollamaConfig.getChatUrl());
+        logger.info("Ollama LLM服务实现初始化完成，引擎: Ollama, URL: {}", llmConfig.getChatUrl());
 
         // 启动时进行一次健康检查
         healthCheck();
@@ -81,7 +82,7 @@ public class OllamaLLMServiceImpl implements LLMService {
 
         try {
             Request request = new Request.Builder()
-                    .url(ollamaConfig.getModelsUrl())
+                    .url(llmConfig.getModelsUrl())
                     .get()
                     .build();
 
@@ -98,8 +99,8 @@ public class OllamaLLMServiceImpl implements LLMService {
                             .healthy(true)
                             .status("AVAILABLE")
                             .responseTime(responseTime)
-                            .detail("url", ollamaConfig.getChatUrl())
-                            .detail("model", ollamaConfig.getModel())
+                            .detail("url", llmConfig.getChatUrl())
+                            .detail("model", llmConfig.getModel())
                             .build();
                 } else {
                     logger.warn("Ollama LLM服务健康检查失败，HTTP状态码: {}", response.code());
@@ -141,7 +142,7 @@ public class OllamaLLMServiceImpl implements LLMService {
 
             // 构建Ollama请求
             String requestBody = buildRequestJson(request);
-            String url = ollamaConfig.getChatUrl();
+            String url = llmConfig.getChatUrl();
 
             Request httpRequest = new Request.Builder()
                     .url(url)
@@ -214,7 +215,7 @@ public class OllamaLLMServiceImpl implements LLMService {
         try {
             // 构建Ollama请求
             String requestBody = buildRequestJson(request);
-            String url = ollamaConfig.getChatUrl();
+            String url = llmConfig.getChatUrl();
 
             Request httpRequest = new Request.Builder()
                     .url(url)
@@ -268,7 +269,7 @@ public class OllamaLLMServiceImpl implements LLMService {
     public ApiResult<List<ModelInfo>> getAvailableModels() {
         try {
             Request request = new Request.Builder()
-                    .url(ollamaConfig.getModelsUrl())
+                    .url(llmConfig.getModelsUrl())
                     .get()
                     .build();
 
@@ -411,7 +412,7 @@ public class OllamaLLMServiceImpl implements LLMService {
                     request.getModel(),
                     ollamaMessages,
                     request.isStream(),
-                    request.getTemperature() != null ? request.getTemperature() : ollamaConfig.getTemperature()
+                    request.getTemperature() != null ? request.getTemperature() : llmConfig.getTemperature()
             );
 
             return JsonUtil.toJson(ollamaRequest);

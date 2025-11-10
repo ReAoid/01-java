@@ -1,6 +1,7 @@
 package com.chatbot.service;
 
 import com.chatbot.config.AppConfig;
+import com.chatbot.config.properties.AIProperties;
 import com.chatbot.model.domain.ChatMessage;
 import com.chatbot.model.domain.ChatSession;
 import com.chatbot.model.dto.llm.Message;
@@ -30,7 +31,7 @@ public class ChatService {
     
     private final SessionService sessionService;
     private final KnowledgeService knowledgeService;  // Phase 2：统一知识管理
-    private final AppConfig.AIConfig aiConfig;
+    private final AIProperties aiConfig;
     private final OllamaLLMServiceImpl llmService;  // 使用新的 LLM 服务
     private final ChatHistoryService chatHistoryService;  // 统一历史服务
     private final WebSearchService webSearchService;  // Phase 2：统一搜索服务（决策+执行）

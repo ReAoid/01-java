@@ -1,6 +1,7 @@
 package com.chatbot.service.asr.impl;
 
 import com.chatbot.config.AppConfig;
+import com.chatbot.config.properties.PythonApiProperties;
 import com.chatbot.model.dto.asr.ASRConnectionInfo;
 import com.chatbot.model.dto.asr.ASRRequest;
 import com.chatbot.model.dto.asr.ASRResponse;
@@ -54,7 +55,7 @@ public class FunASRServiceImpl implements ASRService {
     private static final long HEALTH_CHECK_INTERVAL = 30000; // 30秒
     
     public FunASRServiceImpl(AppConfig appConfig, ObjectMapper objectMapper) {
-        AppConfig.PythonApiConfig pythonConfig = appConfig.getPython();
+        PythonApiProperties pythonConfig = appConfig.getPython();
         
         this.asrServerUrl = pythonConfig.getServices() != null && pythonConfig.getServices().getAsrUrl() != null
                 ? pythonConfig.getServices().getAsrUrl()

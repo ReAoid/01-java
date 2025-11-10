@@ -1,6 +1,8 @@
 package com.chatbot.service.tts.impl;
 
 import com.chatbot.config.AppConfig;
+import com.chatbot.config.properties.PythonApiProperties;
+import com.chatbot.config.properties.TimeoutProperties;
 import com.chatbot.model.dto.common.ApiResult;
 import com.chatbot.model.dto.common.HealthCheckResult;
 import com.chatbot.model.dto.tts.SpeakerInfo;
@@ -34,7 +36,7 @@ public class CosyVoiceTTSServiceImpl implements TTSService {
     
     public CosyVoiceTTSServiceImpl(AppConfig appConfig) {
         // 从配置中获取超时设置
-        AppConfig.TimeoutConfig timeoutConfig = appConfig.getPython().getTimeout();
+        TimeoutProperties timeoutConfig = appConfig.getPython().getTimeout();
         
         // 初始化OkHttp客户端
         this.okHttpClient = new OkHttpClient.Builder()
@@ -46,7 +48,7 @@ public class CosyVoiceTTSServiceImpl implements TTSService {
         this.objectMapper = new ObjectMapper();
         
         // 从配置中获取TTS服务地址
-        AppConfig.PythonApiConfig pythonConfig = appConfig.getPython();
+        PythonApiProperties pythonConfig = appConfig.getPython();
         if (pythonConfig != null && pythonConfig.getServices() != null && 
             pythonConfig.getServices().getTtsUrl() != null) {
             this.ttsBaseUrl = pythonConfig.getServices().getTtsUrl();

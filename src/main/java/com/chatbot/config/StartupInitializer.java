@@ -1,5 +1,6 @@
 package com.chatbot.config;
 
+import com.chatbot.config.properties.ResourceProperties;
 import com.chatbot.service.UserPreferencesService;
 import com.chatbot.model.config.ASRConfig;
 import com.chatbot.model.config.OutputChannelConfig;
@@ -46,7 +47,7 @@ public class StartupInitializer {
      */
     private void validatePathConfiguration(AppConfig appConfig) {
         try {
-            AppConfig.ResourceConfig resourceConfig = appConfig.getResource();
+            ResourceProperties resourceConfig = appConfig.getResource();
             
             logger.info("🔍 验证路径配置...");
             logger.info("BasePath: {}", resourceConfig.getBasePath());

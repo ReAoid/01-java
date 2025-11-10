@@ -1,6 +1,7 @@
 package com.chatbot.service;
 
 import com.chatbot.config.AppConfig;
+import com.chatbot.config.properties.SystemProperties;
 import com.chatbot.model.domain.ChatSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +21,7 @@ public class SessionService {
     
     private static final Logger logger = LoggerFactory.getLogger(SessionService.class);
     
-    private final AppConfig.SystemConfig systemConfig;
+    private final SystemProperties systemConfig;
     private final ConcurrentHashMap<String, ChatSession> activeSessions;
     private final ScheduledExecutorService scheduler;
     

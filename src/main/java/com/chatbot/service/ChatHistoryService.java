@@ -1,6 +1,7 @@
 package com.chatbot.service;
 
 import com.chatbot.config.AppConfig;
+import com.chatbot.config.properties.ResourceProperties;
 import com.chatbot.model.domain.ChatMessage;
 import com.chatbot.model.record.ConversationRecord;
 import com.chatbot.model.record.ConversationStats;
@@ -35,7 +36,7 @@ public class ChatHistoryService {
     
     private static final Logger logger = LoggerFactory.getLogger(ChatHistoryService.class);
     
-    private final AppConfig.ResourceConfig resourceConfig;
+    private final ResourceProperties resourceConfig;
     
     // 内存中的活跃对话缓存
     private final ConcurrentHashMap<String, List<ChatMessage>> activeConversations = new ConcurrentHashMap<>();

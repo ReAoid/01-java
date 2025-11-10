@@ -1,6 +1,9 @@
 package com.chatbot.service;
 
 import com.chatbot.config.AppConfig;
+import com.chatbot.config.properties.AIProperties;
+import com.chatbot.config.properties.LLMProperties;
+import com.chatbot.config.properties.WebSearchProperties;
 import com.chatbot.model.config.UserPreferences;
 import com.chatbot.util.JsonUtil;
 import org.slf4j.Logger;
@@ -227,17 +230,17 @@ public class UserPreferencesService {
     private UserPreferences createDefaultPreferencesFromAppConfig(String userId) {
         UserPreferences preferences = new UserPreferences(userId);
         
-        // LLM配置（从Ollama配置迁移）
-        AppConfig.OllamaConfig ollamaConfig = appConfig.getOllama();
+        // LLM配置
+        LLMProperties llmConfig = appConfig.getLlm();
         preferences.getLlm().setProvider("ollama");
-        preferences.getLlm().setBaseUrl(ollamaConfig.getBaseUrl());
-        preferences.getLlm().setModel(ollamaConfig.getModel());
-        preferences.getLlm().setTimeout(ollamaConfig.getTimeout());
-        preferences.getLlm().setMaxTokens(ollamaConfig.getMaxTokens());
-        preferences.getLlm().setStream(ollamaConfig.isStream());
+        preferences.getLlm().setBaseUrl(llmConfig.getBaseUrl());
+        preferences.getLlm().setModel(llmConfig.getModel());
+        preferences.getLlm().setTimeout(llmConfig.getTimeout());
+        preferences.getLlm().setMaxTokens(llmConfig.getMaxTokens());
+        preferences.getLlm().setStream(llmConfig.isStream());
         
         // 流式输出配置
-        AppConfig.AIConfig aiConfig = appConfig.getAi();
+        AIProperties aiConfig = appConfig.getAi();
         preferences.getStreaming().setChunkSize(aiConfig.getStreamingChunkSize());
         preferences.getStreaming().setDelayMs(aiConfig.getStreamingDelayMs());
         
@@ -250,7 +253,7 @@ public class UserPreferencesService {
         preferences.getTts().setEnabled(false);  // 默认禁用
         
         // 联网搜索配置
-        AppConfig.WebSearchConfig webSearchConfig = appConfig.getWebSearch();
+        WebSearchProperties webSearchConfig = appConfig.getWebSearch();
         preferences.getWebSearch().setEnabled(webSearchConfig.isEnabled());
         preferences.getWebSearch().setMaxResults(webSearchConfig.getMaxResults());
         preferences.getWebSearch().setTimeout(webSearchConfig.getTimeoutSeconds());

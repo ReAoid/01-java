@@ -1,6 +1,7 @@
 package com.chatbot.service.chat;
 
 import com.chatbot.config.AppConfig;
+import com.chatbot.config.properties.AIProperties;
 import com.chatbot.model.domain.ChatMessage;
 import com.chatbot.model.domain.ChatSession;
 import com.chatbot.model.dto.llm.Message;
@@ -25,7 +26,7 @@ public class ChatContextBuilder {
     private final KnowledgeService knowledgeService;
     private final ChatHistoryService chatHistoryService;
     private final ChatMessageProcessor messageProcessor;
-    private final AppConfig.AIConfig aiConfig;
+    private final AIProperties aiConfig;
     
     // Token 配置
     private static final int DEFAULT_MAX_TOKENS = 4000;

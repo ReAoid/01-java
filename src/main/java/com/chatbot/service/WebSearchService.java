@@ -1,6 +1,7 @@
 package com.chatbot.service;
 
 import com.chatbot.config.AppConfig;
+import com.chatbot.config.properties.AIProperties;
 import com.chatbot.model.domain.ChatMessage;
 import com.chatbot.model.dto.llm.LLMRequest;
 import com.chatbot.model.dto.llm.Message;
@@ -39,7 +40,7 @@ public class WebSearchService {
     private final ObjectMapper objectMapper;
     private final OllamaLLMServiceImpl llmService;
     private final UserPreferencesService userPreferencesService;
-    private final AppConfig.AIConfig aiConfig;
+    private final AIProperties aiConfig;
     
     // 搜索引擎配置
     private static final String WIKIPEDIA_API_URL = "https://zh.wikipedia.org/w/api.php"; // 维基百科中文API
