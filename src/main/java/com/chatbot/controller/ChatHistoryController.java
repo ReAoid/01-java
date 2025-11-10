@@ -20,13 +20,13 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/conversation-history")
-public class ConversationHistoryController {
+public class ChatHistoryController {
     
-    private static final Logger logger = LoggerFactory.getLogger(ConversationHistoryController.class);
+    private static final Logger logger = LoggerFactory.getLogger(ChatHistoryController.class);
     
     private final ChatHistoryService chatHistoryService;
     
-    public ConversationHistoryController(ChatHistoryService chatHistoryService) {
+    public ChatHistoryController(ChatHistoryService chatHistoryService) {
         this.chatHistoryService = chatHistoryService;
     }
     

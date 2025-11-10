@@ -26,18 +26,18 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * CosyVoice TTS 控制器
- * 提供HTTP接口来调用CosyVoice TTS服务
+ * TTS 控制器
+ * 提供HTTP接口来调用TTS服务
  */
 @RestController
-@RequestMapping("/api/cosyvoice")
-public class CosyVoiceController {
+@RequestMapping("/api/tts")
+public class TTSController {
     
-    private static final Logger logger = LoggerFactory.getLogger(CosyVoiceController.class);
+    private static final Logger logger = LoggerFactory.getLogger(TTSController.class);
     
     private final TTSService ttsService;
     
-    public CosyVoiceController(@Qualifier("cosyVoiceTTSService") TTSService ttsService) {
+    public TTSController(@Qualifier("cosyVoiceTTSService") TTSService ttsService) {
         this.ttsService = ttsService;
     }
     
