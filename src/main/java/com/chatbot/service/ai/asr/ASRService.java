@@ -1,4 +1,4 @@
-package com.chatbot.service.asr;
+package com.chatbot.service.ai.asr;
 
 import com.chatbot.model.dto.asr.ASRConnectionInfo;
 import com.chatbot.model.dto.asr.ASRRequest;

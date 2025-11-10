@@ -1,4 +1,4 @@
-package com.chatbot.service.asr.impl;
+package com.chatbot.service.ai.asr;
 
 import com.chatbot.config.AppConfig;
 import com.chatbot.config.properties.PythonApiProperties;
@@ -7,7 +7,6 @@ import com.chatbot.model.dto.asr.ASRRequest;
 import com.chatbot.model.dto.asr.ASRResponse;
 import com.chatbot.model.dto.common.ApiResult;
 import com.chatbot.model.dto.common.HealthCheckResult;
-import com.chatbot.service.asr.ASRService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;

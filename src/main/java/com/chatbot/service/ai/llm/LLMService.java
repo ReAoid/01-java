@@ -1,4 +1,4 @@
-package com.chatbot.service.llm;
+package com.chatbot.service.ai.llm;
 
 import com.chatbot.model.dto.common.ApiResult;
 import com.chatbot.model.dto.common.HealthCheckResult;

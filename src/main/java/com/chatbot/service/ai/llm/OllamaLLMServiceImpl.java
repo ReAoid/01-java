@@ -1,4 +1,4 @@
-package com.chatbot.service.llm.impl;
+package com.chatbot.service.ai.llm;
 
 import com.chatbot.config.AppConfig;
 import com.chatbot.config.properties.LLMProperties;
@@ -6,7 +6,6 @@ import com.chatbot.model.dto.llm.OllamaChatRequest;
 import com.chatbot.model.dto.common.ApiResult;
 import com.chatbot.model.dto.common.HealthCheckResult;
 import com.chatbot.model.dto.llm.*;
-import com.chatbot.service.llm.LLMService;
 import com.chatbot.util.JsonUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import okhttp3.*;

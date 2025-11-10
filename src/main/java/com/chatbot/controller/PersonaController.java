@@ -1,7 +1,7 @@
 package com.chatbot.controller;
 
 import com.chatbot.model.domain.Persona;
-import com.chatbot.service.PersonaService;
+import com.chatbot.service.knowledge.PersonaService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;

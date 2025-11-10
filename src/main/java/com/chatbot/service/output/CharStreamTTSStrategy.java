@@ -4,7 +4,7 @@ import com.chatbot.config.AppConfig;
 import com.chatbot.model.domain.ChatMessage;
 import com.chatbot.model.config.UserPreferences;
 import com.chatbot.service.MultiModalService;
-import com.chatbot.service.UserPreferencesService;
+import com.chatbot.service.session.UserPreferencesService;
 import com.chatbot.service.processor.SentenceProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

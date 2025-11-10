@@ -8,7 +8,11 @@ import com.chatbot.model.dto.llm.Message;
 import com.chatbot.model.config.UserPreferences;
 import com.chatbot.service.processor.ChatContextBuilder;
 import com.chatbot.service.processor.ChatMessageProcessor;
-import com.chatbot.service.llm.impl.OllamaLLMServiceImpl;
+import com.chatbot.service.ai.llm.OllamaLLMServiceImpl;
+import com.chatbot.service.knowledge.KnowledgeService;
+import com.chatbot.service.session.SessionService;
+import com.chatbot.service.session.ChatHistoryService;
+import com.chatbot.service.session.UserPreferencesService;
 import com.chatbot.util.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,28 +34,28 @@ public class ChatService {
     private static final Logger logger = LoggerFactory.getLogger(ChatService.class);
     
     private final SessionService sessionService;
-    private final KnowledgeService knowledgeService;  // Phase 2：统一知识管理
+    private final KnowledgeService knowledgeService;
     private final AIProperties aiConfig;
-    private final OllamaLLMServiceImpl llmService;  // 使用新的 LLM 服务
-    private final ChatHistoryService chatHistoryService;  // 统一历史服务
-    private final WebSearchService webSearchService;  // Phase 2：统一搜索服务（决策+执行）
+    private final OllamaLLMServiceImpl llmService;
+    private final ChatHistoryService chatHistoryService;
+    private final WebSearchService webSearchService;
     private final TaskManager taskManager;
     private final UserPreferencesService userPreferencesService;
     
-    // Phase 1 重构：新增的子服务
+    // 消息处理和上下文构建
     private final ChatMessageProcessor messageProcessor;
     private final ChatContextBuilder contextBuilder;
     
     public ChatService(SessionService sessionService, 
-                      KnowledgeService knowledgeService,  // Phase 2：统一知识管理
+                      KnowledgeService knowledgeService,
                       AppConfig appConfig,
                       @Qualifier("ollamaLLMService") OllamaLLMServiceImpl llmService,
                       ChatHistoryService chatHistoryService,
-                      WebSearchService webSearchService,  // Phase 2：统一搜索服务
+                      WebSearchService webSearchService,
                       TaskManager taskManager,
                       UserPreferencesService userPreferencesService,
-                      ChatMessageProcessor messageProcessor,  // Phase 1：消息处理
-                      ChatContextBuilder contextBuilder) {    // Phase 1：上下文构建
+                      ChatMessageProcessor messageProcessor,
+                      ChatContextBuilder contextBuilder) {
         this.sessionService = sessionService;
         this.knowledgeService = knowledgeService;
         this.aiConfig = appConfig.getAi();
@@ -63,7 +67,7 @@ public class ChatService {
         this.messageProcessor = messageProcessor;
         this.contextBuilder = contextBuilder;
         
-        logger.info("ChatService 初始化完成 - Phase 2+ 优化（统一知识管理 + 统一搜索服务）");
+        logger.info("ChatService 初始化完成");
     }
     
     /**
@@ -109,16 +113,16 @@ public class ChatService {
                 ChatSession session = sessionService.getOrCreateSession(sessionId);
                 logger.debug("会话准备完成，sessionId: {}，消息数: {}", session.getSessionId(), session.getMessageHistory().size());
                 
-                // 2. 获取系统提示词和人设提示词（使用重构后的 contextBuilder）
+                // 2. 获取系统提示词和人设提示词
                 List<ChatMessage> systemPrompts = contextBuilder.getSystemPrompts(session);
                 
-                // 3. 获取历史对话记录（使用重构后的 contextBuilder）
+                // 3. 获取历史对话记录
                 List<ChatMessage> dialogueHistory = contextBuilder.getDialogueHistory(session);
                 
-                // 4. 预处理用户输入（使用重构后的 messageProcessor）
+                // 4. 预处理用户输入
                 String processedInput = messageProcessor.preprocessInput(userMessage.getContent());
                 
-                // 5. 获取世界书设定（使用重构后的 contextBuilder）
+                // 5. 获取世界书设定
                 ChatMessage worldBookSetting = contextBuilder.getWorldBookSetting(session, processedInput);
                 
                 // 6. 智能判断是否需要联网搜索并准备用户消息
@@ -144,7 +148,7 @@ public class ChatService {
                 long step6Time = System.currentTimeMillis() - step6Start;
                 logger.debug("用户消息准备完成（含智能联网搜索），耗时: {}ms", step6Time);
                 
-                // 7. 构建完整的消息列表（使用重构后的 contextBuilder）
+                // 7. 构建完整的消息列表
                 logger.debug("步骤7：构建完整的消息列表");
                 long step7Start = System.currentTimeMillis();
                 List<Message> messages = contextBuilder.buildMessagesListWithTokenLimit(
@@ -197,12 +201,6 @@ public class ChatService {
         logger.info("收到中断会话任务请求，sessionId: {}", sessionId);
         return taskManager.cancelSessionTasks(sessionId);
     }
-    
-    // Phase 1 重构：以下方法已被 ChatMessageProcessor 替代
-    // - preprocessInput() → messageProcessor.preprocessInput()
-    // - mapSenderToRole() → messageProcessor.mapSenderToRole()
-    // - filterThinkingContent() → messageProcessor.filterThinkingContent()
-    
     
     /**
      * 生成流式回复（使用Ollama）- 优化版
@@ -647,11 +645,6 @@ public class ChatService {
         }
     }
     
-    // Phase 2+ 重构：搜索功能完全整合到 WebSearchService
-    // - 搜索决策、执行、结果处理全部在 WebSearchService 中
-    // - ChatService 只需调用 webSearchService.intelligentSearch() 一个方法
-    // - 删除了约 100 行搜索相关的私有方法
-    
     /**
      * 处理流式错误
      */
@@ -702,7 +695,7 @@ public class ChatService {
                        sessionId, aiResponse.length(), 
                        aiResponse.length() > 100 ? aiResponse.substring(0, 100) + "..." : aiResponse);
             
-            // 过滤AI回答中的思考内容（使用重构后的 messageProcessor）
+            // 过滤AI回答中的思考内容
             String filteredResponse = messageProcessor.filterThinkingContent(aiResponse);
             String finalResponse = (filteredResponse != null && !filteredResponse.trim().isEmpty()) 
                                   ? filteredResponse : aiResponse;
@@ -718,21 +711,19 @@ public class ChatService {
             
             ChatSession session = sessionService.getSession(sessionId);
             if (session != null) {
-                // 1. 先保存用户消息
+                // 1. 保存用户消息（同时更新内存和文件）
                 logger.debug("💾 保存用户消息 - sessionId: {}, 内容长度: {}", 
                            sessionId, userMessage.getContent().length());
                 session.addMessage(userMessage);
-                chatHistoryService.addMessage(sessionId, userMessage);
                 chatHistoryService.addMessageAndSave(sessionId, userMessage);
                 
-                // 2. 再保存AI回答
+                // 2. 保存AI回答（同时更新内存和文件）
                 logger.debug("💾 保存AI回答 - sessionId: {}, 内容长度: {}", 
                            sessionId, aiMessage.getContent().length());
                 session.addMessage(aiMessage);
-                chatHistoryService.addMessage(sessionId, aiMessage);
                 chatHistoryService.addMessageAndSave(sessionId, aiMessage);
                 
-                // 3. 使用 KnowledgeService 统一更新知识库（包括短期记忆和长期知识）
+                // 3. 更新知识库（包括短期记忆和长期知识）
                 knowledgeService.updateKnowledge(sessionId, userMessage.getContent());
                 
                 logger.info("💾 对话保存完成 - sessionId: {}, 用户消息、AI回答和知识库已更新", sessionId);
@@ -741,19 +732,6 @@ public class ChatService {
             logger.error("保存完整对话时发生错误", e);
         }
     }
-    
-    // Phase 1 重构：以下方法已被 ChatContextBuilder 替代
-    // - getSystemPrompts() → contextBuilder.getSystemPrompts()
-    // - getDialogueHistory() → contextBuilder.getDialogueHistory()
-    // - getWorldBookSetting() → contextBuilder.getWorldBookSetting()
-    // - retrieveRelevantWorldBook() → 内部由 contextBuilder 调用
-    
-    // Phase 1 重构：以下方法已被 ChatContextBuilder 替代
-    // - buildMessagesListWithTokenLimit() → contextBuilder.buildMessagesListWithTokenLimit()
-    // - estimateTokens() → contextBuilder 内部使用
-    // - filterDialogueHistoryByTokens() → contextBuilder 内部使用
-    // - getMaxTokenLimit() → contextBuilder 内部配置
-    // - getTokensPerCharEstimate() → contextBuilder 内部配置
     
     /**
      * 结束会话并保存历史记录

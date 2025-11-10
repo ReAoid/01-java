@@ -1,4 +1,4 @@
-package com.chatbot.service;
+package com.chatbot.service.session;
 
 import com.chatbot.config.AppConfig;
 import com.chatbot.config.properties.ResourceProperties;

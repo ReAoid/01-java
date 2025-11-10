@@ -2,7 +2,7 @@ package com.chatbot.controller;
 
 import com.chatbot.model.record.ConversationRecord;
 import com.chatbot.model.record.ConversationStats;
-import com.chatbot.service.ChatHistoryService;
+import com.chatbot.service.session.ChatHistoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;

@@ -1,7 +1,7 @@
 package com.chatbot.config;
 
 import com.chatbot.config.properties.ResourceProperties;
-import com.chatbot.service.UserPreferencesService;
+import com.chatbot.service.session.UserPreferencesService;
 import com.chatbot.model.config.ASRConfig;
 import com.chatbot.model.config.OutputChannelConfig;
 import com.chatbot.model.config.UserPreferences;

@@ -5,7 +5,7 @@ import com.chatbot.model.dto.common.HealthCheckResult;
 import com.chatbot.model.dto.tts.SpeakerInfo;
 import com.chatbot.model.dto.tts.TTSRequest;
 import com.chatbot.model.dto.tts.TTSResult;
-import com.chatbot.service.tts.TTSService;
+import com.chatbot.service.ai.tts.TTSService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;

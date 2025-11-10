@@ -1,8 +1,8 @@
 package com.chatbot.controller;
 
-import com.chatbot.service.SessionService;
-import com.chatbot.service.MemoryService;
-import com.chatbot.service.PersonaService;
+import com.chatbot.service.session.SessionService;
+import com.chatbot.service.knowledge.MemoryService;
+import com.chatbot.service.knowledge.PersonaService;
 import com.chatbot.websocket.ChatWebSocketHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,4 +1,4 @@
-package com.chatbot.service.tts;
+package com.chatbot.service.ai.tts;
 
 import com.chatbot.model.dto.common.ApiResult;
 import com.chatbot.model.dto.common.HealthCheckResult;

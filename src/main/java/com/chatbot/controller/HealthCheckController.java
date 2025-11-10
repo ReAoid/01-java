@@ -2,8 +2,8 @@ package com.chatbot.controller;
 
 import com.chatbot.model.dto.common.HealthCheckResult;
 import com.chatbot.service.MultiModalService;
-import com.chatbot.service.asr.ASRService;
-import com.chatbot.service.llm.LLMService;
+import com.chatbot.service.ai.asr.ASRService;
+import com.chatbot.service.ai.llm.LLMService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;

@@ -1,4 +1,4 @@
-package com.chatbot.service;
+package com.chatbot.service.knowledge;
 
 import com.chatbot.model.domain.WorldBookEntry;
 import com.chatbot.util.FileUtil;

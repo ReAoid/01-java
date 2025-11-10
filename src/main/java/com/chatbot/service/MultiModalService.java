@@ -5,7 +5,7 @@ import com.chatbot.model.dto.tts.TTSRequest;
 import com.chatbot.model.dto.tts.TTSResult;
 import com.chatbot.model.dto.multimodal.VadResult;
 import com.chatbot.model.dto.multimodal.OcrResult;
-import com.chatbot.service.tts.TTSService;
+import com.chatbot.service.ai.tts.TTSService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -71,25 +71,16 @@ public class MultiModalService {
     /**
      * 语音活动检测 (VAD - Voice Activity Detection)
      * 
-     * @deprecated 🚧 当前为Mock实现，仅返回模拟数据，不应用于生产环境
-     * 
-     * <p><b>集成真实VAD服务的步骤：</b></p>
-     * <ol>
-     *   <li>启动Python VAD服务: {@code python vad_server.py --port 5002}</li>
-     *   <li>配置API地址: {@code application.yml > python-api.vad-url}</li>
-     *   <li>实现HTTP调用替换当前Mock逻辑</li>
-     * </ol>
+     * @deprecated Mock实现 - 仅供测试，不应用于生产环境
      */
     @Deprecated
     public CompletableFuture<VadResult> detectVoiceActivity(byte[] audioData) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                logger.warn("⚠️ 使用Mock VAD实现，检测结果不准确，不应用于生产环境");
+                logger.warn("⚠️ 使用Mock VAD实现，检测结果不准确");
                 logger.debug("调用VAD服务，音频数据大小: {} bytes", audioData.length);
                 
-                // Mock实现 - 实际应该调用Python VAD API
                 VadResult mockResult = mockVadProcessing(audioData);
-                
                 logger.debug("VAD处理完成，检测到语音: {}", mockResult.hasVoice());
                 return mockResult;
                 
@@ -103,28 +94,18 @@ public class MultiModalService {
     /**
      * 光学字符识别 (OCR - Optical Character Recognition)
      * 
-     * @deprecated 🚧 当前为Mock实现，仅返回模拟数据，不应用于生产环境
-     * 
-     * <p><b>集成真实OCR服务的步骤：</b></p>
-     * <ol>
-     *   <li>启动Python OCR服务: {@code python ocr_server.py --port 5003}</li>
-     *   <li>配置API地址: {@code application.yml > python-api.ocr-url}</li>
-     *   <li>实现HTTP调用替换当前Mock逻辑</li>
-     * </ol>
+     * @deprecated Mock实现 - 仅供测试，不应用于生产环境
      */
     @Deprecated
     public CompletableFuture<OcrResult> recognizeText(byte[] imageData, String imageFormat) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                logger.warn("⚠️ 使用Mock OCR实现，识别结果不准确，不应用于生产环境");
+                logger.warn("⚠️ 使用Mock OCR实现，识别结果不准确");
                 logger.info("调用OCR服务，图像格式: {}, 数据大小: {} bytes", 
                            imageFormat, imageData.length);
                 
-                // Mock实现 - 实际应该调用Python OCR API
                 OcrResult mockResult = mockOcrProcessing(imageData, imageFormat);
-                
-                logger.debug("OCR处理完成，识别文本长度: {}", 
-                            mockResult.getText().length());
+                logger.debug("OCR处理完成，识别文本长度: {}", mockResult.getText().length());
                 return mockResult;
                 
             } catch (Exception e) {
@@ -137,26 +118,17 @@ public class MultiModalService {
     /**
      * 图像分析和描述
      * 
-     * @deprecated 🚧 当前为Mock实现，仅返回模拟数据，不应用于生产环境
-     * 
-     * <p><b>集成真实图像分析服务的步骤：</b></p>
-     * <ol>
-     *   <li>启动Python图像分析服务: {@code python image_analysis_server.py --port 5004}</li>
-     *   <li>配置API地址: {@code application.yml > python-api.image-analysis-url}</li>
-     *   <li>实现HTTP调用替换当前Mock逻辑</li>
-     * </ol>
+     * @deprecated Mock实现 - 仅供测试，不应用于生产环境
      */
     @Deprecated
     public CompletableFuture<String> analyzeImage(byte[] imageData, String imageFormat) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                logger.warn("⚠️ 使用Mock图像分析实现，分析结果不准确，不应用于生产环境");
+                logger.warn("⚠️ 使用Mock图像分析实现，分析结果不准确");
                 logger.info("调用图像分析服务，图像格式: {}, 数据大小: {} bytes", 
                            imageFormat, imageData.length);
                 
-                // Mock实现 - 实际应该调用Python图像分析API
                 String mockResult = mockImageAnalysis(imageData, imageFormat);
-                
                 logger.debug("图像分析完成，描述: {}", mockResult);
                 return mockResult;
                 
@@ -166,9 +138,6 @@ public class MultiModalService {
             }
         });
     }
-    
-    // ========== Mock实现方法 ==========
-    
     
     /**
      * 检查TTS服务健康状态
@@ -189,7 +158,7 @@ public class MultiModalService {
         }
     }
     
-    // 已移除废弃的 isTTSServiceHealthy() 方法，请使用 checkTTSHealth()
+    // ========== Mock实现方法（仅供测试） ==========
     
     /**
      * Mock VAD处理

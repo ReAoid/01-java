@@ -1,4 +1,4 @@
-package com.chatbot.service.tts.impl;
+package com.chatbot.service.ai.tts;
 
 import com.chatbot.config.AppConfig;
 import com.chatbot.config.properties.PythonApiProperties;
@@ -8,7 +8,6 @@ import com.chatbot.model.dto.common.HealthCheckResult;
 import com.chatbot.model.dto.tts.SpeakerInfo;
 import com.chatbot.model.dto.tts.TTSRequest;
 import com.chatbot.model.dto.tts.TTSResult;
-import com.chatbot.service.tts.TTSService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.*;
