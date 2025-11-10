@@ -1,4 +1,4 @@
-package com.chatbot.service.chat;
+package com.chatbot.service.processor;
 
 import com.chatbot.config.AppConfig;
 import com.chatbot.config.properties.AIProperties;
