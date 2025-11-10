@@ -35,6 +35,9 @@ public class StartupInitializer {
                 // 确保默认用户的TTS状态为禁用
                 initializeTTSSettings(userPreferencesService);
                 
+                // 确保默认用户的ASR状态为禁用
+                initializeASRSettings(userPreferencesService);
+                
                 logger.info("✅ 应用启动初始化完成");
             } catch (Exception e) {
                 logger.error("❌ 应用启动初始化失败", e);
@@ -149,6 +152,45 @@ public class StartupInitializer {
             
         } catch (Exception e) {
             logger.error("初始化TTS设置失败", e);
+        }
+    }
+    
+    /**
+     * 初始化ASR设置，确保启动时为禁用状态
+     */
+    private void initializeASRSettings(UserPreferencesService userPreferencesService) {
+        try {
+            String defaultUserId = "Taiming";
+            UserPreferences preferences = userPreferencesService.getUserPreferences(defaultUserId);
+            
+            // 检查并强制重置ASR状态
+            boolean needsSave = false;
+            
+            // 检查ASR配置
+            ASRConfig asrConfig = preferences.getAsr();
+            if (asrConfig == null) {
+                asrConfig = new ASRConfig();
+                preferences.setAsr(asrConfig);
+                needsSave = true;
+                logger.info("🔧 创建默认ASR配置");
+            }
+            
+            if (asrConfig.isEnabled()) {
+                asrConfig.setEnabled(false);
+                needsSave = true;
+                logger.info("🔧 重置ASR状态为禁用");
+            }
+            
+            // 如果有变更则保存
+            if (needsSave) {
+                userPreferencesService.saveUserPreferences(defaultUserId, preferences);
+                logger.info("💾 ASR设置已保存到用户配置");
+            } else {
+                logger.info("✅ ASR设置已经是正确的禁用状态");
+            }
+            
+        } catch (Exception e) {
+            logger.error("初始化ASR设置失败", e);
         }
     }
 }
