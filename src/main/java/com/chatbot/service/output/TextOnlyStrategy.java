@@ -1,4 +1,4 @@
-package com.chatbot.service.channel;
+package com.chatbot.service.output;
 
 import com.chatbot.model.domain.ChatMessage;
 import org.slf4j.Logger;

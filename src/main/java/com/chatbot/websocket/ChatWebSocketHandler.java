@@ -6,7 +6,7 @@ import com.chatbot.model.dto.websocket.ChatMessageDTO;
 import com.chatbot.service.ChatService;
 import com.chatbot.service.MultiChannelDispatcher;
 import com.chatbot.service.llm.impl.OllamaLLMServiceImpl;
-import com.chatbot.service.channel.SentenceSyncStrategy;
+import com.chatbot.service.output.SentenceSyncStrategy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.slf4j.Logger;
