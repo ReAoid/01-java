@@ -98,7 +98,7 @@
             :class="['message-wrapper', msg.role]"
           >
             <div class="message-avatar">
-              <img v-if="msg.role === 'user'" src="https://api.dicebear.com/7.x/avataaars/svg?seed=User" alt="User" />
+              <img v-if="msg.role === 'user'" src="@/assets/user-avatar.jpg" alt="User" />
               <img v-else src="https://api.dicebear.com/7.x/bottts/svg?seed=CogniChat&backgroundColor=8b5cf6" alt="AI" />
             </div>
             <div class="message-bubble">
@@ -167,11 +167,6 @@
               </svg>
             </button>
           </div>
-        </div>
-        
-        <div class="input-footer">
-          <span class="footer-text">Free Research Preview. CogniChat may produce inaccurate information about people, places, or facts.</span>
-          <a href="#" class="footer-link">CogniChat July 20 Version</a>
         </div>
       </footer>
     </div>
@@ -589,7 +584,7 @@ onMounted(() => {
 .chat-header {
   height: 60px;
   width: 100%;
-  max-width: 1200px;
+  max-width: 1400px;
   background: transparent;
   border-bottom: 1px solid var(--border-light);
   display: flex;
@@ -643,7 +638,7 @@ onMounted(() => {
 .messages-container {
   flex: 1;
   width: 100%;
-  max-width: 1200px;
+  max-width: 1400px;
   overflow-y: auto;
   scroll-behavior: smooth;
   display: flex;
@@ -652,7 +647,7 @@ onMounted(() => {
 
 .messages-wrapper {
   width: 100%;
-  max-width: 900px;
+  max-width: 1100px;
   padding: 24px;
 }
 
@@ -665,7 +660,7 @@ onMounted(() => {
   padding: 60px 40px;
   animation: fadeIn 0.8s ease;
   width: 100%;
-  max-width: 1000px;
+  max-width: 1100px;
 }
 
 .welcome-header {
@@ -920,7 +915,7 @@ onMounted(() => {
 /* 输入区域 */
 .chat-footer {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1400px;
   background: transparent;
   padding: 20px 24px 24px;
   flex-shrink: 0;
@@ -931,7 +926,7 @@ onMounted(() => {
 
 .input-wrapper {
   width: 100%;
-  max-width: 900px;
+  max-width: 1100px;
   display: flex;
   gap: 12px;
   align-items: flex-end;
@@ -1014,34 +1009,6 @@ onMounted(() => {
   opacity: 0.4;
   cursor: not-allowed;
   transform: none !important;
-}
-
-.input-footer {
-  width: 100%;
-  max-width: 900px;
-  margin-top: 12px;
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-tertiary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.footer-text {
-  opacity: 0.8;
-}
-
-.footer-link {
-  color: var(--text-secondary);
-  text-decoration: underline;
-  transition: color 0.2s ease;
-}
-
-.footer-link:hover {
-  color: var(--primary-color);
 }
 
 /* 右侧Chat History面板 */
@@ -1256,11 +1223,6 @@ onMounted(() => {
   
   .feature-card {
     padding: 20px;
-  }
-  
-  .input-footer {
-    flex-direction: column;
-    gap: 4px;
   }
 }
 </style>

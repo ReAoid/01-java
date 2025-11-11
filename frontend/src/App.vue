@@ -4,7 +4,7 @@
     <aside class="sidebar">
       <div class="logo-section">
         <div class="logo">🤖</div>
-        <span class="logo-text">AiChat</span>
+        <span class="logo-text">AIChat</span>
       </div>
       
       <nav class="nav-buttons">
@@ -27,10 +27,10 @@
       <div class="sidebar-footer">
         <!-- User Profile -->
         <div class="user-profile">
-          <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Tatty" alt="User" class="user-avatar" />
+          <img src="@/assets/user-avatar.jpg" alt="User" class="user-avatar" />
           <div class="user-info">
-            <div class="user-name">Tatty Fox</div>
-            <div class="user-email">tatty@z3fox.com</div>
+            <div class="user-name">Rin</div>
+            <div class="user-email">Rin@gmail.com</div>
           </div>
           <button class="profile-menu-btn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
