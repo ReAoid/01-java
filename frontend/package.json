@@ -1,0 +1,30 @@
+{
+  "name": "chatbot-frontend",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "AI Chatbot System Frontend",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "build:prod": "vite build --mode production",
+    "preview": "vite preview --port 4173",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore"
+  },
+  "dependencies": {
+    "vue": "^3.4.21",
+    "vue-router": "^4.3.0",
+    "axios": "^1.6.7",
+    "pinia": "^2.1.7"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "vite": "^5.1.4",
+    "eslint": "^8.57.0",
+    "eslint-plugin-vue": "^9.22.0"
+  }
+}
+

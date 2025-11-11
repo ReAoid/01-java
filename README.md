@@ -43,6 +43,7 @@
 
 ## 🛠️ 技术栈
 
+### 后端
 - **Java 21** - 主要开发语言
 - **Spring Boot 3.2** - 应用框架
 - **WebSocket** - 实时通信
@@ -50,34 +51,78 @@
 - **Jackson** - JSON处理
 - **SLF4J** - 日志框架
 
+### 前端
+- **Vue 3** - 渐进式JavaScript框架
+- **Vite** - 下一代前端构建工具
+- **Vue Router** - 路由管理
+- **Axios** - HTTP客户端
+- **Pinia** - 状态管理
+
 ## 🚀 快速开始
 
 ### 环境要求
 - Java 21+
 - Maven 3.8+
+- Node.js 16+ (前端开发)
+- npm 或 yarn (前端开发)
 
-### 安装运行
+### 方式一: 一键启动(推荐)
 
-1. **克隆项目**
 ```bash
-git clone <项目地址>
-cd ai-chatbot-system
+# 自动启动前后端开发环境
+./start-dev.sh
+
+# 停止服务
+./stop-dev.sh
 ```
 
-2. **编译项目**
+启动后访问:
+- **前端界面**: http://localhost:3000 (Vue开发服务器)
+- **后端API**: http://localhost:8080
+
+### 方式二: 分别启动
+
+#### 启动后端
+
+1. **编译项目**
 ```bash
 mvn clean compile
 ```
 
-3. **运行应用**
+2. **运行应用**
 ```bash
 mvn spring-boot:run
 ```
 
-4. **访问系统**
-- 聊天界面: http://localhost:8080
-- 系统信息: http://localhost:8080/api/system/info
-- 健康检查: http://localhost:8080/api/system/health
+3. **访问系统**
+- 后端API: http://localhost:8080
+- 健康检查: http://localhost:8080/health
+
+#### 启动前端
+
+1. **安装依赖**
+```bash
+cd frontend
+npm install
+```
+
+2. **启动开发服务器**
+```bash
+npm run dev
+```
+
+3. **访问应用**
+- 前端界面: http://localhost:3000
+
+### 前端项目说明
+
+本项目采用**前后端分离架构**:
+- **前端**: Vue 3 + Vite (位于 `frontend/` 目录)
+- **后端**: Spring Boot (当前目录)
+
+详细说明请查看:
+- [前端文档](frontend/README.md)
+- [前后端集成指南](FRONTEND_INTEGRATION.md)
 
 ## 📝 配置说明
 
