@@ -97,97 +97,142 @@ onMounted(() => {
 <style scoped>
 .loading-container {
   text-align: center;
-  padding: 60px 20px;
-  color: #6b7280;
+  padding: 80px 20px;
+  color: var(--text-secondary);
 }
 
 .loading.large {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border-width: 4px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .personas-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 20px;
-  padding: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+  padding: 16px;
 }
 
 .persona-card {
-  padding: 30px 20px;
-  border: 2px solid #e5e7eb;
-  border-radius: 16px;
+  padding: 32px 24px;
+  border: 2px solid var(--border-color);
+  border-radius: 20px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: center;
   position: relative;
-  background: white;
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.persona-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--primary-gradient);
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .persona-card:hover {
-  border-color: #667eea;
-  transform: translateY(-5px);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
+  border-color: var(--primary-color);
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-xl);
+}
+
+.persona-card:hover::before {
+  opacity: 1;
 }
 
 .persona-card.active {
-  border-color: #667eea;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  border-color: var(--primary-color);
+  background: var(--sidebar-hover);
+  box-shadow: var(--shadow-lg);
+}
+
+.persona-card.active::before {
+  opacity: 1;
 }
 
 .persona-icon {
-  font-size: 48px;
-  margin-bottom: 15px;
+  font-size: 56px;
+  margin-bottom: 20px;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
 }
 
 .persona-name {
-  margin: 10px 0;
-  font-size: 20px;
-  color: #1f2937;
-  font-weight: 600;
+  margin: 12px 0;
+  font-size: 22px;
+  color: var(--text-primary);
+  font-weight: 700;
 }
 
 .persona-description {
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 14px;
-  margin: 10px 0;
-  line-height: 1.5;
+  margin: 12px 0;
+  line-height: 1.6;
 }
 
 .active-badge {
   position: absolute;
-  top: 15px;
-  right: 15px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  top: 16px;
+  right: 16px;
+  background: var(--primary-gradient);
   color: white;
-  padding: 6px 12px;
+  padding: 6px 14px;
   border-radius: 20px;
   font-size: 12px;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  font-weight: 700;
+  box-shadow: var(--shadow-md);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
 }
 
 .empty-state {
   text-align: center;
-  padding: 80px 20px;
-  color: #9ca3af;
+  padding: 100px 20px;
+  color: var(--text-tertiary);
 }
 
 .empty-icon {
-  font-size: 64px;
-  margin-bottom: 20px;
+  font-size: 72px;
+  margin-bottom: 24px;
+  opacity: 0.6;
 }
 
 .empty-state p {
   font-size: 18px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 1024px) {
+  .personas-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
 }
 
 @media (max-width: 768px) {
   .personas-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .persona-card {
+    padding: 28px 20px;
   }
 }
 </style>
