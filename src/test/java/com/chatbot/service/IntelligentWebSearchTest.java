@@ -1,5 +1,6 @@
 package com.chatbot.service;
 
+import com.chatbot.service.knowledge.WebSearchService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

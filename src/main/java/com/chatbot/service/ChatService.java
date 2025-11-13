@@ -10,6 +10,7 @@ import com.chatbot.service.processor.ChatContextBuilder;
 import com.chatbot.service.processor.ChatMessageProcessor;
 import com.chatbot.service.ai.llm.OllamaLLMServiceImpl;
 import com.chatbot.service.knowledge.KnowledgeService;
+import com.chatbot.service.knowledge.WebSearchService;
 import com.chatbot.service.session.SessionService;
 import com.chatbot.service.session.ChatHistoryService;
 import com.chatbot.service.session.UserPreferencesService;
