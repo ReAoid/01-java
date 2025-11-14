@@ -1,120 +1,224 @@
 <template>
-  <div class="page-container">
-    <div class="content-card">
-      <!-- 卡片头部 -->
-      <div class="card-header">
+  <div class="settings-view">
+    <div class="settings-container">
+      <div class="settings-header">
         <h1>⚙️ 系统设置</h1>
-        <div class="subtitle">配置和管理系统参数</div>
+        <p>配置系统参数和用户偏好</p>
       </div>
 
-      <!-- 主体内容 -->
-      <div class="card-body">
-        <div class="settings-content">
-          <!-- 系统信息 -->
-          <div class="settings-section">
-            <h2 class="section-title">
-              <span class="section-icon">ℹ️</span>
-              系统信息
-            </h2>
-            <div class="info-grid">
-              <div class="info-item">
-                <label>前端版本</label>
-                <span>v1.0.0</span>
-              </div>
-              <div class="info-item">
-                <label>后端地址</label>
-                <span>{{ apiUrl }}</span>
-              </div>
-              <div class="info-item">
-                <label>连接状态</label>
-                <span :class="['status-badge', connectionStatus]">
-                  {{ connectionStatus === 'connected' ? '✓ 已连接' : '✗ 未连接' }}
-                </span>
-              </div>
-            </div>
+      <div class="settings-content">
+        <!-- 界面设置 -->
+        <div class="settings-section">
+          <h2>
+            <span class="section-icon">🎨</span>
+            界面设置
+          </h2>
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" v-model="preferences.darkMode" @change="toggleDarkMode">
+              深色模式
+            </label>
+            <span class="setting-desc">切换到深色主题</span>
           </div>
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" v-model="preferences.animations">
+              启用动画效果
+            </label>
+            <span class="setting-desc">界面过渡动画</span>
+          </div>
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" v-model="preferences.autoScroll">
+              自动滚动到底部
+            </label>
+            <span class="setting-desc">收到新消息时自动滚动</span>
+          </div>
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" v-model="preferences.soundNotification">
+              消息提示音
+            </label>
+            <span class="setting-desc">收到消息时播放提示音</span>
+          </div>
+        </div>
 
-          <!-- 外观设置 -->
-          <div class="settings-section">
-            <h2 class="section-title">
-              <span class="section-icon">🎨</span>
-              外观设置
-            </h2>
-            <div class="setting-item">
-              <div class="setting-info">
-                <h3>深色模式</h3>
-                <p>切换深色/浅色主题(开发中)</p>
-              </div>
-              <label class="switch">
-                <input type="checkbox" v-model="darkMode" disabled>
-                <span class="slider"></span>
-              </label>
-            </div>
+        <!-- Ollama设置 -->
+        <div class="settings-section">
+          <h2>
+            <span class="section-icon">🤖</span>
+            Ollama设置
+          </h2>
+          <div class="form-group">
+            <label>服务地址</label>
+            <input 
+              type="url" 
+              v-model="preferences.ollamaBaseUrl" 
+              placeholder="http://localhost:11434"
+            >
           </div>
+          <div class="form-group">
+            <label>使用模型</label>
+            <input 
+              type="text" 
+              v-model="preferences.ollamaModel" 
+              placeholder="qwen3:4b"
+            >
+          </div>
+          <div class="form-group">
+            <label>连接超时 (毫秒)</label>
+            <input 
+              type="number" 
+              v-model.number="preferences.ollamaTimeout" 
+              min="5000" 
+              max="120000" 
+              step="1000"
+            >
+          </div>
+          <div class="form-group">
+            <label>最大输出长度 (tokens)</label>
+            <input 
+              type="number" 
+              v-model.number="preferences.ollamaMaxTokens" 
+              min="512" 
+              max="8192" 
+              step="256"
+            >
+          </div>
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" v-model="preferences.ollamaStream">
+              启用流式输出
+            </label>
+            <span class="setting-desc">实时流式响应</span>
+          </div>
+        </div>
 
-          <!-- API设置 -->
-          <div class="settings-section">
-            <h2 class="section-title">
-              <span class="section-icon">🔌</span>
-              API设置
-            </h2>
-            <div class="form-group">
-              <label>API超时时间(毫秒)</label>
-              <input 
-                type="number" 
-                v-model.number="apiTimeout" 
-                class="form-input"
-                placeholder="30000"
-              >
-            </div>
-            <div class="form-group">
-              <label>自动重试次数</label>
-              <input 
-                type="number" 
-                v-model.number="retryCount" 
-                class="form-input"
-                placeholder="3"
-              >
-            </div>
+        <!-- 联网搜索设置 -->
+        <div class="settings-section">
+          <h2>
+            <span class="section-icon">🌐</span>
+            联网搜索设置
+          </h2>
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" v-model="preferences.webSearchEnabled">
+              启用联网搜索
+            </label>
+            <span class="setting-desc">允许AI搜索互联网信息</span>
           </div>
+          <div class="form-group">
+            <label>最大搜索结果数</label>
+            <input 
+              type="number" 
+              v-model.number="preferences.webSearchMaxResults" 
+              min="1" 
+              max="20"
+            >
+          </div>
+          <div class="form-group">
+            <label>搜索超时 (秒)</label>
+            <input 
+              type="number" 
+              v-model.number="preferences.webSearchTimeout" 
+              min="5" 
+              max="60"
+            >
+          </div>
+        </div>
 
-          <!-- 聊天设置 -->
-          <div class="settings-section">
-            <h2 class="section-title">
-              <span class="section-icon">💬</span>
-              聊天设置
-            </h2>
-            <div class="setting-item">
-              <div class="setting-info">
-                <h3>自动滚动</h3>
-                <p>收到新消息时自动滚动到底部</p>
-              </div>
-              <label class="switch">
-                <input type="checkbox" v-model="autoScroll">
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="setting-item">
-              <div class="setting-info">
-                <h3>显示时间戳</h3>
-                <p>在消息上显示发送时间</p>
-              </div>
-              <label class="switch">
-                <input type="checkbox" v-model="showTimestamp">
-                <span class="slider"></span>
-              </label>
+        <!-- TTS设置 -->
+        <div class="settings-section">
+          <h2>
+            <span class="section-icon">🔊</span>
+            TTS语音设置
+          </h2>
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" v-model="preferences.ttsEnabled">
+              启用TTS
+            </label>
+            <span class="setting-desc">自动朗读AI回复</span>
+          </div>
+          <div class="form-group">
+            <label>语速: {{ preferences.ttsSpeed.toFixed(1) }}x</label>
+            <input 
+              type="range" 
+              v-model.number="preferences.ttsSpeed" 
+              min="0.5" 
+              max="2.0" 
+              step="0.1"
+              class="slider-input"
+            >
+            <div class="slider-labels">
+              <span>0.5x</span>
+              <span>1.0x</span>
+              <span>2.0x</span>
             </div>
           </div>
+          <div class="form-group">
+            <label>说话人ID</label>
+            <input 
+              type="text" 
+              v-model="preferences.ttsSpkId" 
+              placeholder="留空使用默认"
+            >
+          </div>
+        </div>
 
-          <!-- 操作按钮 -->
-          <div class="settings-actions">
-            <button class="primary" @click="saveSettings">
-              💾 保存设置
-            </button>
-            <button class="secondary" @click="resetSettings">
-              🔄 重置为默认
-            </button>
+        <!-- ASR设置 -->
+        <div class="settings-section">
+          <h2>
+            <span class="section-icon">🎤</span>
+            ASR语音识别设置
+          </h2>
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" v-model="preferences.asrEnabled">
+              启用ASR
+            </label>
+            <span class="setting-desc">语音转文字</span>
           </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="settings-actions">
+          <button class="btn-primary" @click="savePreferences">
+            💾 保存设置
+          </button>
+          <button class="btn-secondary" @click="resetPreferences">
+            🔄 重置为默认
+          </button>
+          <button class="btn-danger" @click="clearCache">
+            🗑️ 清除缓存
+          </button>
+        </div>
+
+        <!-- 系统信息 -->
+        <div class="settings-section system-info">
+          <h2>
+            <span class="section-icon">ℹ️</span>
+            系统信息
+          </h2>
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">前端版本</span>
+              <span class="info-value">v2.0.0</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">后端状态</span>
+              <span class="info-value" :class="healthStatus">
+                {{ healthStatusText }}
+              </span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">最后同步</span>
+              <span class="info-value">{{ lastSyncTime }}</span>
+            </div>
+          </div>
+          <button class="btn-secondary" @click="checkHealth" style="margin-top: 16px;">
+            🔍 检查系统状态
+          </button>
         </div>
       </div>
     </div>
@@ -123,302 +227,359 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { usePreferences } from '@/composables/usePreferences'
 import { systemApi } from '@/api/chatApi'
+import Message from '@/utils/message'
 
-const apiUrl = ref(import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080')
-const connectionStatus = ref('checking')
-const darkMode = ref(false)
-const apiTimeout = ref(30000)
-const retryCount = ref(3)
-const autoScroll = ref(true)
-const showTimestamp = ref(true)
+const {
+  preferences,
+  loadPreferences,
+  savePreferences: savePref,
+  resetPreferences: resetPref,
+  applyDarkMode
+} = usePreferences()
 
-// 检查连接状态
-const checkConnection = async () => {
-  try {
-    await systemApi.healthCheck()
-    connectionStatus.value = 'connected'
-  } catch (error) {
-    connectionStatus.value = 'disconnected'
-  }
+const healthStatus = ref('unknown')
+const healthStatusText = ref('未检查')
+const lastSyncTime = ref('从未')
+
+// 切换深色模式
+const toggleDarkMode = () => {
+  applyDarkMode(preferences.value.darkMode)
 }
 
 // 保存设置
-const saveSettings = () => {
-  const settings = {
-    darkMode: darkMode.value,
-    apiTimeout: apiTimeout.value,
-    retryCount: retryCount.value,
-    autoScroll: autoScroll.value,
-    showTimestamp: showTimestamp.value
+const savePreferences = async () => {
+  const success = await savePref()
+  if (success) {
+    Message.success('设置已保存')
+    lastSyncTime.value = new Date().toLocaleTimeString('zh-CN')
+  } else {
+    Message.error('保存设置失败')
   }
-  localStorage.setItem('app-settings', JSON.stringify(settings))
-  alert('✅ 设置已保存!')
 }
 
 // 重置设置
-const resetSettings = () => {
+const resetPreferences = async () => {
   if (confirm('确定要重置所有设置为默认值吗?')) {
-    darkMode.value = false
-    apiTimeout.value = 30000
-    retryCount.value = 3
-    autoScroll.value = true
-    showTimestamp.value = true
-    localStorage.removeItem('app-settings')
-    alert('✅ 设置已重置!')
-  }
-}
-
-// 加载设置
-const loadSettings = () => {
-  try {
-    const saved = localStorage.getItem('app-settings')
-    if (saved) {
-      const settings = JSON.parse(saved)
-      darkMode.value = settings.darkMode || false
-      apiTimeout.value = settings.apiTimeout || 30000
-      retryCount.value = settings.retryCount || 3
-      autoScroll.value = settings.autoScroll !== false
-      showTimestamp.value = settings.showTimestamp !== false
+    const success = await resetPref()
+    if (success) {
+      Message.success('设置已重置')
+      applyDarkMode(preferences.value.darkMode)
+    } else {
+      Message.error('重置设置失败')
     }
-  } catch (error) {
-    console.error('加载设置失败:', error)
   }
 }
 
-onMounted(() => {
-  loadSettings()
-  checkConnection()
+// 清除缓存
+const clearCache = () => {
+  if (confirm('确定要清除所有本地缓存吗?')) {
+    localStorage.clear()
+    sessionStorage.clear()
+    Message.success('缓存已清除')
+  }
+}
+
+// 检查系统健康状态
+const checkHealth = async () => {
+  try {
+    healthStatusText.value = '检查中...'
+    healthStatus.value = 'checking'
+    
+    await systemApi.healthCheck()
+    
+    healthStatus.value = 'healthy'
+    healthStatusText.value = '✅ 正常'
+    Message.success('系统运行正常')
+  } catch (error) {
+    healthStatus.value = 'error'
+    healthStatusText.value = '❌ 异常'
+    Message.error('系统状态检查失败')
+  }
+}
+
+onMounted(async () => {
+  await loadPreferences()
+  applyDarkMode(preferences.value.darkMode)
+  await checkHealth()
 })
 </script>
 
 <style scoped>
-.settings-content {
-  max-width: 850px;
+.settings-view {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  background: var(--bg-primary);
+}
+
+.settings-container {
+  max-width: 900px;
   margin: 0 auto;
+  padding: 32px 24px;
+}
+
+.settings-header {
+  margin-bottom: 32px;
+  text-align: center;
+}
+
+.settings-header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.settings-header p {
+  font-size: 16px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.settings-content {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: var(--shadow-md);
 }
 
 .settings-section {
-  margin-bottom: 48px;
-  padding-bottom: 32px;
-  border-bottom: 2px solid var(--border-light);
+  margin-bottom: 40px;
+  padding-bottom: 40px;
+  border-bottom: 2px solid var(--border-color);
 }
 
-.settings-section:last-of-type {
+.settings-section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
   border-bottom: none;
 }
 
-.section-title {
+.settings-section h2 {
   font-size: 22px;
+  font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 24px;
+  margin: 0 0 24px 0;
   display: flex;
   align-items: center;
   gap: 12px;
-  font-weight: 700;
 }
 
 .section-icon {
   font-size: 28px;
 }
 
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 20px;
-}
-
-.info-item {
-  padding: 20px;
-  background: var(--bg-tertiary);
-  border-radius: 12px;
+.setting-item {
+  padding: 16px 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  border: 1px solid var(--border-light);
-  transition: all 0.3s ease;
+  gap: 8px;
 }
 
-.info-item:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
-
-.info-item label {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.info-item span {
-  font-size: 15px;
-  color: var(--text-primary);
+.setting-item label {
+  font-size: 16px;
   font-weight: 600;
-  word-break: break-all;
-}
-
-.status-badge {
-  padding: 6px 14px;
-  border-radius: 16px;
-  font-size: 13px;
-  font-weight: 700;
-  display: inline-block;
-  box-shadow: var(--shadow-sm);
-}
-
-.status-badge.connected {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.status-badge.disconnected {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.setting-item {
+  color: var(--text-primary);
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 24px 0;
-  border-bottom: 1px solid var(--border-light);
+  gap: 10px;
+  cursor: pointer;
 }
 
-.setting-item:last-child {
-  border-bottom: none;
+.setting-item label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
 }
 
-.setting-info h3 {
-  margin: 0 0 6px 0;
-  font-size: 17px;
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.setting-info p {
-  margin: 0;
+.setting-desc {
   font-size: 14px;
   color: var(--text-secondary);
-  line-height: 1.5;
-}
-
-/* 开关按钮 */
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 54px;
-  height: 30px;
-  flex-shrink: 0;
-}
-
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--border-color);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 30px;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 24px;
-  width: 24px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-input:checked + .slider {
-  background: var(--primary-gradient);
-}
-
-input:checked + .slider:before {
-  transform: translateX(24px);
-}
-
-input:disabled + .slider {
-  opacity: 0.5;
-  cursor: not-allowed;
+  margin-left: 30px;
 }
 
 .form-group {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 10px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
-  font-size: 15px;
+  margin-bottom: 8px;
 }
 
-.form-input {
+.form-group input[type="text"],
+.form-group input[type="url"],
+.form-group input[type="number"] {
   width: 100%;
   padding: 12px 16px;
-  border: 2px solid var(--border-color);
-  border-radius: 10px;
   font-size: 15px;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
   background: var(--bg-secondary);
   color: var(--text-primary);
-  transition: all 0.3s ease;
+  transition: border-color 0.3s;
 }
 
-.form-input:focus {
+.form-group input:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.slider-input {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border-color);
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.slider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  cursor: pointer;
+}
+
+.slider-input::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  cursor: pointer;
+  border: none;
+}
+
+.slider-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
 }
 
 .settings-actions {
   display: flex;
   gap: 16px;
-  margin-top: 48px;
-  justify-content: center;
+  margin-top: 32px;
+  flex-wrap: wrap;
 }
 
 .settings-actions button {
-  padding: 14px 36px;
-  font-size: 16px;
-  font-weight: 700;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-primary {
+  background: var(--primary-color);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #e65c00;
+  transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
+.btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 2px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+  background: var(--hover-bg);
+  border-color: var(--primary-color);
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.system-info {
+  background: var(--bg-tertiary);
+  padding: 24px;
+  border-radius: 12px;
+  border: none;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.info-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.info-value {
+  font-size: 16px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.info-value.healthy {
+  color: #28a745;
+}
+
+.info-value.error {
+  color: #dc3545;
+}
+
+.info-value.checking {
+  color: var(--primary-color);
+}
+
 @media (max-width: 768px) {
-  .info-grid {
-    grid-template-columns: 1fr;
+  .settings-container {
+    padding: 16px;
   }
-  
-  .setting-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
+
+  .settings-content {
+    padding: 20px;
   }
-  
+
   .settings-actions {
     flex-direction: column;
   }
-  
+
   .settings-actions button {
     width: 100%;
   }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
-

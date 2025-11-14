@@ -76,20 +76,54 @@ export const personaApi = {
  */
 export const ttsApi = {
   /**
-   * 合成语音
-   * @param {Object} data - { text, emotion, referenceAudio, ... }
+   * 健康检查
    */
-  synthesize(data) {
-    return apiClient.post('/tts/synthesize', data, {
-      responseType: 'blob' // 返回音频blob
-    })
+  healthCheck() {
+    return apiClient.get('/api/cosyvoice/health')
+  },
+
+  /**
+   * 获取可用的说话人列表
+   */
+  getSpeakers() {
+    return apiClient.get('/api/cosyvoice/speakers')
   },
 
   /**
    * 获取可用的参考音频列表
    */
   getReferenceAudios() {
-    return apiClient.get('/tts/reference-audios')
+    return apiClient.get('/api/cosyvoice/speakers')
+  },
+
+  /**
+   * 合成语音(测试)
+   * @param {Object} data - { text, spk_id, emotion, ... }
+   */
+  synthesize(data) {
+    return apiClient.post('/api/cosyvoice/synthesis/test', data, {
+      responseType: 'blob' // 返回音频blob
+    })
+  },
+
+  /**
+   * 创建自定义说话人
+   * @param {FormData} formData - 包含音频文件和配置
+   */
+  createSpeaker(formData) {
+    return apiClient.post('/api/cosyvoice/speaker/create', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+  },
+
+  /**
+   * 删除说话人
+   * @param {string} speakerName - 说话人名称
+   */
+  deleteSpeaker(speakerName) {
+    return apiClient.delete(`/api/cosyvoice/speaker/delete/${encodeURIComponent(speakerName)}`)
   },
 
   /**
@@ -97,7 +131,7 @@ export const ttsApi = {
    * @param {FormData} formData - 包含音频文件和文本
    */
   synthesizeWithCustomSpeaker(formData) {
-    return apiClient.post('/tts/synthesize/custom', formData, {
+    return apiClient.post('/api/cosyvoice/synthesis/custom', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       },
