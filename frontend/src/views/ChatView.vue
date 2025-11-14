@@ -50,13 +50,6 @@
         </div>
 
         <div class="header-actions">
-          <button class="icon-btn" title="Chat History" @click="showHistory = !showHistory">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <polyline points="12 6 12 12 16 14"></polyline>
-            </svg>
-            <span class="badge">12</span>
-          </button>
           <button class="icon-btn" title="More">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="1"></circle>
@@ -74,16 +67,7 @@
           <div v-if="messages.length === 0" class="welcome-page">
             <div class="welcome-header">
               <div class="welcome-logo">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="url(#gradient)" stroke-width="2"/>
-                  <path d="M12 6v6l4 2" stroke="url(#gradient)" stroke-width="2" stroke-linecap="round"/>
-                  <defs>
-                    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" style="stop-color:#ff9966"/>
-                      <stop offset="100%" style="stop-color:#ff8c5a"/>
-                    </linearGradient>
-                  </defs>
-                </svg>
+                <img src="@/assets/favicon.png" alt="AiChat Logo" class="welcome-logo-img" />
               </div>
               <h1>AiChat</h1>
               <p class="welcome-subtitle">Have fun!</p>
@@ -170,80 +154,6 @@
         </div>
       </footer>
     </div>
-
-    <!-- 右侧Chat History面板 -->
-    <aside class="history-sidebar" :class="{ show: showHistory }">
-      <div class="history-header">
-        <h2>Chat history</h2>
-        <span class="history-count">12</span>
-        <button class="icon-btn close-history" @click="showHistory = false">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-      </div>
-
-      <div class="history-content">
-        <div class="history-group">
-          <div class="group-title">Today</div>
-          <div class="history-item">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-            <span class="item-title">Health and Well-being</span>
-            <span class="item-count">23</span>
-          </div>
-          <div class="history-item active">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-            <span class="item-title">Space Tourism Names</span>
-            <span class="item-count">2</span>
-          </div>
-          <div class="history-item">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-            <span class="item-title">Travel and Adventures</span>
-            <span class="item-count">3</span>
-          </div>
-          <div class="history-item">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-            <span class="item-title">Fashion and Style</span>
-            <span class="item-count">16</span>
-          </div>
-        </div>
-
-        <div class="history-group">
-          <div class="group-title">Previous 7 Days</div>
-          <div class="history-item">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-            <span class="item-title">Science and Research</span>
-            <span class="item-count">11</span>
-          </div>
-          <div class="history-item">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-            <span class="item-title">Games and Entertainment</span>
-            <span class="item-count">2</span>
-          </div>
-        </div>
-      </div>
-
-      <button class="new-chat-btn">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-        New Chat
-      </button>
-    </aside>
   </div>
 </template>
 
@@ -261,7 +171,6 @@ const currentSessionId = ref(null)
 const messagesContainer = ref(null)
 const messageInput = ref(null)
 const showSessions = ref(false)
-const showHistory = ref(false)
 
 // 加载角色列表
 const loadPersonas = async () => {
@@ -495,6 +404,13 @@ onMounted(() => {
   transform: scale(1.05);
 }
 
+.icon-img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  display: block;
+}
+
 .sessions-list {
   flex: 1;
   overflow-y: auto;
@@ -576,7 +492,6 @@ onMounted(() => {
   flex-direction: column;
   background: var(--bg-primary);
   overflow: hidden;
-  align-items: center;
   width: 100%;
 }
 
@@ -584,7 +499,6 @@ onMounted(() => {
 .chat-header {
   height: 60px;
   width: 100%;
-  max-width: 1400px;
   background: transparent;
   border-bottom: 1px solid var(--border-light);
   display: flex;
@@ -616,39 +530,20 @@ onMounted(() => {
   gap: 12px;
 }
 
-.header-actions .icon-btn {
-  position: relative;
-}
-
-.badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  background: var(--primary-color);
-  color: white;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 10px;
-  min-width: 18px;
-  text-align: center;
-}
 
 /* 消息容器 */
 .messages-container {
   flex: 1;
   width: 100%;
-  max-width: 1400px;
   overflow-y: auto;
   scroll-behavior: smooth;
-  display: flex;
-  justify-content: center;
+  padding: 24px;
 }
 
 .messages-wrapper {
   width: 100%;
   max-width: 1100px;
-  padding: 24px;
+  margin: 0 auto;
 }
 
 /* 欢迎页面 */
@@ -660,7 +555,6 @@ onMounted(() => {
   padding: 60px 40px;
   animation: fadeIn 0.8s ease;
   width: 100%;
-  max-width: 1100px;
 }
 
 .welcome-header {
@@ -671,6 +565,13 @@ onMounted(() => {
 .welcome-logo {
   margin-bottom: 24px;
   animation: float 3s ease-in-out infinite;
+}
+
+.welcome-logo-img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  display: block;
 }
 
 .welcome-header h1 {
@@ -915,18 +816,15 @@ onMounted(() => {
 /* 输入区域 */
 .chat-footer {
   width: 100%;
-  max-width: 1400px;
   background: transparent;
   padding: 20px 24px 24px;
   flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
 }
 
 .input-wrapper {
   width: 100%;
   max-width: 1100px;
+  margin: 0 auto;
   display: flex;
   gap: 12px;
   align-items: flex-end;
@@ -1011,142 +909,6 @@ onMounted(() => {
   transform: none !important;
 }
 
-/* 右侧Chat History面板 */
-.history-sidebar {
-  width: 300px;
-  background: var(--bg-secondary);
-  border-left: 1px solid var(--border-light);
-  display: flex;
-  flex-direction: column;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  transform: translateX(100%);
-  position: absolute;
-  right: 0;
-  top: 0;
-  height: 100%;
-  z-index: 50;
-}
-
-.history-sidebar.show {
-  transform: translateX(0);
-}
-
-.history-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--border-light);
-}
-
-.history-header h2 {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-  flex: 1;
-}
-
-.history-count {
-  font-size: 13px;
-  color: var(--text-tertiary);
-  background: var(--bg-tertiary);
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-weight: 600;
-}
-
-.close-history {
-  width: 28px;
-  height: 28px;
-}
-
-.history-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px;
-}
-
-.history-group {
-  margin-bottom: 24px;
-}
-
-.group-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 12px;
-  padding: 0 12px;
-}
-
-.history-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  margin-bottom: 4px;
-}
-
-.history-item:hover {
-  background: var(--sidebar-hover);
-}
-
-.history-item.active {
-  background: var(--sidebar-active);
-}
-
-.history-item svg {
-  color: var(--text-tertiary);
-  flex-shrink: 0;
-}
-
-.item-title {
-  flex: 1;
-  font-size: 14px;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.item-count {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  background: var(--bg-tertiary);
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
-.new-chat-btn {
-  margin: 16px;
-  padding: 14px;
-  background: var(--primary-gradient);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  transition: all 0.3s ease;
-  box-shadow: var(--shadow-md);
-}
-
-.new-chat-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-}
-
 /* 响应式设计 */
 @media (max-width: 1024px) {
   .sessions-sidebar {
@@ -1156,10 +918,6 @@ onMounted(() => {
   .feature-cards {
     grid-template-columns: 1fr;
     gap: 16px;
-  }
-  
-  .history-sidebar {
-    width: 100%;
   }
 }
 
