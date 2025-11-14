@@ -137,6 +137,12 @@ onMounted(() => {
   box-sizing: border-box;
 }
 
+html {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
@@ -146,6 +152,7 @@ body {
   padding: 0;
   background: var(--bg-primary);
   height: 100vh;
+  width: 100vw;
   overflow: hidden;
   color: var(--text-primary);
   transition: background 0.3s ease, color 0.3s ease;
@@ -154,6 +161,7 @@ body {
 #app {
   display: flex;
   height: 100vh;
+  width: 100vw;
   overflow: hidden;
   transition: all 0.3s ease;
 }
@@ -161,6 +169,7 @@ body {
 /* 左侧侧边栏 */
 .sidebar {
   width: 240px;
+  flex-shrink: 0;
   background: var(--sidebar-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -539,6 +548,20 @@ input:focus, textarea:focus, select:focus {
 }
 
 /* 响应式设计 */
+/* 中等屏幕 - 隐藏用户信息文字和菜单按钮 */
+@media (max-width: 1200px) {
+  .user-info,
+  .profile-menu-btn {
+    display: none;
+  }
+  
+  .user-profile {
+    justify-content: center;
+    padding: 8px;
+  }
+}
+
+/* 小屏幕 - 完全折叠侧边栏 */
 @media (max-width: 768px) {
   .sidebar {
     width: 70px;
@@ -567,7 +590,8 @@ input:focus, textarea:focus, select:focus {
     padding: 8px;
   }
   
-  .user-info {
+  .user-info,
+  .profile-menu-btn {
     display: none;
   }
   

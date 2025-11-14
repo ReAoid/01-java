@@ -1,62 +1,11 @@
 <template>
   <div class="chat-view">
-    <!-- 左侧会话列表 -->
-    <aside class="sessions-sidebar" :class="{ collapsed: !showSessions }">
-      <div class="sessions-header">
-        <h2>会话历史</h2>
-        <button @click="createNewSession" class="icon-btn" title="新建会话">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-        </button>
-      </div>
-      
-      <div class="sessions-list">
-        <div 
-          v-for="session in sessions" 
-          :key="session.id"
-          :class="['session-item', { active: currentSessionId === session.id }]"
-          @click="switchSession(session.id)"
-        >
-          <div class="session-info">
-            <div class="session-title">{{ session.title || '新会话' }}</div>
-            <div class="session-time">{{ formatSessionTime(session.timestamp) }}</div>
-          </div>
-          <button @click.stop="deleteSession(session.id)" class="delete-btn" title="删除">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-          </button>
-        </div>
-      </div>
-    </aside>
-
     <!-- 主聊天区域 -->
     <div class="chat-main">
       <!-- 顶部工具栏 -->
       <header class="chat-header">
-        <button @click="showSessions = !showSessions" class="icon-btn toggle-sessions">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="3" y1="12" x2="21" y2="12"></line>
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <line x1="3" y1="18" x2="21" y2="18"></line>
-          </svg>
-        </button>
-        
         <div class="chat-title">
           <h1>AiChat</h1>
-        </div>
-
-        <div class="header-actions">
-          <button class="icon-btn" title="More">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="1"></circle>
-              <circle cx="12" cy="5" r="1"></circle>
-              <circle cx="12" cy="19" r="1"></circle>
-            </svg>
-          </button>
         </div>
       </header>
 
@@ -87,15 +36,6 @@
             </div>
             <div class="message-bubble">
               <div class="message-content" v-html="msg.content"></div>
-              <div class="message-footer">
-                <span class="message-time">Just now</span>
-                <div class="message-actions">
-                  <button v-if="msg.role === 'user'" class="action-btn edit-btn" title="Edit">Edit</button>
-                  <button v-if="msg.role === 'assistant'" class="action-btn copy-btn" title="Copy">Copy</button>
-                  <button v-if="msg.role === 'assistant'" class="reaction-btn" title="React">😍</button>
-                  <button v-if="msg.role === 'assistant'" class="reaction-btn" title="React">😊</button>
-                </div>
-              </div>
             </div>
           </div>
           
@@ -128,29 +68,17 @@
             ref="messageInput"
           ></textarea>
           
-          <div class="input-actions">
-            <button 
-              class="send-btn" 
-              @click="handleSend"
-              :disabled="isLoading || !inputMessage.trim()"
-              :class="{ active: inputMessage.trim() }"
-            >
-              <svg v-if="!isLoading" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="22" y1="2" x2="11" y2="13"></line>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-              </svg>
-              <span v-else class="loading"></span>
-            </button>
-            
-            <button class="voice-btn" title="Voice input">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                <line x1="12" y1="19" x2="12" y2="23"></line>
-                <line x1="8" y1="23" x2="16" y2="23"></line>
-              </svg>
-            </button>
-          </div>
+          <button 
+            class="send-btn" 
+            @click="handleSend"
+            :disabled="isLoading || !inputMessage.trim()"
+            :class="{ active: inputMessage.trim() }"
+          >
+            <svg v-if="!isLoading" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+            <span v-else class="loading"></span>
+          </button>
         </div>
       </footer>
     </div>
@@ -166,11 +94,9 @@ const inputMessage = ref('')
 const isLoading = ref(false)
 const currentPersona = ref('Assistant')
 const personas = ref([])
-const sessions = ref([])
 const currentSessionId = ref(null)
 const messagesContainer = ref(null)
 const messageInput = ref(null)
-const showSessions = ref(false)
 
 // 加载角色列表
 const loadPersonas = async () => {
@@ -248,56 +174,6 @@ const sendQuickMessage = (message) => {
   handleSend()
 }
 
-// 创建新会话
-const createNewSession = async () => {
-  try {
-    const response = await chatApi.createSession(currentPersona.value)
-    currentSessionId.value = response.sessionId
-    messages.value = []
-    await loadSessions()
-  } catch (error) {
-    console.error('创建会话失败:', error)
-  }
-}
-
-// 加载会话列表
-const loadSessions = async () => {
-  try {
-    const data = await chatApi.getAllSessions()
-    sessions.value = data.sessions || []
-  } catch (error) {
-    console.error('加载会话失败:', error)
-  }
-}
-
-// 切换会话
-const switchSession = async (sessionId) => {
-  currentSessionId.value = sessionId
-  try {
-    const data = await chatApi.getChatHistory(sessionId)
-    messages.value = data.messages || []
-    scrollToBottom()
-  } catch (error) {
-    console.error('加载会话历史失败:', error)
-  }
-}
-
-// 删除会话
-const deleteSession = async (sessionId) => {
-  if (!confirm('确定要删除这个会话吗?')) return
-  
-  try {
-    await chatApi.deleteSession(sessionId)
-    await loadSessions()
-    if (currentSessionId.value === sessionId) {
-      currentSessionId.value = null
-      messages.value = []
-    }
-  } catch (error) {
-    console.error('删除会话失败:', error)
-  }
-}
-
 // 滚动到底部
 const scrollToBottom = async () => {
   await nextTick()
@@ -312,19 +188,6 @@ const formatTime = (date) => {
   return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
-// 格式化会话时间
-const formatSessionTime = (timestamp) => {
-  if (!timestamp) return ''
-  const date = new Date(timestamp)
-  const now = new Date()
-  const diff = now - date
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-  
-  if (days === 0) return '今天'
-  if (days === 1) return '昨天'
-  if (days < 7) return `${days}天前`
-  return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })
-}
 
 // 监听输入框变化，自动调整高度
 watch(inputMessage, () => {
@@ -336,8 +199,6 @@ watch(inputMessage, () => {
 
 onMounted(() => {
   loadPersonas()
-  loadSessions()
-  createNewSession()
 })
 </script>
 
@@ -347,142 +208,6 @@ onMounted(() => {
   height: 100%;
   width: 100%;
   overflow: hidden;
-}
-
-/* ============ 左侧会话列表 ============ */
-.sessions-sidebar {
-  width: 280px;
-  background: var(--bg-secondary);
-  border-right: 1px solid var(--border-light);
-  display: none; /* 默认隐藏，匹配设计图 */
-  flex-direction: column;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
-}
-
-.sessions-sidebar:not(.collapsed) {
-  display: flex;
-}
-
-.sessions-sidebar.collapsed {
-  display: none;
-}
-
-.sessions-header {
-  padding: 20px;
-  border-bottom: 1px solid var(--border-light);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.sessions-header h2 {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.icon-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: var(--bg-tertiary);
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-
-.icon-btn:hover {
-  background: var(--primary-color);
-  color: white;
-  transform: scale(1.05);
-}
-
-.icon-img {
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
-  display: block;
-}
-
-.sessions-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px;
-}
-
-.session-item {
-  padding: 12px 16px;
-  border-radius: 12px;
-  margin-bottom: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--bg-primary);
-  border: 1px solid transparent;
-}
-
-.session-item:hover {
-  background: var(--bg-tertiary);
-  border-color: var(--border-color);
-}
-
-.session-item.active {
-  background: var(--sidebar-active);
-  border-color: var(--primary-color);
-}
-
-.session-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.session-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 4px;
-}
-
-.session-time {
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-
-.delete-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: all 0.2s ease;
-  color: var(--text-tertiary);
-  flex-shrink: 0;
-}
-
-.session-item:hover .delete-btn {
-  opacity: 1;
-}
-
-.delete-btn:hover {
-  background: #fee;
-  color: #f44;
 }
 
 /* ============ 主聊天区域 ============ */
@@ -508,12 +233,9 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
-.toggle-sessions {
-  margin-right: 8px;
-}
-
 .chat-title {
   flex: 1;
+  text-align: center;
 }
 
 .chat-title h1 {
@@ -524,12 +246,6 @@ onMounted(() => {
   opacity: 0.9;
 }
 
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
 
 /* 消息容器 */
 .messages-container {
@@ -537,13 +253,11 @@ onMounted(() => {
   width: 100%;
   overflow-y: auto;
   scroll-behavior: smooth;
-  padding: 24px;
 }
 
 .messages-wrapper {
   width: 100%;
-  max-width: 1100px;
-  margin: 0 auto;
+  padding: 24px;
 }
 
 /* 欢迎页面 */
@@ -552,6 +266,7 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  min-height: 100%;
   padding: 60px 40px;
   animation: fadeIn 0.8s ease;
   width: 100%;
@@ -565,11 +280,12 @@ onMounted(() => {
 .welcome-logo {
   margin-bottom: 24px;
   animation: float 3s ease-in-out infinite;
+  display: inline-block;
 }
 
 .welcome-logo-img {
-  width: 64px;
-  height: 64px;
+  width: 80px;
+  height: 80px;
   object-fit: contain;
   display: block;
 }
@@ -721,57 +437,6 @@ onMounted(() => {
   color: var(--text-primary);
   font-size: 15px;
   word-wrap: break-word;
-  margin-bottom: 16px;
-}
-
-.message-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-light);
-}
-
-.message-time {
-  font-size: 13px;
-  color: var(--text-tertiary);
-  font-weight: 400;
-}
-
-.message-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.action-btn,
-.reaction-btn {
-  padding: 6px 14px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 13px;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.reaction-btn {
-  padding: 4px 8px;
-  font-size: 16px;
-  background: transparent;
-  border: none;
-}
-
-.action-btn:hover {
-  background: var(--sidebar-hover);
-  color: var(--text-primary);
-  border-color: var(--primary-color);
-}
-
-.reaction-btn:hover {
-  transform: scale(1.2);
 }
 
 /* 打字指示器 */
@@ -823,15 +488,13 @@ onMounted(() => {
 
 .input-wrapper {
   width: 100%;
-  max-width: 1100px;
-  margin: 0 auto;
   display: flex;
   gap: 12px;
   align-items: flex-end;
   background: var(--bg-secondary);
   border: 2px solid var(--border-color);
   border-radius: 16px;
-  padding: 14px 16px;
+  padding: 12px 16px;
   transition: all 0.3s ease;
   box-shadow: var(--shadow-md);
 }
@@ -847,13 +510,13 @@ onMounted(() => {
   background: transparent;
   resize: none;
   font-size: 15px;
-  line-height: 1.6;
+  line-height: 1.5;
   color: var(--text-primary);
   max-height: 150px;
-  min-height: 24px;
+  min-height: 36px;
   overflow-y: auto;
   font-family: inherit;
-  padding: 0;
+  padding: 6px 0;
 }
 
 .message-input:focus {
@@ -864,32 +527,36 @@ onMounted(() => {
   color: var(--text-tertiary);
 }
 
-.input-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.send-btn,
-.voice-btn {
+.send-btn {
   width: 36px;
   height: 36px;
+  min-height: 36px;
   border-radius: 8px;
-  background: var(--bg-tertiary);
-  border: none;
-  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  cursor: not-allowed;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   flex-shrink: 0;
+  align-self: flex-end;
+  opacity: 0.5;
 }
 
 .send-btn.active {
   background: var(--primary-gradient);
   color: white;
   box-shadow: var(--shadow-sm);
+  border: none;
+  cursor: pointer;
+  opacity: 1;
+}
+
+.send-btn.active svg {
+  color: white;
+  fill: white;
 }
 
 .send-btn.active:hover:not(:disabled) {
@@ -897,24 +564,14 @@ onMounted(() => {
   box-shadow: var(--shadow-md);
 }
 
-.voice-btn:hover {
-  background: var(--sidebar-hover);
-  color: var(--primary-color);
-  transform: scale(1.05);
-}
-
 .send-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.3;
   cursor: not-allowed;
   transform: none !important;
 }
 
 /* 响应式设计 */
 @media (max-width: 1024px) {
-  .sessions-sidebar {
-    width: 240px;
-  }
-  
   .feature-cards {
     grid-template-columns: 1fr;
     gap: 16px;
@@ -922,14 +579,6 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
-  .sessions-sidebar:not(.collapsed) {
-    position: absolute;
-    left: 0;
-    top: 0;
-    height: 100%;
-    z-index: 100;
-    box-shadow: var(--shadow-xl);
-  }
   
   .chat-header {
     padding: 0 16px;
@@ -946,17 +595,6 @@ onMounted(() => {
   
   .message-content {
     font-size: 14px;
-  }
-  
-  .message-footer {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  
-  .message-actions {
-    width: 100%;
-    justify-content: flex-end;
   }
   
   .chat-footer {
