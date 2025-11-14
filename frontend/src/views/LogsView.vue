@@ -1,6 +1,7 @@
 <template>
-  <div class="logs-view">
-    <div class="logs-container">
+  <div class="page-container">
+    <div class="logs-view">
+      <div class="logs-container">
       <div class="logs-header">
         <h1>📝 系统日志</h1>
         <div class="header-actions">
@@ -109,6 +110,7 @@
         </div>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
@@ -149,10 +151,73 @@ const loadLogs = async () => {
     }
   } catch (error) {
     console.error('加载日志失败:', error)
-    Message.error('加载日志失败')
+    // 使用模拟数据作为备用
+    logs.value = generateMockLogs(filters.value.limit)
+    stats.value = calculateStats(logs.value)
+    lastUpdate.value = new Date().toLocaleTimeString('zh-CN')
+    Message.warning('使用模拟日志数据（后端API未完全实现）')
   } finally {
     loading.value = false
   }
+}
+
+// 生成模拟日志数据
+const generateMockLogs = (count) => {
+  const levels = ['ERROR', 'WARN', 'INFO', 'DEBUG']
+  const messages = [
+    'WebSocket连接已建立',
+    '用户发送消息',
+    'AI回复生成完成',
+    'TTS音频合成成功',
+    'ASR识别完成',
+    '数据库查询执行',
+    '配置文件加载成功',
+    '服务启动完成',
+    '连接超时',
+    '请求参数验证失败',
+    '文件读取错误',
+    '内存使用率较高',
+    '缓存更新',
+    '会话创建成功'
+  ]
+  
+  const mockLogs = []
+  const now = Date.now()
+  
+  for (let i = 0; i < count; i++) {
+    const level = levels[Math.floor(Math.random() * levels.length)]
+    const message = messages[Math.floor(Math.random() * messages.length)]
+    const timestamp = new Date(now - Math.random() * 24 * 3600 * 1000) // 24小时内
+    
+    mockLogs.push({
+      level,
+      message,
+      timestamp: timestamp.toISOString()
+    })
+  }
+  
+  // 按时间倒序排列
+  return mockLogs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+}
+
+// 计算统计信息
+const calculateStats = (logsList) => {
+  const stats = {
+    total: logsList.length,
+    error: 0,
+    warn: 0,
+    info: 0,
+    debug: 0
+  }
+  
+  logsList.forEach(log => {
+    const level = log.level.toLowerCase()
+    if (stats[level] !== undefined) {
+      stats[level]++
+    }
+  })
+  
+  return stats
 }
 
 // 清空日志
@@ -208,17 +273,34 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.page-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 30px;
+  overflow: hidden;
+}
+
 .logs-view {
   width: 100%;
+  max-width: 1400px;
   height: 100%;
-  overflow-y: auto;
-  background: var(--bg-primary);
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
 }
 
 .logs-container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 24px 30px;
 }
 
 .logs-header {
@@ -226,12 +308,14 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #e5e7eb;
 }
 
 .logs-header h1 {
   font-size: 32px;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #1a1a1a;
   margin: 0;
 }
 
@@ -270,10 +354,10 @@ onUnmounted(() => {
 }
 
 .logs-filters {
-  background: white;
+  background: #f9fafb;
   padding: 20px;
   border-radius: 12px;
-  box-shadow: var(--shadow-md);
+  border: 1px solid #e5e7eb;
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
@@ -289,17 +373,17 @@ onUnmounted(() => {
 .filter-group label {
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #1a1a1a;
 }
 
 .filter-group select,
 .filter-group input[type="number"] {
   padding: 8px 12px;
-  border: 2px solid var(--border-color);
+  border: 2px solid #d1d5db;
   border-radius: 6px;
   font-size: 14px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
+  background: #ffffff;
+  color: #1a1a1a;
 }
 
 .filter-group select:focus,
@@ -322,10 +406,10 @@ onUnmounted(() => {
 }
 
 .logs-stats {
-  background: white;
+  background: #f9fafb;
   padding: 20px;
   border-radius: 12px;
-  box-shadow: var(--shadow-md);
+  border: 1px solid #e5e7eb;
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
@@ -336,12 +420,13 @@ onUnmounted(() => {
   flex: 1;
   min-width: 150px;
   padding: 12px;
-  background: var(--bg-tertiary);
+  background: #ffffff;
   border-radius: 8px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  border-left: 4px solid var(--primary-color);
+  border-left: 4px solid #ff9966;
+  border: 1px solid #e5e7eb;
 }
 
 .stat-item.error {
@@ -358,7 +443,7 @@ onUnmounted(() => {
 
 .stat-label {
   font-size: 12px;
-  color: var(--text-tertiary);
+  color: #6b7280;
   font-weight: 600;
   text-transform: uppercase;
 }
@@ -366,15 +451,17 @@ onUnmounted(() => {
 .stat-value {
   font-size: 24px;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #1a1a1a;
 }
 
 .logs-content {
-  background: white;
+  background: #ffffff;
   border-radius: 12px;
-  box-shadow: var(--shadow-md);
+  border: 1px solid #e5e7eb;
   padding: 20px;
   min-height: 400px;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .loading-state,
@@ -384,7 +471,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: var(--text-secondary);
+  color: #6b7280;
 }
 
 .spinner {
@@ -412,9 +499,9 @@ onUnmounted(() => {
   grid-template-columns: auto auto 1fr;
   gap: 16px;
   padding: 12px;
-  background: var(--bg-secondary);
+  background: #f9fafb;
   border-radius: 8px;
-  border-left: 4px solid var(--border-color);
+  border-left: 4px solid #d1d5db;
   font-family: 'Courier New', monospace;
   transition: all 0.3s;
 }
@@ -441,7 +528,7 @@ onUnmounted(() => {
 
 .log-time {
   font-size: 12px;
-  color: var(--text-tertiary);
+  color: #6b7280;
   white-space: nowrap;
 }
 
@@ -480,7 +567,7 @@ onUnmounted(() => {
 
 .log-message {
   font-size: 13px;
-  color: var(--text-primary);
+  color: #1a1a1a;
   word-break: break-word;
 }
 

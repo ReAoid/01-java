@@ -1,6 +1,7 @@
 <template>
-  <div class="settings-view">
-    <div class="settings-container">
+  <div class="page-container">
+    <div class="settings-view">
+      <div class="settings-container">
       <div class="settings-header">
         <h1>⚙️ 系统设置</h1>
         <p>配置系统参数和用户偏好</p>
@@ -222,6 +223,7 @@
         </div>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
@@ -307,64 +309,81 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.page-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 30px;
+  overflow: hidden;
+}
+
 .settings-view {
   width: 100%;
+  max-width: 900px;
   height: 100%;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
-  background: var(--bg-primary);
+  border: 1px solid #e5e7eb;
 }
 
 .settings-container {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 32px 24px;
+  padding: 32px 40px;
 }
 
 .settings-header {
   margin-bottom: 32px;
   text-align: center;
+  padding-bottom: 24px;
+  border-bottom: 2px solid #e5e7eb;
 }
 
 .settings-header h1 {
   font-size: 32px;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #1a1a1a;
   margin: 0 0 8px 0;
 }
 
 .settings-header p {
   font-size: 16px;
-  color: var(--text-secondary);
+  color: #6b7280;
   margin: 0;
 }
 
 .settings-content {
-  background: white;
-  border-radius: 16px;
-  padding: 32px;
-  box-shadow: var(--shadow-md);
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
 }
 
 .settings-section {
   margin-bottom: 40px;
-  padding-bottom: 40px;
-  border-bottom: 2px solid var(--border-color);
+  padding: 24px;
+  background: #f9fafb;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
 }
 
 .settings-section:last-child {
   margin-bottom: 0;
-  padding-bottom: 0;
-  border-bottom: none;
 }
 
 .settings-section h2 {
   font-size: 22px;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #1a1a1a;
   margin: 0 0 24px 0;
   display: flex;
   align-items: center;
   gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #e5e7eb;
 }
 
 .section-icon {
@@ -381,7 +400,7 @@ onMounted(async () => {
 .setting-item label {
   font-size: 16px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #1a1a1a;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -396,7 +415,7 @@ onMounted(async () => {
 
 .setting-desc {
   font-size: 14px;
-  color: var(--text-secondary);
+  color: #6b7280;
   margin-left: 30px;
 }
 
@@ -408,7 +427,7 @@ onMounted(async () => {
   display: block;
   font-size: 15px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #1a1a1a;
   margin-bottom: 8px;
 }
 
@@ -418,10 +437,10 @@ onMounted(async () => {
   width: 100%;
   padding: 12px 16px;
   font-size: 15px;
-  border: 2px solid var(--border-color);
+  border: 2px solid #d1d5db;
   border-radius: 8px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
+  background: #ffffff;
+  color: #1a1a1a;
   transition: border-color 0.3s;
 }
 
@@ -434,7 +453,7 @@ onMounted(async () => {
   width: 100%;
   height: 6px;
   border-radius: 3px;
-  background: var(--border-color);
+  background: #e5e7eb;
   outline: none;
   -webkit-appearance: none;
 }
@@ -462,7 +481,7 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   font-size: 12px;
-  color: var(--text-tertiary);
+  color: #9ca3af;
   margin-top: 4px;
 }
 
@@ -495,9 +514,9 @@ onMounted(async () => {
 }
 
 .btn-secondary {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 2px solid var(--border-color);
+  background: #ffffff;
+  color: #1a1a1a;
+  border: 2px solid #d1d5db;
 }
 
 .btn-secondary:hover {
@@ -517,10 +536,10 @@ onMounted(async () => {
 }
 
 .system-info {
-  background: var(--bg-tertiary);
+  background: #f0fdf4;
   padding: 24px;
   border-radius: 12px;
-  border: none;
+  border: 1px solid #86efac;
 }
 
 .info-grid {
@@ -538,14 +557,14 @@ onMounted(async () => {
 
 .info-label {
   font-size: 12px;
-  color: var(--text-tertiary);
+  color: #6b7280;
   font-weight: 600;
   text-transform: uppercase;
 }
 
 .info-value {
   font-size: 16px;
-  color: var(--text-primary);
+  color: #1a1a1a;
   font-weight: 600;
 }
 

@@ -1,5 +1,6 @@
 <template>
   <aside class="sessions-sidebar" :class="{ collapsed: !isVisible }">
+    <!-- 头部：标题 + 新建按钮 -->
     <div class="sessions-header">
       <h3>会话历史</h3>
       <button class="new-session-btn" @click="handleNewSession" title="新建会话">
@@ -7,6 +8,7 @@
       </button>
     </div>
 
+    <!-- 会话列表 -->
     <div class="sessions-list">
       <div 
         v-for="session in sessions" 
@@ -15,11 +17,13 @@
         :class="{ active: session.sessionId === currentSessionId }"
         @click="handleSelectSession(session.sessionId)"
       >
+        <!-- 会话信息 -->
         <div class="session-info">
           <div class="session-title">{{ getSessionTitle(session) }}</div>
           <div class="session-time">{{ formatSessionTime(session.lastMessageTime || session.createTime) }}</div>
           <div class="session-count">{{ session.messageCount || 0 }} 条消息</div>
         </div>
+        <!-- 删除按钮 -->
         <button 
           class="delete-session-btn" 
           @click.stop="handleDeleteSession(session.sessionId)"
@@ -29,6 +33,7 @@
         </button>
       </div>
 
+      <!-- 空状态 -->
       <div v-if="sessions.length === 0" class="empty-state">
         <p>暂无会话历史</p>
         <button class="btn-primary" @click="handleNewSession">
@@ -37,6 +42,7 @@
       </div>
     </div>
 
+    <!-- 底部：折叠/展开按钮 -->
     <div class="sessions-footer">
       <button class="toggle-sidebar-btn" @click="toggleSidebar">
         {{ isVisible ? '◀' : '▶' }}
@@ -46,13 +52,35 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useChatHistory } from '@/composables/useChatHistory'
 import Message from '@/utils/message'
+
+/**
+ * SessionsSidebar 组件说明
+ * 
+ * 功能：
+ * 1. 显示所有聊天会话的列表
+ * 2. 支持创建新会话
+ * 3. 支持切换会话
+ * 4. 支持删除会话
+ * 5. 支持折叠/展开侧边栏
+ * 
+ * 使用方式：
+ * <SessionsSidebar 
+ *   @session-selected="onSessionSelected"
+ *   @new-session="onNewSession"
+ * />
+ * 
+ * 事件：
+ * - session-selected: 当用户选择某个会话时触发
+ * - new-session: 当用户创建新会话时触发
+ */
 
 const emit = defineEmits(['session-selected', 'new-session'])
 const isVisible = ref(true)
 
+// 使用聊天历史管理composable
 const {
   sessions,
   currentSessionId,

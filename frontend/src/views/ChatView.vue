@@ -18,11 +18,20 @@
           <!-- 选择人设 -->
           <div class="control-item">
             <label>选择人设:</label>
-            <select v-model="currentPersona" @change="handlePersonaChange" class="persona-select">
-              <option v-for="persona in personas" :key="persona" :value="persona">
-                {{ persona }}
-              </option>
-            </select>
+            <div class="custom-select-wrapper" @click="togglePersonaDropdown">
+              <div class="custom-select-display">{{ currentPersona }}</div>
+              <div v-if="showPersonaDropdown" class="custom-select-options">
+                <div 
+                  v-for="persona in personas" 
+                  :key="persona" 
+                  :class="['custom-option', { selected: currentPersona === persona }]"
+                  @click.stop="selectPersona(persona)"
+                >
+                  <span class="option-text">{{ persona }}</span>
+                  <span v-if="currentPersona === persona" class="option-checkmark">✅</span>
+                </div>
+              </div>
+            </div>
           </div>
           
           <!-- 显示思考 -->
@@ -62,7 +71,7 @@
           >
             <div class="message-avatar">
               <img v-if="msg.role === 'user'" src="@/assets/user-avatar.jpg" alt="User" />
-              <div v-else class="ai-avatar">🤖</div>
+              <img v-else src="@/assets/favicon.png" alt="AI" class="ai-avatar-img" />
             </div>
             <div class="message-bubble">
               <div v-if="msg.isTyping" class="typing-indicator">
@@ -79,11 +88,25 @@
       <!-- 输入区域 -->
       <footer class="chat-footer">
         <div class="input-wrapper">
+          <!-- ASR录音按钮 -->
+          <button 
+            v-if="asrEnabled"
+            class="asr-btn" 
+            :class="{ recording: isRecording }"
+            @click="toggleRecording"
+            :title="isRecording ? '停止录音' : '开始录音'"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+            </svg>
+          </button>
+          
           <textarea
             v-model="inputMessage"
             @keydown.enter.exact.prevent="handleSend"
             @keydown.enter.shift.exact="inputMessage += '\n'"
-            placeholder="Send a message"
+            :placeholder="isRecording ? '正在录音...' : 'Send a message'"
             rows="1"
             class="message-input"
             ref="messageInput"
@@ -117,6 +140,8 @@ import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { chatApi, personaApi } from '@/api/chatApi'
 import wsManager from '@/api/websocket'
 import ToastNotification from '@/components/ToastNotification.vue'
+import { useASR } from '@/composables/useASR'
+import { useTTS } from '@/composables/useTTS'
 
 const toast = ref(null)
 const messages = ref([])
@@ -131,13 +156,29 @@ const messageInput = ref(null)
 // 连接状态
 const connectionStatus = ref('disconnected')
 const connectionStatusText = ref('连接断开')
-const ollamaStatusText = ref('🤖 正在检查Ollama服务状态...')
 
 // 控制开关
 const showThinking = ref(false)
 const asrEnabled = ref(false)
 const ttsEnabled = ref(false)
 const webSearchEnabled = ref(false)
+const showPersonaDropdown = ref(false)
+
+// 初始化ASR和TTS功能
+const {
+  isRecording,
+  recognizedText,
+  startRecording,
+  stopRecording,
+  handleASRResult,
+  clearResult: clearASRResult
+} = useASR()
+
+const {
+  isPlaying: isTTSPlaying,
+  stopAudio: stopTTS,
+  handleTTSAudio
+} = useTTS()
 
 // 加载角色列表
 const loadPersonas = async () => {
@@ -152,35 +193,40 @@ const loadPersonas = async () => {
   }
 }
 
-// 切换角色
-const handlePersonaChange = async () => {
+// 切换下拉框显示
+const togglePersonaDropdown = () => {
+  showPersonaDropdown.value = !showPersonaDropdown.value
+}
+
+// 选择人设
+const selectPersona = async (persona) => {
   // 如果AI正在回复，不允许切换
   if (isLoading.value) {
-    // 恢复到之前的选择
     return
   }
   
   if (!wsManager.isConnected || !currentSessionId.value) {
     addSystemMessage('请先连接到服务器')
+    showPersonaDropdown.value = false
     return
   }
   
   try {
-    // 通过WebSocket发送角色切换请求
-    const selectedPersona = personas.value.find(p => p.name === currentPersona.value)
-    const personaText = selectedPersona ? selectedPersona.name : currentPersona.value
+    currentPersona.value = persona
+    showPersonaDropdown.value = false
     
+    // 通过WebSocket发送角色切换请求
     const message = {
       type: 'system',
-      content: `切换到人设: ${personaText}`,
+      content: `切换到人设: ${persona}`,
       metadata: {
         action: 'change_persona',
-        personaId: currentPersona.value
+        personaId: persona
       }
     }
     
     wsManager.send(message)
-    addSystemMessage(`已切换到 ${personaText} 人设`)
+    addSystemMessage(`已切换到 ${persona} 人设`)
     console.log('📤 发送角色切换请求:', message)
   } catch (error) {
     console.error('切换角色失败:', error)
@@ -247,12 +293,6 @@ const handleSend = () => {
   }
 }
 
-// 快速发送消息
-const sendQuickMessage = (message) => {
-  inputMessage.value = message
-  handleSend()
-}
-
 // 添加系统消息
 const addSystemMessage = (content, type = 'info') => {
   // 使用Toast通知代替消息列表
@@ -279,10 +319,12 @@ const handleInterrupt = () => {
   
   console.log('🛑 用户点击停止按钮，开始中断处理')
   
-  // 1. 停止所有音频播放 (TTS相关)
-  // TODO: 如果有TTS音频播放，需要在这里停止
+  // 停止TTS播放
+  if (ttsEnabled.value && isTTSPlaying.value) {
+    stopTTS()
+  }
   
-  // 2. 发送后端中断信号
+  // 发送后端中断信号
   const interruptMessage = {
     type: 'system',
     content: 'interrupt',
@@ -297,17 +339,40 @@ const handleInterrupt = () => {
   wsManager.send(interruptMessage)
   console.log('📤 发送后端打断信号:', interruptMessage)
   
-  // 3. 立即进行视觉反馈 - 在最后一条AI消息末尾添加中断提示
+  // 立即进行视觉反馈 - 在最后一条AI消息末尾添加中断提示
   const lastMsg = messages.value[messages.value.length - 1]
   if (lastMsg && lastMsg.role === 'assistant') {
     lastMsg.content += ' ...（已中断）'
   }
   
-  // 4. 立即重置UI状态
+  // 立即重置UI状态
   isLoading.value = false
   
   console.log('✅ 中断处理完成，UI状态已重置')
 }
+
+// 切换录音
+const toggleRecording = async () => {
+  if (isRecording.value) {
+    // 停止录音
+    stopRecording()
+  } else {
+    // 开始录音
+    const success = await startRecording()
+    if (!success) {
+      addSystemMessage('❌ 无法启动录音，请检查麦克风权限')
+    }
+  }
+}
+
+// 监听ASR识别结果，自动填充到输入框
+watch(recognizedText, (newText) => {
+  if (newText) {
+    inputMessage.value = newText
+    clearASRResult()
+    addSystemMessage(`🎤 识别结果: ${newText}`)
+  }
+})
 
 // 切换显示思考
 const toggleThinking = () => {
@@ -503,12 +568,6 @@ const scrollToBottom = async () => {
   }
 }
 
-// 格式化时间
-const formatTime = (date) => {
-  if (!(date instanceof Date)) date = new Date(date)
-  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-}
-
 
 // 监听输入框变化，自动调整高度
 watch(inputMessage, () => {
@@ -528,23 +587,10 @@ const initializeWebSocket = async () => {
     
     connectionStatus.value = 'connected'
     connectionStatusText.value = '已连接'
-    
-    // 检查Ollama服务状态
-    checkOllamaStatus()
   } catch (error) {
     console.error('WebSocket连接失败:', error)
     connectionStatus.value = 'disconnected'
     connectionStatusText.value = '连接断开'
-  }
-}
-
-// 检查Ollama服务状态
-const checkOllamaStatus = async () => {
-  try {
-    // 这里可以调用后端API检查Ollama状态
-    ollamaStatusText.value = '🤖 Ollama服务正常'
-  } catch (error) {
-    ollamaStatusText.value = '🤖 Ollama服务检查失败'
   }
 }
 
@@ -631,6 +677,20 @@ const setupWebSocketHandlers = () => {
     }
   })
 
+  // 监听TTS音频消息
+  wsManager.on('tts_audio', (message) => {
+    console.log('📨 收到TTS音频消息')
+    if (ttsEnabled.value) {
+      handleTTSAudio(message)
+    }
+  })
+
+  // 监听ASR识别结果
+  wsManager.on('asr_result', (message) => {
+    console.log('📨 收到ASR识别结果')
+    handleASRResult(message)
+  })
+
   // 监听系统消息
   wsManager.on('system', (message) => {
     console.log('📨 收到system消息:', message)
@@ -638,13 +698,6 @@ const setupWebSocketHandlers = () => {
     // 处理会话ID
     if (message.sessionId && !currentSessionId.value) {
       currentSessionId.value = message.sessionId
-    }
-    
-    // 处理Ollama状态更新
-    if (message.metadata && message.metadata.ollama_status) {
-      ollamaStatusText.value = message.metadata.ollama_status === 'available' 
-        ? '🤖 Ollama服务正常' 
-        : '🤖 Ollama服务异常'
     }
     
     // 处理思考切换确认
@@ -777,20 +830,67 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.persona-select {
+/* 自定义下拉框 */
+.custom-select-wrapper {
+  position: relative;
+  min-width: 120px;
+  cursor: pointer;
+}
+
+.custom-select-display {
   padding: 6px 12px;
   border: none;
   border-radius: 6px;
   background: white;
-  color: var(--text-primary);
-  font-size: 13px;
-  cursor: pointer;
-  outline: none;
+  color: #333;
+  font-size: 14px;
+  font-weight: 600;
   transition: all 0.3s ease;
 }
 
-.persona-select:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+.custom-select-wrapper:hover .custom-select-display {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.custom-select-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.custom-option {
+  padding: 10px 12px;
+  color: #333;
+  font-size: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.custom-option:hover {
+  background: #f5f5f5;
+}
+
+.custom-option.selected {
+  background: linear-gradient(90deg, #e3f2fd 0%, #bbdefb 100%);
+  font-weight: 600;
+}
+
+.option-text {
+  flex: 1;
+}
+
+.option-checkmark {
+  margin-left: 8px;
+  font-size: 16px;
 }
 
 .toggle-switch {
@@ -811,7 +911,7 @@ onUnmounted(() => {
   border-radius: 50%;
   background: white;
   top: 2px;
-  left: 2px;
+  right: 2px;  /* 默认在右边 */
   transition: all 0.3s ease;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
@@ -821,7 +921,7 @@ onUnmounted(() => {
 }
 
 .toggle-switch.active::after {
-  left: 22px;
+  right: 22px;  /* 激活时移到左边 */
   background: #667eea;
 }
 
@@ -866,12 +966,11 @@ onUnmounted(() => {
 }
 
 /* AI头像样式 */
-.ai-avatar {
-  width: 40px;
-  height: 40px;
+.ai-avatar-img {
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  display: flex;
+  object-fit: cover;
   align-items: center;
   justify-content: center;
   font-size: 24px;
@@ -1114,6 +1213,47 @@ onUnmounted(() => {
 
 .message-input::placeholder {
   color: var(--text-tertiary);
+}
+
+/* ASR录音按钮 */
+.asr-btn {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.asr-btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.asr-btn.recording {
+  background: #f44336;
+  border-color: #f44336;
+  color: white;
+  animation: pulse-recording 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-recording {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 10px rgba(244, 67, 54, 0);
+  }
 }
 
 .send-btn {
