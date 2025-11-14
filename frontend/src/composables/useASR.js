@@ -1,0 +1,180 @@
+import { ref } from 'vue'
+import wsManager from '@/api/websocket'
+
+/**
+ * ASR (自动语音识别) Composable
+ */
+export function useASR() {
+  const isRecording = ref(false)
+  const isProcessing = ref(false)
+  const audioStream = ref(null)
+  const mediaRecorder = ref(null)
+  const audioChunks = ref([])
+  const recognizedText = ref('')
+  const error = ref(null)
+
+  /**
+   * 检查浏览器是否支持音频录制
+   */
+  const checkSupport = () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      error.value = '浏览器不支持音频录制功能'
+      return false
+    }
+    return true
+  }
+
+  /**
+   * 开始录音
+   */
+  const startRecording = async () => {
+    if (!checkSupport()) {
+      return false
+    }
+
+    try {
+      // 请求麦克风权限
+      audioStream.value = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      })
+
+      // 创建 MediaRecorder
+      mediaRecorder.value = new MediaRecorder(audioStream.value, {
+        mimeType: 'audio/webm'
+      })
+
+      audioChunks.value = []
+
+      // 监听数据可用事件
+      mediaRecorder.value.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunks.value.push(event.data)
+        }
+      }
+
+      // 监听录制停止事件
+      mediaRecorder.value.onstop = async () => {
+        isRecording.value = false
+        isProcessing.value = true
+
+        // 将音频块合并为 Blob
+        const audioBlob = new Blob(audioChunks.value, { type: 'audio/webm' })
+        
+        // 发送到后端进行识别
+        await sendAudioForRecognition(audioBlob)
+        
+        isProcessing.value = false
+      }
+
+      // 开始录制
+      mediaRecorder.value.start(1000) // 每秒收集一次数据
+      isRecording.value = true
+      error.value = null
+      
+      console.log('✅ ASR录音已开始')
+      return true
+
+    } catch (err) {
+      console.error('❌ 启动录音失败:', err)
+      error.value = err.message || '无法访问麦克风'
+      return false
+    }
+  }
+
+  /**
+   * 停止录音
+   */
+  const stopRecording = () => {
+    if (mediaRecorder.value && isRecording.value) {
+      mediaRecorder.value.stop()
+      console.log('🛑 ASR录音已停止')
+    }
+    
+    // 停止音频流
+    if (audioStream.value) {
+      audioStream.value.getTracks().forEach(track => track.stop())
+      audioStream.value = null
+    }
+  }
+
+  /**
+   * 发送音频数据到后端进行识别
+   */
+  const sendAudioForRecognition = async (audioBlob) => {
+    try {
+      // 转换为 Base64
+      const reader = new FileReader()
+      reader.readAsDataURL(audioBlob)
+      
+      reader.onloadend = () => {
+        const base64Audio = reader.result.split(',')[1]
+        
+        // 通过 WebSocket 发送音频数据
+        if (wsManager.isConnected) {
+          wsManager.send({
+            type: 'asr_audio_chunk',
+            audio: base64Audio,
+            format: 'webm',
+            timestamp: Date.now()
+          })
+          
+          console.log('📤 ASR音频数据已发送')
+        } else {
+          console.error('❌ WebSocket未连接，无法发送音频')
+          error.value = 'WebSocket未连接'
+        }
+      }
+    } catch (err) {
+      console.error('❌ 发送音频失败:', err)
+      error.value = '发送音频失败'
+    }
+  }
+
+  /**
+   * 处理ASR识别结果
+   */
+  const handleASRResult = (message) => {
+    if (message.text) {
+      recognizedText.value = message.text
+      console.log('🎤 ASR识别结果:', message.text)
+    }
+  }
+
+  /**
+   * 清空识别结果
+   */
+  const clearResult = () => {
+    recognizedText.value = ''
+  }
+
+  /**
+   * 切换录音状态
+   */
+  const toggleRecording = async () => {
+    if (isRecording.value) {
+      stopRecording()
+    } else {
+      await startRecording()
+    }
+  }
+
+  return {
+    isRecording,
+    isProcessing,
+    recognizedText,
+    error,
+    startRecording,
+    stopRecording,
+    toggleRecording,
+    handleASRResult,
+    clearResult,
+    checkSupport
+  }
+}
+
+export default useASR
+

@@ -1,23 +1,20 @@
 <template>
   <div class="chat-view">
+    <!-- Toast通知 -->
+    <ToastNotification ref="toast" />
+    
     <!-- 主聊天区域 -->
     <div class="chat-main">
       <!-- 顶部控制面板 -->
       <div class="control-panel">
-        <!-- 连接状态 -->
-        <div class="status-bar" :class="connectionStatus">
-          <span class="status-icon">{{ connectionStatus === 'connected' ? '🟢' : '🔴' }}</span>
-          <span class="status-text">{{ connectionStatusText }}</span>
-        </div>
-        
-        <!-- Ollama服务状态 -->
-        <div class="ollama-status">
-          <span class="ollama-icon">🤖</span>
-          <span class="ollama-text">{{ ollamaStatusText }}</span>
-        </div>
-        
         <!-- 控制选项 -->
         <div class="controls">
+          <!-- 连接状态 -->
+          <div class="control-item status-item">
+            <span class="status-icon">{{ connectionStatus === 'connected' ? '🟢' : '🔴' }}</span>
+            <span class="status-text">{{ connectionStatusText }}</span>
+          </div>
+          
           <!-- 选择人设 -->
           <div class="control-item">
             <label>选择人设:</label>
@@ -119,7 +116,9 @@
 import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { chatApi, personaApi } from '@/api/chatApi'
 import wsManager from '@/api/websocket'
+import ToastNotification from '@/components/ToastNotification.vue'
 
+const toast = ref(null)
 const messages = ref([])
 const inputMessage = ref('')
 const isLoading = ref(false)
@@ -131,7 +130,7 @@ const messageInput = ref(null)
 
 // 连接状态
 const connectionStatus = ref('disconnected')
-const connectionStatusText = ref('🔴 连接断开')
+const connectionStatusText = ref('连接断开')
 const ollamaStatusText = ref('🤖 正在检查Ollama服务状态...')
 
 // 控制开关
@@ -255,14 +254,20 @@ const sendQuickMessage = (message) => {
 }
 
 // 添加系统消息
-const addSystemMessage = (content) => {
-  messages.value.push({
-    id: Date.now(),
-    role: 'system',
-    content: content,
-    timestamp: new Date()
-  })
-  scrollToBottom()
+const addSystemMessage = (content, type = 'info') => {
+  // 使用Toast通知代替消息列表
+  if (toast.value) {
+    // 根据内容判断类型
+    if (content.includes('✅') || content.includes('成功') || content.includes('正常')) {
+      toast.value.success(content)
+    } else if (content.includes('❌') || content.includes('失败') || content.includes('错误')) {
+      toast.value.error(content)
+    } else if (content.includes('⚠️') || content.includes('警告') || content.includes('无法')) {
+      toast.value.warning(content)
+    } else {
+      toast.value.info(content)
+    }
+  }
 }
 
 // 打断AI回复
@@ -517,19 +522,19 @@ watch(inputMessage, () => {
 const initializeWebSocket = async () => {
   try {
     connectionStatus.value = 'connecting'
-    connectionStatusText.value = '🟡 正在连接...'
+    connectionStatusText.value = '正在连接...'
     
     await wsManager.connect()
     
     connectionStatus.value = 'connected'
-    connectionStatusText.value = '🟢 已连接'
+    connectionStatusText.value = '已连接'
     
     // 检查Ollama服务状态
     checkOllamaStatus()
   } catch (error) {
     console.error('WebSocket连接失败:', error)
     connectionStatus.value = 'disconnected'
-    connectionStatusText.value = '🔴 连接断开'
+    connectionStatusText.value = '连接断开'
   }
 }
 
@@ -549,13 +554,13 @@ const setupWebSocketHandlers = () => {
   wsManager.on('connection', (data) => {
     if (data.status === 'connected') {
       connectionStatus.value = 'connected'
-      connectionStatusText.value = '🟢 已连接'
+      connectionStatusText.value = '已连接'
     } else if (data.status === 'disconnected') {
       connectionStatus.value = 'disconnected'
-      connectionStatusText.value = '🔴 连接断开'
+      connectionStatusText.value = '连接断开'
     } else if (data.status === 'failed') {
       connectionStatus.value = 'disconnected'
-      connectionStatusText.value = '🔴 连接失败'
+      connectionStatusText.value = '连接失败'
     }
   })
 
@@ -732,34 +737,31 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-.status-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  color: white;
-}
-
-.status-icon {
-  font-size: 12px;
-}
-
-.ollama-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 15px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.9);
-}
-
 .controls {
   display: flex;
   align-items: center;
   gap: 20px;
   flex-wrap: wrap;
+}
+
+/* 连接状态项 */
+.status-item {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 6px 12px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-item .status-icon {
+  font-size: 10px;
+}
+
+.status-item .status-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
 }
 
 .control-item {
