@@ -3,7 +3,7 @@
     <!-- 左侧Tab导航 -->
     <aside class="sidebar">
       <div class="logo-section">
-        <div class="logo">🤖</div>
+        <img src="@/assets/favicon.png" alt="Logo" class="logo" />
         <span class="logo-text">AIChat</span>
       </div>
       
@@ -183,8 +183,11 @@ body {
 }
 
 .logo {
-  font-size: 32px;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
   animation: float 3s ease-in-out infinite;
+  display: block;
 }
 
 @keyframes float {
